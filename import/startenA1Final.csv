@@ -1,0 +1,832 @@
+﻿book_name,level,lesson_number,lesson_title,article,german,word_type,persian,english,plural,verb_forms,example_de,example_fa,collocation_de,collocation_fa
+Starten Wir,A1,1,Super!,,sich vorstellen,Verb,معرفی کردن,to introduce oneself,,stellte sich vor | sich vorgestellt,Ich möchte mich vorstellen.,می‌خواهم خودم را معرفی کنم.,sich jemandem vorstellen,خود را به کسی معرفی کردن
+Starten Wir,A1,1,Super!,,heißen,Verb,نام داشتن,to be called,,hieß | geheißen,Wie heißen Sie?,نام شما چیست؟,,
+Starten Wir,A1,1,Super!,,sein,Verb,بودن,to be,,war | ist gewesen,Ich bin Student.,من دانشجو هستم.,im Urlaub sein,در تعطیلات بودن
+Starten Wir,A1,1,Super!,,buchstabieren,Verb,هجی کردن,to spell,,buchstabierte | buchstabiert,Können Sie das bitte buchstabieren?,می‌توانید لطفاً هجی کنید؟,den Namen buchstabieren,نام را هجی کردن
+Starten Wir,A1,1,Super!,🔵 der,Name,Noun,نام,name,die Namen,,Der Name ist Müller.,نام میلر است.,der Vor- und Nachname,نام و نام خانوادگی
+Starten Wir,A1,1,Super!,🔵 der,Vorname,Noun,نام کوچک,first name,die Vornamen,,Mein Vorname ist Anna.,نام کوچک من آنا است.,der Vorname,نام کوچک
+Starten Wir,A1,1,Super!,🔵 der,Nachname,Noun,نام خانوادگی,last name,die Nachnamen,,Ihr Nachname ist Schmidt.,نام خانوادگی شما اشمیت است.,der Nachname,نام خانوادگی
+Starten Wir,A1,1,Super!,🔴 die,Handynummer,Noun,شماره موبایل,mobile number,die Handynummern,,Was ist Ihre Handynummer?,شماره موبایل شما چیست؟,die Handynummer angeben,شماره موبایل دادن
+Starten Wir,A1,1,Super!,🔴 die,Telefonnummer,Noun,شماره تلفن,phone number,die Telefonnummern,,Die Telefonnummer ist falsch.,شماره تلفن اشتباه است.,die Telefonnummer wählen,شماره تلفن گرفتن
+Starten Wir,A1,1,Super!,🔴 die,E-Mail-Adresse,Noun,آدرس ایمیل,email address,die E-Mail-Adressen,,Meine E-Mail-Adresse ist neu.,آدرس ایمیل من جدید است.,die E-Mail-Adresse schreiben,آدرس ایمیل نوشتن
+Starten Wir,A1,1,Super!,🔴 die,Frau,Noun,خانم/زن,Mrs./woman,die Frauen,,"Guten Tag, Frau Müller.",روز بخیر خانم میلر.,,
+Starten Wir,A1,1,Super!,🔵 der,Herr,Noun,آقا/مرد,Mr./man,die Herren,,Herr Weber ist hier.,آقای وبر اینجا است.,,
+Starten Wir,A1,1,Super!,,Wer,Pronoun,چه کسی,who,,,Wer ist das?,این کیست؟,,
+Starten Wir,A1,1,Super!,,Wie,Adverb,چطور,how,,,Wie geht es Ihnen?,حال شما چطور است؟,,
+Starten Wir,A1,1,Super!,,Wo,Adverb,کجا,where,,,Wo wohnst du?,کجا زندگی می‌کنی؟,,
+Starten Wir,A1,1,Super!,,Woher,Adverb,از کجا,where from,,,Woher kommen Sie?,از کجا می‌آیید؟,,
+Starten Wir,A1,1,Super!,,wohnen,Verb,زندگی کردن,to live,,wohnte | gewohnt,Ich wohne in Berlin.,من در برلین زندگی می‌کنم.,in einer Stadt wohnen,در شهری زندگی کردن
+Starten Wir,A1,1,Super!,,kommen,Verb,آمدن,to come,,kam | gekommen,Wann kommst du?,کی می‌آیی؟,aus einem Land kommen,اهل کشوری بودن
+Starten Wir,A1,1,Super!,,aus,Preposition,از/اهل,from,,,Ich komme aus Deutschland.,من اهل آلمان هستم.,aus + Land/Stadt,از کشوری یا شهری
+Starten Wir,A1,1,Super!,,mein,Determiner,مال من,my,,,Das ist mein Buch.,این کتاب من است.,,
+Starten Wir,A1,1,Super!,,Guten Morgen,Phrase,صبح بخیر,good morning,,,"Guten Morgen, Herr Lehrer!",صبح بخیر آقای معلم!,,
+Starten Wir,A1,1,Super!,,Guten Tag,Phrase,روز بخیر,good day,,,"""Guten Tag! Wie geht's?""",روز بخیر! حالت چطوره؟,,
+Starten Wir,A1,1,Super!,,Guten Abend,Phrase,عصر بخیر,good evening,,,"Guten Abend, zusammen.",عصر بخیر همه.,,
+Starten Wir,A1,1,Super!,,Hallo,Interjection,سلام,hello,,,"""Hallo! Wie geht's?""",سلام! حالت چطوره؟,,
+Starten Wir,A1,1,Super!,,Hi,Interjection,سلام (غیررسمی),hi,,,"Hi, Tom!",سلام تام!,,
+Starten Wir,A1,1,Super!,,Tschüss,Interjection,خداحافظ,bye,,,"Tschüss, bis morgen!",خداحافظ تا فردا!,,
+Starten Wir,A1,1,Super!,🔴 die,Entschuldigung,Noun,ببخشید,excuse me,die Entschuldigungen,,"Entschuldigung, bitte.",ببخشید لطفاً.,,
+Starten Wir,A1,1,Super!,,Danke,Interjection,ممنون,thanks,,,Danke für das Geschenk.,ممنون برای هدیه.,,
+Starten Wir,A1,1,Super!,,Bitte,Interjection,خواهش می‌کنم,please,,,"Ja, bitte.",بله لطفاً.,,
+Starten Wir,A1,1,Super!,,Wie bitte?,Phrase,ببخشید؟,pardon?,,,Wie bitte? Ich verstehe nicht.,ببخشید؟ متوجه نشدم.,,
+Starten Wir,A1,1,Super!,🔵 der,Deutschkurs,Noun,دوره آلمانی,German course,die Deutschkurse,,Ich besuche einen Deutschkurs.,من در دوره آلمانی شرکت می‌کنم.,einen Deutschkurs machen,در دورهٔ آلمانی شرکت کردن
+Starten Wir,A1,1,Super!,🔴 die,Bluse,Noun,بلوز,blouse,die Blusen,,Sie trägt eine neue Bluse.,او بلوز جدیدی پوشیده.,eine Bluse tragen,بلوز پوشیدن
+Starten Wir,A1,1,Super!,🔴 die,Jeans,Noun,شلوار جین,jeans,die Jeans,,Die Jeans ist blau.,شلوار جین آبی است.,eine Jeans tragen,شلوار جین پوشیدن
+Starten Wir,A1,1,Super!,🔴 die,Jacke,Noun,کاپشن,jacket,die Jacken,,Zieh deine Jacke an!,کاپشت را بپوش!,die Jacke anziehen,کاپشن پوشیدن
+Starten Wir,A1,1,Super!,🔵 der,Computer,Noun,کامپیوتر,computer,die Computer,,Der Computer ist schnell.,کامپیوتر سریع است.,am Computer arbeiten,با کامپیوتر کار کردن
+Starten Wir,A1,1,Super!,🟢 das,Auto,Noun,ماشین,car,die Autos,,Das Auto ist rot.,ماشین قرمز است.,Auto fahren,رانندگی کردن
+Starten Wir,A1,1,Super!,🔵 der,Bus,Noun,اتوبوس,bus,die Busse,,Der Bus kommt um 8 Uhr.,اتوبوس ساعت ۸ می‌آید.,den Bus nehmen,اتوبوس گرفتن
+Starten Wir,A1,1,Super!,🔴 die,Musik,Noun,موسیقی,music,-,,Ich höre gern Musik.,من موسیقی دوست دارم.,Musik hören,موسیقی گوش دادن
+Starten Wir,A1,1,Super!,🔵 der,Kaffee,Noun,قهوه,coffee,die Kaffees,,Ich trinke einen Kaffee.,من قهوه می‌نوشم.,Kaffee trinken,قهوه نوشیدن
+Starten Wir,A1,1,Super!,🔵 der,Tee,Noun,چای,tea,die Tees,,Möchtest du einen Tee?,چای می‌خواهی؟,Tee trinken,چای نوشیدن
+Starten Wir,A1,1,Super!,🟢 das,Bier,Noun,آبجو,beer,die Biere,,Das Bier ist kühl.,آبجو خنک است.,Bier trinken,آبجو نوشیدن
+Starten Wir,A1,1,Super!,🟢 das,Müsli,Noun,موسلی,muesli,die Müslis,,Ich esse Müsli zum Frühstück.,من صبحانه موسلی می‌خورم.,Müsli essen,موسلی خوردن
+Starten Wir,A1,1,Super!,🔴 die,Pizza,Noun,پیتزا,pizza,die Pizzen,,Die Pizza schmeckt gut.,پیتزا خوشمزه است.,Pizza essen,پیتزا خوردن
+Starten Wir,A1,1,Super!,🔴 die,Tomate,Noun,گوجه‌فرنگی,tomato,die Tomaten,,Die Tomate ist rot.,گوجه‌فرنگی قرمز است.,,
+Starten Wir,A1,1,Super!,🔴 die,Sprache,Noun,زبان,language,die Sprachen,,Die deutsche Sprache ist schwer.,زبان آلمانی سخت است.,eine Sprache lernen,زبانی یاد گرفتن
+Starten Wir,A1,1,Super!,,sprechen,Verb,صحبت کردن,to speak,,sprach | gesprochen,Wir sprechen Deutsch.,ما آلمانی صحبت می‌کنیم.,mit jemandem sprechen,با کسی صحبت کردن
+Starten Wir,A1,1,Super!,🔵 der,Sport,Noun,ورزش,sport,-,,Machst du gern Sport?,ورزش دوست داری؟,Sport machen,ورزش کردن
+Starten Wir,A1,1,Super!,,gut,Adjective,خوب,good,,,Das ist sehr gut.,این خیلی خوب است.,,
+Starten Wir,A1,1,Super!,,gerne,Adverb,با کمال میل,gladly,,,Ich komme gerne.,من با کمال میل می‌آیم.,,
+Starten Wir,A1,1,Super!,,möchten,Verb,خواستن,would like,,möchte (Konj.) | gemocht (von mögen),Ich möchte einen Kaffee.,من قهوه می‌خواهم.,,
+Starten Wir,A1,1,Super!,,joggen,Verb,دویدن آهسته,to jog,,joggte | gejoggt,Ich jogge im Park.,من در پارک می‌دوم.,,
+Starten Wir,A1,1,Super!,,studieren,Verb,تحصیل کردن,to study,,studierte | studiert,Sie studiert Medizin.,او پزشکی می‌خواند.,an der Universität studieren,در دانشگاه تحصیل کردن
+Starten Wir,A1,1,Super!,🔴 die,Medizin,Noun,پزشکی,medicine,-,,Ich studiere Medizin.,من پزشکی می‌خوانم.,Medizin studieren,پزشکی خواندن
+Starten Wir,A1,1,Super!,,null,Number,صفر,zero,,,Null Grad Celsius.,صفر درجه سلسیوس.,,
+Starten Wir,A1,1,Super!,,eins,Number,یک,one,,,Es ist eins.,ساعت یک است.,,
+Starten Wir,A1,1,Super!,,zwei,Number,دو,two,,,Ich habe zwei Hände.,من دو دست دارم.,,
+Starten Wir,A1,1,Super!,,drei,Number,سه,three,,,Wir haben drei Hunde.,ما سه سگ داریم.,,
+Starten Wir,A1,1,Super!,,vier,Number,چهار,four,,,Vier plus vier ist acht.,چهار بعلاوه چهار هشت است.,,
+Starten Wir,A1,1,Super!,,fünf,Number,پنج,five,,,Ich bin fünf Jahre alt.,من پنج سال دارم.,,
+Starten Wir,A1,1,Super!,,sechs,Number,شش,six,,,Es ist sechs Uhr.,ساعت شش است.,,
+Starten Wir,A1,1,Super!,,sieben,Number,هفت,seven,,,Sieben Tage hat eine Woche.,هفته هفت روز دارد.,,
+Starten Wir,A1,1,Super!,,acht,Number,هشت,eight,,,Acht ist gerade.,هشت زوج است.,,
+Starten Wir,A1,1,Super!,,neun,Number,نه,nine,,,Neun plus eins ist zehn.,نه بعلاوه یک ده است.,,
+Starten Wir,A1,1,Super!,,zehn,Number,ده,ten,,,Zehn Cent bitte.,ده سنت لطفاً.,,
+Starten Wir,A1,2,Menschen,🔵 der,Mensch,Noun,انسان,human,die Menschen,,Der Mensch ist klug.,انسان باهوش است.,,
+Starten Wir,A1,2,Menschen,🔴 die,Stadt,Noun,شهر,city,die Städte,,Ich lebe in der Stadt.,من در شهر زندگی می‌کنم.,in der Stadt leben,در شهر زندگی کردن
+Starten Wir,A1,2,Menschen,,cool,Adjective,باحال,cool,,,Das ist cool!,این باحال است!,,
+Starten Wir,A1,2,Menschen,,sexy,Adjective,جذاب,sexy,,,Der Film ist sehr sexy.,فیلم خیلی جذاب است.,,
+Starten Wir,A1,2,Menschen,,ein,Determiner,یک,a/an,,,Ich habe ein Auto.,من یک ماشین دارم.,,
+Starten Wir,A1,2,Menschen,,kein,Determiner,هیچ,no/not a,,,Ich habe keine Zeit.,من وقتی ندارم.,,
+Starten Wir,A1,2,Menschen,🔴 die,Katze,Noun,گربه,cat,die Katzen,,Die Katze schläft.,گربه خواب است.,eine Katze haben,گربه داشتن
+Starten Wir,A1,2,Menschen,🔵 der,Hund,Noun,سگ,dog,die Hunde,,Der Hund bellt.,سگ پارس می‌کند.,einen Hund haben,سگ داشتن
+Starten Wir,A1,2,Menschen,,und,Conjunction,و,and,,,Brot und Butter,نان و کره,,
+Starten Wir,A1,2,Menschen,,oder,Conjunction,یا,or,,,Kaffee oder Tee?,قهوه یا چای؟,,
+Starten Wir,A1,2,Menschen,,Auf Wiedersehen!,Phrase,خداحافظ,goodbye,,,Auf Wiedersehen!,خداحافظ!,,
+Starten Wir,A1,2,Menschen,,Bis bald!,Phrase,به زودی,see you soon,,,Bis bald!,به زودی!,,
+Starten Wir,A1,2,Menschen,🟢 das,Pony,Noun,اسب کوچک,pony,die Ponys,,Das Pony ist klein.,اسب کوچک کوچک است.,,
+Starten Wir,A1,2,Menschen,,es,Pronoun,آن,it,,,Es ist schön.,آن زیبا است.,,
+Starten Wir,A1,2,Menschen,,lieben,Verb,دوست داشتن,to love,,liebte | geliebt,Ich liebe meine Familie.,من خانواده‌ام را دوست دارم.,jemanden lieben,کسی را دوست داشتن
+Starten Wir,A1,2,Menschen,🟢 das,Hobby,Noun,سرگرمی,hobby,die Hobbys,,Was ist dein Hobby?,سرگرمی تو چیست؟,ein Hobby haben,سرگرمی داشتن
+Starten Wir,A1,2,Menschen,🔵 der,Fußball,Noun,فوتبال,football,-,,Ich spiele gern Fußball.,من فوتبال بازی می‌کنم.,Fußball spielen,فوتبال بازی کردن
+Starten Wir,A1,2,Menschen,🔵 der,Freund,Noun,دوست (مرد),friend (male),die Freunde,,Das ist mein Freund.,این دوست من است.,einen Freund treffen,دوست را دیدن
+Starten Wir,A1,2,Menschen,🔴 die,Freundin,Noun,دوست (زن),friend (female),die Freundinnen,,Sie ist meine Freundin.,او دوست من است.,eine Freundin haben,دوست داشتن
+Starten Wir,A1,2,Menschen,🟢 das,Yoga,Noun,یوگا,yoga,-,,Ich mache Yoga.,من یوگا کار می‌کنم.,Yoga machen,یوگا کار کردن
+Starten Wir,A1,2,Menschen,🔴 die,Familie,Noun,خانواده,family,die Familien,,Meine Familie ist groß.,خانواده من بزرگ است.,die Familie besuchen,از خانواده دیدن کردن
+Starten Wir,A1,2,Menschen,🔵 der,Vater,Noun,پدر,father,-,,Mein Vater arbeitet.,پدرم کار می‌کند.,der Vater von,پدرِ ...
+Starten Wir,A1,2,Menschen,🔴 die,Mutter,Noun,مادر,mother,die Mütter,,Meine Mutter kocht.,مادرم آشپزی می‌کند.,die Mutter von,مادرِ ...
+Starten Wir,A1,2,Menschen,,Eltern,Noun,والدین,parents,die Eltern,,Meine Eltern leben in München.,والدین من در مونیخ هستند.,,
+Starten Wir,A1,2,Menschen,🔵 der,Bruder,Noun,برادر,brother,-,,Ich habe einen Bruder.,من یک برادر دارم.,einen Bruder haben,برادر داشتن
+Starten Wir,A1,2,Menschen,🔴 die,Schwester,Noun,خواهر,sister,die Schwestern,,Meine Schwester ist 10.,خواهرم ۱۰ سال دارد.,eine Schwester haben,خواهر داشتن
+Starten Wir,A1,2,Menschen,,Geschwister,Noun,خواهر و برادر,siblings,die Geschwister,,Wie viele Geschwister hast du?,چند خواهر و برادر داری؟,,
+Starten Wir,A1,2,Menschen,🔵 der,Großvater,Noun,پدربزرگ,grandfather,-,,Mein Großvater ist 80.,پدربزرگم ۸۰ سال دارد.,,
+Starten Wir,A1,2,Menschen,🔴 die,Großmutter,Noun,مادربزرگ,grandmother,die Großmütter,,Die Großmutter backt Kuchen.,مادربزرگ کیک می‌پزد.,,
+Starten Wir,A1,2,Menschen,,Großeltern,Noun,پدربزرگ و مادربزرگ,grandparents,die Großeltern,,Die Großeltern besuchen uns.,پدربزرگ و مادربزرگ به دیدن ما می‌آیند.,,
+Starten Wir,A1,2,Menschen,🔵 der,Mann,Noun,مرد,man,die Männer,,Der Mann liest.,مرد می‌خواند.,der Mann von,شوهرِ ...
+Starten Wir,A1,2,Menschen,🔵 der,Junge,Noun,پسر,boy,die Jungen,,Der Junge spielt.,پسر بازی می‌کند.,ein kleiner Junge,پسر کوچک
+Starten Wir,A1,2,Menschen,🟢 das,Mädchen,Noun,دختر,girl,die Mädchen,,Das Mädchen tanzt.,دختر می‌رقصد.,ein kleines Mädchen,دختر کوچک
+Starten Wir,A1,2,Menschen,,klein,Adjective,کوچک,small,,,Das Baby ist klein.,نوزاد کوچک است.,,
+Starten Wir,A1,2,Menschen,,Wie alt ist...?,Phrase,چند ساله؟,how old is...?,,,Wie alt ist dein Bruder?,برادرت چند ساله است؟,,
+Starten Wir,A1,2,Menschen,,Sehr gut.,Phrase,خیلی خوب,very good,,,"Sehr gut, danke!",خیلی خوب ممنون!,,
+Starten Wir,A1,2,Menschen,🟢 das,Handy,Noun,موبایل,mobile phone,die Handys,,Mein Handy ist neu.,موبایل من جدید است.,am Handy sein,پای موبایل بودن
+Starten Wir,A1,2,Menschen,🟢 das,Smartphone,Noun,گوشی هوشمند,smartphone,die Smartphones,,Ich kaufe ein Smartphone.,من گوشی هوشمند می‌خرم.,ein Smartphone haben,گوشی هوشمند داشتن
+Starten Wir,A1,2,Menschen,🔵 der,Laptop,Noun,لپ‌تاپ,laptop,die Laptops,,Der Laptop ist schnell.,لپ‌تاپ سریع است.,am Laptop arbeiten,با لپ‌تاپ کار کردن
+Starten Wir,A1,2,Menschen,,elf,Number,یازده,eleven,,,Es ist elf Uhr.,ساعت یازده است.,,
+Starten Wir,A1,2,Menschen,,zwölf,Number,دوازده,twelve,,,Zwölf Monate hat ein Jahr.,سال دوازده ماه دارد.,,
+Starten Wir,A1,2,Menschen,🔵 der,Friseur,Noun,آرایشگر (مرد),hairdresser (male),die Friseure,,Der Friseur schneidet Haare.,آرایشگر مو کوتاه می‌کند.,zum Friseur gehen,به آرایشگاه رفتن
+Starten Wir,A1,2,Menschen,🔴 die,Friseurin,Noun,آرایشگر (زن),hairdresser (female),die Friseurinnen,,Die Friseurin ist freundlich.,آرایشگر زن مهربان است.,,
+Starten Wir,A1,2,Menschen,🔵 der,Architekt,Noun,معمار (مرد),architect (male),die Architekten,,Der Architekt plant Häuser.,معمار خانه طراحی می‌کند.,,
+Starten Wir,A1,2,Menschen,🔴 die,Architektin,Noun,معمار (زن),architect (female),die Architektinnen,,Sie ist Architektin.,او معمار زن است.,,
+Starten Wir,A1,2,Menschen,🔵 der,Job,Noun,شغل,job,die Jobs,,Ich suche einen neuen Job.,من دنبال شغل جدید هستم.,einen Job suchen,دنبال شغل گشتن
+Starten Wir,A1,2,Menschen,🔵 der,Kollege,Noun,همکار (مرد),colleague (male),die Kollegen,,Mein Kollege ist nett.,همکارم خوش‌اخلاق است.,einen Kollegen treffen,همکار را دیدن
+Starten Wir,A1,2,Menschen,🔴 die,Kollegin,Noun,همکار (زن),colleague (female),die Kolleginnen,,Die Kollegin hilft mir.,همکار زن کمک می‌کند.,eine Kollegin haben,همکار داشتن
+Starten Wir,A1,2,Menschen,🔵 der,Chef,Noun,رئیس (مرد),boss (male),die Chefs,,Der Chef ist streng.,رئیس سخت‌گیر است.,der Chef von,رئیسِ ...
+Starten Wir,A1,2,Menschen,🔴 die,Chefin,Noun,رئیس (زن),boss (female),die Chefinnen,,Die Chefin ist klug.,رئیس زن باهوش است.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Obst,Noun,میوه,fruit,-,,Obst ist gesund.,میوه سالم است.,Obst essen,میوه خوردن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Banane,Noun,موز,banana,die Bananen,,Die Banane ist gelb.,موز زرد است.,eine Banane essen,موز خوردن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Orange,Noun,پرتقال,orange,die Orangen,,Ich esse eine Orange.,من پرتقال می‌خورم.,eine Orange schälen,پرتقال پوست کندن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Apfel,Noun,سیب,apple,-,,Der Apfel ist rot.,سیب قرمز است.,einen Apfel essen,سیب خوردن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Zitrone,Noun,لیمو,lemon,die Zitronen,,Die Zitrone ist sauer.,لیمو ترش است.,eine Zitrone auspressen,لیمو آب گرفتن
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Gemüse,Noun,سبزیجات,vegetables,-,,Gemüse ist wichtig.,سبزیجات مهم است.,Gemüse kochen,سبزی پختن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Kartoffel,Noun,سیب‌زمینی,potato,die Kartoffeln,,Ich koche Kartoffeln.,من سیب‌زمینی می‌پزم.,Kartoffeln kochen,سیب‌زمینی پختن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Möhre,Noun,هویج,carrot,die Möhren,,Die Möhre ist orange.,هویج نارنجی است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Salat,Noun,سالاد,salad,die Salate,,Wir essen Salat.,ما سالاد می‌خوریم.,Salat machen,سالاد درست کردن
+Starten Wir,A1,3,Essen und Trinken,,trinken,Verb,نوشیدن,to drink,,trank | getrunken,Ich trinke Wasser.,من آب می‌نوشم.,etwas trinken,چیزی نوشیدن
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Getränk,Noun,نوشیدنی,drink,die Getränke,,Welches Getränk möchtest du?,کدام نوشیدنی را می‌خواهی؟,ein Getränk bestellen,نوشیدنی سفارش دادن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Orangensaft,Noun,آب پرتقال,orange juice,die Orangensäfte,,Der Orangensaft ist frisch.,آب پرتقال تازه است.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Wasser,Noun,آب,water,-,,Das Wasser ist kalt.,آب سرد است.,Wasser trinken,آب نوشیدن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Apfelsaft,Noun,آب سیب,apple juice,die Apfelsäfte,,Apfelsaft ist süß.,آب سیب شیرین است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Wein,Noun,شراب,wine,die Weine,,Der Wein ist rot.,شراب قرمز است.,Wein trinken,شراب نوشیدن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Cola,Noun,کولا,cola,die Colas,,Ich trinke eine Cola.,من کولا می‌نوشم.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Milch,Noun,شیر,milk,-,,Milch ist weiß.,شیر سفید است.,Milch trinken,شیر نوشیدن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Milchkaffee,Noun,قهوه شیر,coffee with milk,die Milchkaffees,,Der Milchkaffee ist lecker.,قهوه شیر خوشمزه است.,,
+Starten Wir,A1,3,Essen und Trinken,,essen,Verb,خوردن,to eat,,aß | gegessen,Ich esse Brot.,من نان می‌خورم.,etwas essen,چیزی خوردن
+Starten Wir,A1,3,Essen und Trinken,,Lebensmittel,Noun,مواد غذایی,groceries,die Lebensmittel,,Wir kaufen Lebensmittel.,ما مواد غذایی می‌خریم.,Lebensmittel kaufen,مواد غذایی خریدن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Marmelade,Noun,مربا,jam,die Marmeladen,,Die Marmelade ist süß.,مربا شیرین است.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Milchprodukt,Noun,لبنیات,dairy product,die Milchprodukte,,Joghurt ist ein Milchprodukt.,ماست لبنیات است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Käse,Noun,پنیر,cheese,-,,Der Käse ist gelb.,پنیر زرد است.,Käse essen,پنیر خوردن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Joghurt,Noun,ماست,yogurt,die Joghurts,,Der Joghurt ist kühl.,ماست خنک است.,Joghurt essen,ماست خوردن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Butter,Noun,کره,butter,-,,Die Butter ist weich.,کره نرم است.,Butter aufs Brot tun,کره روی نان زدن
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Öl,Noun,روغن,oil,die Öle,,Das Öl ist gesund.,روغن سالم است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Reis,Noun,برنج,rice,-,,Ich esse gern Reis.,من برنج دوست دارم.,Reis kochen,برنج پختن
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Fleisch,Noun,گوشت,meat,-,,Das Fleisch ist teuer.,گوشت گران است.,Fleisch essen,گوشت خوردن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Fisch,Noun,ماهی,fish,die Fische,,Der Fisch ist frisch.,ماهی تازه است.,Fisch essen,ماهی خوردن
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Hähnchen,Noun,مرغ,chicken,-,,Das Hähnchen ist gebraten.,مرغ سرخ شده است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Hamburger,Noun,همبرگر,hamburger,die Hamburger,,Ich esse einen Hamburger.,من همبرگر می‌خورم.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Brot,Noun,نان,bread,die Brote,,Das Brot ist alt.,نان کهنه است.,Brot schmieren,نان آماده کردن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Lasagne,Noun,لازانیا,lasagna,die Lasagnen,,Die Lasagne ist lecker.,لازانیا خوشمزه است.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Croissant,Noun,کرواسان,croissant,die Croissants,,Das Croissant ist butterig.,کرواسان کره‌ای است.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Brötchen,Noun,نان رول,bread roll,die Brötchen,,Ich kaufe zwei Brötchen.,من دو نان رول می‌خرم.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Toast,Noun,تست,toast,die Toasts,,Der Toast ist braun.,تست قهوه‌ای است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Honig,Noun,عسل,honey,-,,Der Honig ist süß.,عسل شیرین است.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Ei,Noun,تخم‌مرغ,egg,die Eier,,Das Ei ist gekocht.,تخم‌مرغ پخته است.,ein Ei kochen,تخم‌مرغ پختن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Wurst,Noun,سوسیس,sausage,die Würste,,Die Wurst ist lecker.,سوسیس خوشمزه است.,Wurst essen,سوسیس خوردن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Schinken,Noun,ژامبون,ham,die Schinken,,Der Schinken ist dünn.,ژامبون نازک است.,,
+Starten Wir,A1,3,Essen und Trinken,,einkaufen,Verb,خرید کردن,to shop,,kaufte ein | eingekauft,Ich kaufe im Supermarkt ein.,من از سوپرمارکت خرید می‌کنم.,im Supermarkt einkaufen,از سوپرمارکت خرید کردن
+Starten Wir,A1,3,Essen und Trinken,,kaufen,Verb,خریدن,to buy,,kaufte | gekauft,Ich kaufe ein Buch.,من کتاب می‌خرم.,etwas kaufen,چیزی خریدن
+Starten Wir,A1,3,Essen und Trinken,,brauchen,Verb,نیاز داشتن,to need,,brauchte | gebraucht,Ich brauche Hilfe.,من به کمک نیاز دارم.,etwas brauchen,به چیزی نیاز داشتن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Preis,Noun,قیمت,price,die Preise,,Der Preis ist hoch.,قیمت بالا است.,der Preis für,قیمتِ ...
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Cent,Noun,سنت,cent,die Cent,,Es kostet 50 Cent.,قیمت ۵۰ سنت است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Euro,Noun,یورو,euro,die Euro,,Das kostet 10 Euro.,قیمت ۱۰ یورو است.,,
+Starten Wir,A1,3,Essen und Trinken,,billig,Adjective,ارزان,cheap,,,Das Hemd ist billig.,پیراهن ارزان است.,,
+Starten Wir,A1,3,Essen und Trinken,,teuer,Adjective,گران,expensive,,,Das Auto ist teuer.,ماشین گران است.,,
+Starten Wir,A1,3,Essen und Trinken,,kosten,Verb,قیمت داشتن,to cost,,kostete | gekostet,Was kostet das?,قیمت این چقدر است؟,etwas kostet Geld,چیزی پول داشتن
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Kilo,Noun,کیلو,kilo,-,,Ein Kilo Äpfel.,یک کیلو سیب.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Gramm,Noun,گرم,gram,-,,100 Gramm Schinken.,۱۰۰ گرم ژامبون.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Flasche,Noun,بطری,bottle,die Flaschen,,Eine Flasche Wasser.,یک بطری آب.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Stück,Noun,تکه,piece,die Stücke,,Zwei Stück Kuchen.,دو تکه کیک.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Liter,Noun,لیتر,liter,die Liter,,Ein Liter Milch.,یک لیتر شیر.,,
+Starten Wir,A1,3,Essen und Trinken,,viele,Adjective,زیاد,many,,,Ich habe viele Bücher.,من کتاب‌های زیادی دارم.,,
+Starten Wir,A1,3,Essen und Trinken,,wenig,Adjective,کم,little,,,Ich habe wenig Zeit.,من وقت کمی دارم.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Restaurant,Noun,رستوران,restaurant,die Restaurants,,Wir essen im Restaurant.,ما در رستوران غذا می‌خوریم.,im Restaurant essen,در رستوران غذا خوردن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Koch,Noun,آشپز (مرد),chef (male),die Köche,,Der Koch ist gut.,آشپز خوب است.,der Koch im Restaurant,آشپز رستوران
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Köchin,Noun,آشپز (زن),chef (female),die Köchinnen,,Die Köchin kocht Suppe.,آشپز زن سوپ می‌پزد.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Grill,Noun,گریل,grill,die Grills,,Der Grill ist neu.,گریل جدید است.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Gast,Noun,مهمان,guest,die Gäste,,Der Gast zahlt.,مهمان پرداخت می‌کند.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Lieblingsessen,Noun,غذای مورد علاقه,favorite food,die Lieblingsessen,,Was ist dein Lieblingsessen?,غذای مورد علاقه تو چیست؟,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Familienvater,Noun,پدر خانواده,family father,die Familienväter,,Der Familienvater arbeitet.,پدر خانواده کار می‌کند.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Student,Noun,دانشجو (مرد),student (male),die Studenten,,Der Student lernt.,دانشجو درس می‌خواند.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Studentin,Noun,دانشجو (زن),student (female),die Studentinnen,,Die Studentin liest.,دانشجو زن می‌خواند.,,
+Starten Wir,A1,3,Essen und Trinken,,richtig,Adjective,درست,correct,,,Das ist richtig.,این درست است.,,
+Starten Wir,A1,3,Essen und Trinken,,schreiben,Verb,نوشتن,to write,,schrieb | geschrieben,Ich schreibe eine Mail.,من ایمیل می‌نویسم.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Deutschlehrer,Noun,معلم آلمانی (مرد),German teacher (male),die Deutschlehrer,,Der Deutschlehrer spricht.,معلم آلمانی صحبت می‌کند.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Deutschlehrerin,Noun,معلم آلمانی (زن),German teacher (female),die Deutschlehrerinnen,,Die Deutschlehrerin hilft.,معلم آلمانی زن کمک می‌کند.,,
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Leben,Noun,زندگی,life,-,,Das Leben ist schön.,زندگی زیبا است.,das Leben genießen,از زندگی لذت بردن
+Starten Wir,A1,3,Essen und Trinken,,haben,Verb,داشتن,to have,,hatte | gehabt,Ich habe Hunger.,من گرسنه هستم.,etwas haben,چیزی داشتن
+Starten Wir,A1,3,Essen und Trinken,,kochen,Verb,پختن,to cook,,kochte | gekocht,Ich koche Reis.,من برنج می‌پزم.,etwas kochen,چیزی پختن
+Starten Wir,A1,3,Essen und Trinken,,vegetarisch,Adjective,گیاهخواری,vegetarian,,,Ich esse vegetarisch.,من گیاهخواری می‌خورم.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Tourist,Noun,گردشگر,tourist,die Touristen,,Der Tourist fotografiert.,گردشگر عکس می‌گیرد.,als Tourist reisen,به‌عنوان گردشگر سفر کردن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Touristin,Noun,گردشگر (زن),tourist (female),die Touristinnen,,Die Touristin kommt.,گردشگر زن می‌آید.,,
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Berliner,Noun,برلینی (مرد),Berlin native (male),die Berliner,,Der Berliner ist freundlich.,مرد برلینی مهربان است.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Berlinerin,Noun,برلینی (زن),Berlin native (female),die Berlinerinnen,,Die Berlinerin wohnt hier.,زن برلینی اینجا زندگی می‌کند.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Adresse,Noun,آدرس,address,die Adressen,,Was ist deine Adresse?,آدرس تو چیست؟,die Adresse aufschreiben,آدرس را نوشتن
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Farbe,Noun,رنگ,color,die Farben,,Die Farbe ist schön.,رنگ زیبا است.,eine Farbe wählen,رنگی انتخاب کردن
+Starten Wir,A1,3,Essen und Trinken,,rot,Adjective,قرمز,red,,,Das Auto ist rot.,ماشین قرمز است.,,
+Starten Wir,A1,3,Essen und Trinken,,weiß,Adjective,سفید,white,,,Die Wand ist weiß.,دیوار سفید است.,,
+Starten Wir,A1,3,Essen und Trinken,,blau,Adjective,آبی,blue,,,Der Himmel ist blau.,آسمان آبی است.,,
+Starten Wir,A1,3,Essen und Trinken,,schwarz,Adjective,سیاه,black,,,Die Katze ist schwarz.,گربه سیاه است.,,
+Starten Wir,A1,3,Essen und Trinken,,grün,Adjective,سبز,green,,,Das Gras ist grün.,چمن سبز است.,,
+Starten Wir,A1,3,Essen und Trinken,,gelb,Adjective,زرد,yellow,,,Die Sonne ist gelb.,خورشید زرد است.,,
+Starten Wir,A1,3,Essen und Trinken,,lila,Adjective,بنفش,purple,,,Das Kleid ist lila.,لباس بنفش است.,,
+Starten Wir,A1,3,Essen und Trinken,,braun,Adjective,قهوه‌ای,brown,,,Der Tisch ist braun.,میز قهوه‌ای است.,,
+Starten Wir,A1,3,Essen und Trinken,,orange,Adjective,نارنجی,orange (color),,,Die Orange ist orange.,پرتقال نارنجی است.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Webseite,Noun,وب‌سایت,website,die Webseiten,,Ich besuche die Webseite.,من از وب‌سایت دیدن می‌کنم.,eine Webseite besuchen,از وب‌سایت دیدن کردن
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Tier,Noun,حیوان,animal,die Tiere,,Das Tier ist wild.,حیوان وحشی است.,ein Tier haben,حیوان داشتن
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Vegetarier,Noun,گیاهخوار (مرد),vegetarian (male),die Vegetarier,,Er ist Vegetarier.,او گیاهخوار است.,,
+Starten Wir,A1,3,Essen und Trinken,,wir,Pronoun,ما,we,,,Wir lernen Deutsch.,ما آلمانی یاد می‌گیریم.,,
+Starten Wir,A1,3,Essen und Trinken,,ihr,Pronoun,شما (جمع),you (plural),,,Ihr seid klug.,شما باهوش هستید.,,
+Starten Wir,A1,3,Essen und Trinken,,gesund,Adjective,سالم,healthy,,,Obst ist gesund.,میوه سالم است.,,
+Starten Wir,A1,3,Essen und Trinken,,immer,Adverb,همیشه,always,,,Ich trinke immer Wasser.,من همیشه آب می‌نوشم.,,
+Starten Wir,A1,3,Essen und Trinken,,oft,Adverb,اغلب,often,,,Ich gehe oft schwimmen.,من اغلب شنا می‌روم.,,
+Starten Wir,A1,3,Essen und Trinken,,manchmal,Adverb,گاهی,sometimes,,,Ich lerne manchmal Deutsch.,من گاهی آلمانی می‌خوانم.,,
+Starten Wir,A1,3,Essen und Trinken,,nie,Adverb,هرگز,never,,,Ich rauche nie.,من هرگز سیگار نمی‌کشم.,,
+Starten Wir,A1,3,Essen und Trinken,,aber,Conjunction,اما,but,,,"Ich lerne, aber ich verstehe nicht.",من می‌خوانم، اما نمی‌فهمم.,,
+Starten Wir,A1,3,Essen und Trinken,,mit,Preposition,با,with,,,Ich fahre mit dem Bus.,من با اتوبوس می‌روم.,mit jemandem,با کسی
+Starten Wir,A1,3,Essen und Trinken,🟢 das,Frühstück,Noun,صبحانه,breakfast,-,,Das Frühstück ist lecker.,صبحانه خوشمزه است.,Frühstück machen,صبحانه آماده کردن
+Starten Wir,A1,3,Essen und Trinken,,frühstücken,Verb,صبحانه خوردن,to have breakfast,,frühstückte | gefrühstückt,Wir frühstücken um 7.,ما ساعت ۷ صبحانه می‌خوریم.,frühstücken gehen,صبحانه خوردن رفتن
+Starten Wir,A1,3,Essen und Trinken,,sagen,Verb,گفتن,to say,,sagte | gesagt,Ich sage Hallo.,من سلام می‌گویم.,etwas sagen,چیزی گفتن
+Starten Wir,A1,3,Essen und Trinken,,hören,Verb,شنیدن,to hear,,hörte | gehört,Ich höre Musik.,من موسیقی گوش می‌دهم.,etwas hören,چیزی شنیدن
+Starten Wir,A1,3,Essen und Trinken,,typisch,Adjective,معمول,typical,,,Das ist typisch deutsch.,این معمولاً آلمانی است.,,
+Starten Wir,A1,3,Essen und Trinken,🔴 die,Lieblingsfarbe,Noun,رنگ مورد علاقه,favorite color,die Lieblingsfarben,,Meine Lieblingsfarbe ist blau.,رنگ مورد علاقه من آبی است.,die Lieblingsfarbe ist,رنگ مورد علاقه ... است
+Starten Wir,A1,3,Essen und Trinken,🔵 der,Regenbogen,Noun,رنگین‌کمان,rainbow,die Regenbögen,,Der Regenbogen ist schön.,رنگین‌کمان زیبا است.,,
+Starten Wir,A1,3,Essen und Trinken,,etwas,Pronoun,چیزی,something,,,Ich möchte etwas essen.,من می‌خواهم چیزی بخورم.,,
+Starten Wir,A1,3,Essen und Trinken,,machen,Verb,انجام دادن,to do,,machte | gemacht,Was machst du heute?,امروز چه کار می‌کنی؟,etwas machen,کاری کردن
+Starten Wir,A1,3,Essen und Trinken,,Wie heißt das auf Deutsch?,Phrase,این آلمانی چی میشه؟,what is this in German?,,,Wie heißt das auf Deutsch?,این آلمانی چی میشه؟,,
+Starten Wir,A1,3,Essen und Trinken,,Ein bisschen langsamer bitte.,Phrase,آهسته‌تر لطفاً,slower please,,,"Ein bisschen langsamer, bitte.",آهسته‌تر لطفاً.,,
+Starten Wir,A1,3,Essen und Trinken,,Wie sagt man auf Deutsch?,Phrase,آلمانی چطور میگن؟,how to say in German?,,,"Wie sagt man ""hello"" auf Deutsch?","آلمانی ""سلام"" چطور میگن؟",,
+Starten Wir,A1,3,Essen und Trinken,,Ich weiß noch nicht.,Phrase,هنوز نمی‌دونم.,"""I don' t know yet""",,,Ich weiß noch nicht.,هنوز نمی‌دونم.,,
+Starten Wir,A1,3,Essen und Trinken,,Zum Glück,Phrase,خوشبختانه,luckily,,,Zum Glück habe ich Zeit.,خوشبختانه وقت دارم.,,
+Starten Wir,A1,3,Essen und Trinken,,Ich auch,Phrase,من هم,me too,,,Ich auch!,من هم!,,
+Starten Wir,A1,3,Essen und Trinken,,Ich auch nicht,Phrase,من هم نه,me neither,,,Ich auch nicht.,من هم نه.,,
+Starten Wir,A1,3,Essen und Trinken,,Hast du Lust?,Phrase,حوصله داری؟,do you feel like?,,,Hast du Lust auf Kaffee?,حوصله قهوه داری؟,,
+Starten Wir,A1,3,Essen und Trinken,,Hast du Zeit?,Phrase,وقت داری؟,do you have time?,,,Hast du Zeit heute?,امروز وقت داری؟,,
+Starten Wir,A1,3,Essen und Trinken,,Ja klar,Phrase,آره حتماً,yes of course,,,"Ja, klar!",آره حتماً!,,
+Starten Wir,A1,3,Essen und Trinken,,Heute nicht,Phrase,امروز نه,not today,,,"Heute nicht, leider.",امروز نه متأسفانه.,,
+Starten Wir,A1,3,Essen und Trinken,,Für mich bitte,Phrase,برای من لطفاً,for me please,,,"Für mich einen Kaffee, bitte.",برای من قهوه لطفاً.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Polizist,Noun,پلیس (مرد),police officer (male),die Polizisten,,Der Polizist hilft.,پلیس کمک می‌کند.,der Polizist hilft,پلیس کمک می‌کند
+Starten Wir,A1,4,Mein Leben,🔴 die,Polizistin,Noun,پلیس (زن),police officer (female),die Polizistinnen,,Die Polizistin ist stark.,پلیس زن قوی است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Manager,Noun,مدیر,manager,die Manager,,Der Manager arbeitet.,مدیر کار می‌کند.,als Manager arbeiten,به‌عنوان مدیر کار کردن
+Starten Wir,A1,4,Mein Leben,🔵 der,IT-Ingenieur,Noun,مهندس IT,IT engineer,die IT-Ingenieure,,Der IT-Ingenieur programmiert.,مهندس IT برنامه‌نویسی می‌کند.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Taxifahrer,Noun,راننده تاکسی,taxi driver,die Taxifahrer,,Der Taxifahrer fährt.,راننده تاکسی رانندگی می‌کند.,Taxifahrer sein,راننده تاکسی بودن
+Starten Wir,A1,4,Mein Leben,🔵 der,Beruf,Noun,شغل,profession,die Berufe,,Was bist du von Beruf?,شغل شما چیست؟,von Beruf sein,شغل ... داشتن
+Starten Wir,A1,4,Mein Leben,🔴 die,Firma,Noun,شرکت,company,die Firmen,,Ich arbeite in einer Firma.,من در شرکت کار می‌کنم.,in einer Firma arbeiten,در شرکت کار کردن
+Starten Wir,A1,4,Mein Leben,🔴 die,Visitenkarte,Noun,کارت ویزیت,business card,die Visitenkarten,,Gib mir deine Visitenkarte.,کارت ویزیتت را بده.,eine Visitenkarte geben,کارت ویزیت دادن
+Starten Wir,A1,4,Mein Leben,,arbeiten,Verb,کار کردن,to work,,arbeitete | gearbeitet,Ich arbeite von 9 bis 17.,من از ۹ تا ۱۷ کار می‌کنم.,von ... bis ... arbeiten,از ... تا ... کار کردن
+Starten Wir,A1,4,Mein Leben,,arbeitslos,Adjective,بیکار,unemployed,,,Er ist arbeitslos.,او بیکار است.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Arbeit,Noun,کار,work,die Arbeiten,,Die Arbeit ist schwer.,کار سخت است.,Arbeit suchen,دنبال کار گشتن
+Starten Wir,A1,4,Mein Leben,,Wann,Adverb,کی؟,when?,,,Wann kommst du?,کی می‌آیی؟,,
+Starten Wir,A1,4,Mein Leben,,um,Preposition,ساعت,at (time),,,Wie spät ist es? Um 8.,ساعت چنده؟ ساعت ۸.,,
+Starten Wir,A1,4,Mein Leben,,vor,Preposition,قبل,in front of,,,Ich warte vor dem Haus.,من جلوی خانه منتظرم.,,
+Starten Wir,A1,4,Mein Leben,,nach,Preposition,بعد,after,,,Nach der Arbeit gehe ich nach Hause.,بعد از کار به خانه می‌روم.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Termin,Noun,قرار,appointment,die Termine,,Ich habe einen Termin.,من قرار دارم.,einen Termin machen,قرار گذاشتن
+Starten Wir,A1,4,Mein Leben,🔵 der,Monat,Noun,ماه,month,die Monate,,Der Monat ist lang.,ماه طولانی است.,pro Monat,در ماه
+Starten Wir,A1,4,Mein Leben,🔵 der,Tag,Noun,روز,day,die Tage,,Heute ist ein guter Tag.,امروز روز خوبی است.,jeden Tag,هر روز
+Starten Wir,A1,4,Mein Leben,🔵 der,Rentner,Noun,بازنشسته (مرد),pensioner (male),die Rentner,,Der Rentner liest Zeitung.,بازنشسته روزنامه می‌خواند.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Rentnerin,Noun,بازنشسته (زن),pensioner (female),die Rentnerinnen,,Die Rentnerin geht spazieren.,بازنشسته زن پیاده‌روی می‌کند.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Party,Noun,مهمانی,party,die Partys,,Die Party ist super.,مهمانی عالی است.,eine Party feiern,مهمانی گرفتن
+Starten Wir,A1,4,Mein Leben,🔴 die,Schere,Noun,قیچی,scissors,die Scheren,,Die Schere ist scharf.,قیچی تیز است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Kamm,Noun,شانه,comb,die Kämme,,Der Kamm ist aus Holz.,شانه چوبی است.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Bürste,Noun,برس,brush,die Bürsten,,Die Bürste ist neu.,برس جدید است.,,
+Starten Wir,A1,4,Mein Leben,🟢 das,T-Shirt,Noun,تی‌شرت,t-shirt,die T-Shirts,,Ich trage ein T-Shirt.,من تی‌شرت می‌پوشم.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Küche,Noun,آشپزخانه,kitchen,die Küchen,,Die Küche ist groß.,آشپزخانه بزرگ است.,in der Küche kochen,در آشپزخانه پختن
+Starten Wir,A1,4,Mein Leben,🔵 der,Herd,Noun,اجاق,stove,die Herde,,Der Herd ist heiß.,اجاق داغ است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Topf,Noun,قابلمه,pot,die Töpfe,,Der Topf ist voll.,قابلمه پر است.,,
+Starten Wir,A1,4,Mein Leben,🟢 das,Büro,Noun,دفتر,office,die Büros,,Ich bin im Büro.,من در دفتر هستم.,im Büro arbeiten,در دفتر کار کردن
+Starten Wir,A1,4,Mein Leben,🔵 der,Drucker,Noun,پرینتر,printer,die Drucker,,Der Drucker ist kaputt.,پرینتر خراب است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,USB-Stick,Noun,فلش,USB stick,die USB-Sticks,,Ich brauche einen USB-Stick.,من فلش نیاز دارم.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Maus,Noun,ماوس,mouse,die Mäuse,,Die Maus ist schwarz.,ماوس سیاه است.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Software,Noun,نرم‌افزار,software,die Softwares,,Die Software ist neu.,نرم‌افزار جدید است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Support,Noun,پشتیبانی,support,-,,Der Support hilft.,پشتیبانی کمک می‌کند.,,
+Starten Wir,A1,4,Mein Leben,,telefonieren,Verb,تلفن زدن,to phone,,telefonierte | telefoniert,Ich telefoniere gern.,من تلفن زدن دوست دارم.,mit jemandem telefonieren,با کسی تلفن صحبت کردن
+Starten Wir,A1,4,Mein Leben,,anrufen,Verb,تماس گرفتن,to call,,rief an | angerufen,Ich rufe dich an.,من به تو زنگ می‌زنم.,jemanden anrufen,به کسی زنگ زدن
+Starten Wir,A1,4,Mein Leben,🟢 das,Telefon,Noun,تلفن,telephone,die Telefone,,Das Telefon klingelt.,تلفن زنگ می‌زند.,am Telefon sein,پای تلفن بودن
+Starten Wir,A1,4,Mein Leben,🟢 das,Telefongespräch,Noun,مکالمه,phone call,die Telefongespräche,,Das Telefongespräch ist lang.,مکالمه طولانی است.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,SMS,Noun,پیامک,text message,die SMS,,Ich schreibe eine SMS.,من پیامک می‌نویسم.,,
+Starten Wir,A1,4,Mein Leben,🟢 das,Internet,Noun,اینترنت,internet,-,,Das Internet ist schnell.,اینترنت سریع است.,im Internet surfen,در اینترنت گشتن
+Starten Wir,A1,4,Mein Leben,🔵 der,Chat,Noun,چت,chat,die Chats,,Ich bin im Chat.,من در چت هستم.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Status,Noun,وضعیت,status,die Status,,Mein Status ist online.,وضعیت من آنلاین است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Tarif,Noun,تعرفه,tariff,die Tarife,,Der Tarif ist billig.,تعرفه ارزان است.,,
+Starten Wir,A1,4,Mein Leben,,ohne,Preposition,بدون,without,,,Ich trinke Kaffee ohne Zucker.,من قهوه بدون شکر می‌نوشم.,,
+Starten Wir,A1,4,Mein Leben,🟢 das,Radio,Noun,رادیو,radio,die Radios,,Das Radio ist laut.,رادیو بلند است.,,
+Starten Wir,A1,4,Mein Leben,🔴 die,Show,Noun,شو,show,die Shows,,Die Show ist gut.,شو خوب است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Podcast,Noun,پادکست,podcast,die Podcasts,,Ich höre einen Podcast.,من پادکست گوش می‌دهم.,,
+Starten Wir,A1,4,Mein Leben,🟢 das,Interview,Noun,مصاحبه,interview,die Interviews,,Das Interview ist interessant.,مصاحبه جالب است.,,
+Starten Wir,A1,4,Mein Leben,🔵 der,Partner,Noun,شریک (مرد),partner (male),die Partner,,Mein Partner ist nett.,شریک من مهربان است.,einen Partner haben,شریک داشتن
+Starten Wir,A1,4,Mein Leben,🔴 die,Partnerin,Noun,شریک (زن),partner (female),die Partnerinnen,,Meine Partnerin ist klug.,شریک زن من باهوش است.,,
+Starten Wir,A1,5,Freizeit,,aufstehen,Verb,بلند شدن,to get up,,stand auf | aufgestanden,Ich stehe um 7 Uhr auf.,من ساعت ۷ بلند می‌شوم.,früh aufstehen,زود بلند شدن
+Starten Wir,A1,5,Freizeit,🟢 das,Licht,Noun,نور,light,die Lichter,,Mach das Licht an.,نور را روشن کن.,das Licht anmachen,نور را روشن کردن
+Starten Wir,A1,5,Freizeit,,anmachen,Verb,روشن کردن,to turn on,,machte an | angemacht,Ich mache das Radio an.,من رادیو را روشن می‌کنم.,,
+Starten Wir,A1,5,Freizeit,,ausmachen,Verb,خاموش کردن,to turn off,,machte aus | ausgemacht,Mach den Fernseher aus.,تلویزیون را خاموش کن.,,
+Starten Wir,A1,5,Freizeit,,duschen,Verb,دوش گرفتن,to shower,,duschte | geduscht,Ich dusche morgens.,من صبح‌ها دوش می‌گیرم.,morgens duschen,صبح دوش گرفتن
+Starten Wir,A1,5,Freizeit,,anziehen,Verb,پوشیدن,to get dressed,,zog an | angezogen,Ich ziehe mich an.,من لباس می‌پوشم.,sich anziehen,لباس پوشیدن
+Starten Wir,A1,5,Freizeit,,einsteigen,Verb,سوار شدن,to board,,stieg ein | eingestiegen,Ich steige in den Bus ein.,من سوار اتوبوس می‌شوم.,in den Bus einsteigen,سوار اتوبوس شدن
+Starten Wir,A1,5,Freizeit,,aussteigen,Verb,پیاده شدن,to get off,,stieg aus | ausgestiegen,Ich steige an der nächsten Haltestelle aus.,من در ایستگاه بعدی پیاده می‌شوم.,aus dem Bus aussteigen,از اتوبوس پیاده شدن
+Starten Wir,A1,5,Freizeit,🔴 die,U-Bahn,Noun,مترو,subway,die U-Bahnen,,Die U-Bahn ist schnell.,مترو سریع است.,,
+Starten Wir,A1,5,Freizeit,,nehmen,Verb,گرفتن,to take,,nahm | genommen,Ich nehme den Bus.,من اتوبوس را می‌گیرم.,den Bus nehmen,اتوبوس گرفتن
+Starten Wir,A1,5,Freizeit,,anfangen,Verb,شروع کردن,to start,,fing an | angefangen,Der Film fängt an.,فیلم شروع می‌شود.,,
+Starten Wir,A1,5,Freizeit,🔴 die,Pause,Noun,استراحت,break,die Pausen,,Wir machen Pause.,ما استراحت می‌کنیم.,Pause machen,استراحت کردن
+Starten Wir,A1,5,Freizeit,,abholen,Verb,برداشتن,to pick up,,holte ab | abgeholt,Ich hole dich ab.,من تو را برمی‌دارم.,jemanden abholen,کسی را بردن
+Starten Wir,A1,5,Freizeit,🔵 der,Kindergarten,Noun,مهدکودک,kindergarten,die Kindergärten,,Das Kind geht in den Kindergarten.,بچه به مهدکودک می‌رود.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Kind,Noun,بچه,child,die Kinder,,Das Kind spielt.,بچه بازی می‌کند.,,
+Starten Wir,A1,5,Freizeit,,lernen,Verb,یاد گرفتن,to learn,,lernte | gelernt,Ich lerne Deutsch.,من آلمانی یاد می‌گیرم.,Deutsch lernen,آلمانی یاد گرفتن
+Starten Wir,A1,5,Freizeit,,schlafen,Verb,خوابیدن,to sleep,,schlief | geschlafen,Ich schlafe um 23 Uhr.,من ساعت ۲۳ می‌خوابم.,lange schlafen,دیر خوابیدن
+Starten Wir,A1,5,Freizeit,,Golf spielen,Phrase,گلف بازی کردن,to play golf,,spielte Golf | Golf gespielt,Ich spiele Golf.,من گلف بازی می‌کنم.,,
+Starten Wir,A1,5,Freizeit,,snowboarden,Verb,اسنوبرد,to snowboard,,snowboardete | gesnowboardet,Ich snowboarde gern.,من اسنوبرد دوست دارم.,,
+Starten Wir,A1,5,Freizeit,,Rad fahren,Phrase,دوچرخه سواری,to cycle,,fuhr Rad | Rad gefahren,Ich fahre Rad.,من دوچرخه سواری می‌کنم.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Rad,Noun,دوچرخه,bike,die Räder,,Mein Rad ist neu.,دوچرخه من جدید است.,,
+Starten Wir,A1,5,Freizeit,,schwimmen,Verb,شنا کردن,to swim,,schwamm | geschwommen,Ich schwimme gern.,من شنا دوست دارم.,schwimmen gehen,شنا رفتن
+Starten Wir,A1,5,Freizeit,,wandern,Verb,پیاده‌روی,to hike,,wanderte | gewandert,Ich wandere im Wald.,من در جنگل پیاده‌روی می‌کنم.,im Wald wandern,در جنگل پیاده‌روی کردن
+Starten Wir,A1,5,Freizeit,,walken,Verb,پیاده‌روی سریع,to power walk,,walkte | gewalkt,Ich walke am Morgen.,من صبح پیاده‌روی سریع می‌کنم.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Aerobic,Noun,ایروبیک,aerobics,-,,Ich mache Aerobic.,من ایروبیک کار می‌کنم.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Kurs,Noun,دوره,course,die Kurse,,Ich besuche einen Kurs.,من در دوره شرکت می‌کنم.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Fitness-Studio,Noun,باشگاه,gym,die Fitness-Studios,,Ich gehe ins Fitness-Studio.,من به باشگاه می‌روم.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Pool,Noun,استخر,pool,die Pools,,Der Pool ist kalt.,استخر سرد است.,,
+Starten Wir,A1,5,Freizeit,,ausgehen,Verb,بیرون رفتن,to go out,,ging aus | ausgegangen,Ich gehe heute aus.,من امروز بیرون می‌روم.,abends ausgehen,عصر بیرون رفتن
+Starten Wir,A1,5,Freizeit,,Wohin?,Adverb,به کجا؟,where to?,,,Wohin gehst du?,به کجا می‌روی؟,,
+Starten Wir,A1,5,Freizeit,,gehen,Verb,رفتن,to go,,ging | gegangen,Ich gehe nach Hause.,من به خانه می‌روم.,nach Hause gehen,به خانه رفتن
+Starten Wir,A1,5,Freizeit,,tanzen,Verb,رقصیدن,to dance,,tanzte | getanzt,Ich tanze gern.,من رقصیدن دوست دارم.,tanzen gehen,رقصیدن رفتن
+Starten Wir,A1,5,Freizeit,,treffen,Verb,ملاقات کردن,to meet,,traf | getroffen,Ich treffe Freunde.,من دوستان را ملاقات می‌کنم.,Freunde treffen,دوستان را دیدن
+Starten Wir,A1,5,Freizeit,,besuchen,Verb,دیدن,to visit,,besuchte | besucht,Ich besuche meine Oma.,من مادربزرگم را می‌بینم.,jemanden besuchen,از کسی دیدن کردن
+Starten Wir,A1,5,Freizeit,,einladen,Verb,دعوت کردن,to invite,,lud ein | eingeladen,Ich lade dich ein.,من تو را دعوت می‌کنم.,jemanden einladen,کسی را دعوت کردن
+Starten Wir,A1,5,Freizeit,,feiern,Verb,جشن گرفتن,to celebrate,,feierte | gefeiert,Wir feiern Geburtstag.,ما تولد جشن می‌گیریم.,Geburtstag feiern,تولد جشن گرفتن
+Starten Wir,A1,5,Freizeit,🟢 das,Kino,Noun,سینما,cinema,die Kinos,,Ich gehe ins Kino.,من به سینما می‌روم.,ins Kino gehen,به سینما رفتن
+Starten Wir,A1,5,Freizeit,🔴 die,Disco,Noun,دیسکو,disco,die Discos,,Die Disco ist laut.,دیسکو بلند است.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Club,Noun,کلاب,club,die Clubs,,Der Club ist groß.,کلاب بزرگ است.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Konzert,Noun,کنسرت,concert,die Konzerte,,Das Konzert war super.,کنسرت عالی بود.,ein Konzert besuchen,به کنسرت رفتن
+Starten Wir,A1,5,Freizeit,🟢 das,Theater,Noun,تئاتر,theater,die Theater,,Ich gehe ins Theater.,من به تئاتر می‌روم.,ins Theater gehen,به تئاتر رفتن
+Starten Wir,A1,5,Freizeit,🔴 die,Freizeit,Noun,اوقات فراغت,free time,-,,Was machst du in der Freizeit?,در اوقات فراغت چه می‌کنی؟,,
+Starten Wir,A1,5,Freizeit,🔵 der,Stress,Noun,استرس,stress,-,,Ich habe Stress.,من استرس دارم.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Spaß,Noun,لذت,fun,die Spaße,,Das macht Spaß.,این لذت‌بخش است.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Park,Noun,پارک,park,die Parks,,Ich gehe in den Park.,من به پارک می‌روم.,im Park spazieren,در پارک قدم زدن
+Starten Wir,A1,5,Freizeit,🔴 die,Sauna,Noun,سونا,sauna,die Saunen,,Ich gehe in die Sauna.,من به سونا می‌روم.,,
+Starten Wir,A1,5,Freizeit,,spielen,Verb,بازی کردن,to play,,spielte | gespielt,Die Kinder spielen.,بچه‌ها بازی می‌کنند.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Klavier,Noun,پیانو,piano,die Klaviere,,Ich spiele Klavier.,من پیانو می‌نوازم.,Klavier spielen,پیانو نواختن
+Starten Wir,A1,5,Freizeit,,fernsehen,Verb,تلویزیون دیدن,to watch TV,,sah fern | ferngesehen,Ich sehe gern fern.,من تلویزیون دیدن دوست دارم.,,
+Starten Wir,A1,5,Freizeit,,lesen,Verb,خواندن,to read,,las | gelesen,Ich lese ein Buch.,من کتاب می‌خوانم.,ein Buch lesen,کتاب خواندن
+Starten Wir,A1,5,Freizeit,🟢 das,Computerspiel,Noun,بازی کامپیوتر,computer game,die Computerspiele,,Das Computerspiel ist cool.,بازی کامپیوتر باحال است.,,
+Starten Wir,A1,5,Freizeit,,posten,Verb,پست کردن,to post,,postete | gepostet,Ich poste ein Foto.,من عکس پست می‌کنم.,,
+Starten Wir,A1,5,Freizeit,,surfen,Verb,اینترنت گردی,to surf,,surfte | gesurft,Ich surfe im Netz.,من در نت گردی می‌کنم.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Montag,Noun,دوشنبه,Monday,die Montage,,Heute ist Montag.,امروز دوشنبه است.,am Montag,روز دوشنبه
+Starten Wir,A1,5,Freizeit,🔵 der,Dienstag,Noun,سه‌شنبه,Tuesday,die Dienstage,,Am Dienstag lerne ich.,سه‌شنبه درس می‌خوانم.,am Dienstag,روز سه‌شنبه
+Starten Wir,A1,5,Freizeit,🔵 der,Mittwoch,Noun,چهارشنبه,Wednesday,die Mittwoche,,Mittwoch ist frei.,چهارشنبه آزاد است.,am Mittwoch,روز چهارشنبه
+Starten Wir,A1,5,Freizeit,🔵 der,Donnerstag,Noun,پنجشنبه,Thursday,die Donnerstage,,Donnerstag ist warm.,پنجشنبه گرم است.,am Donnerstag,روز پنجشنبه
+Starten Wir,A1,5,Freizeit,🔵 der,Freitag,Noun,جمعه,Friday,die Freitage,,Am Freitag ist Party.,جمعه مهمانی است.,am Freitag,روز جمعه
+Starten Wir,A1,5,Freizeit,🔵 der,Samstag,Noun,شنبه,Saturday,die Samstage,,Der Samstag ist ruhig.,شنبه آرام است.,am Samstag,روز شنبه
+Starten Wir,A1,5,Freizeit,🔵 der,Sonntag,Noun,یکشنبه,Sunday,die Sonntage,,Am Sonntag schlafe ich lange.,یکشنبه دیر می‌خوابم.,am Sonntag,روز یکشنبه
+Starten Wir,A1,5,Freizeit,,falsch,Adjective,غلط,wrong,,,Das ist falsch.,این غلط است.,,
+Starten Wir,A1,5,Freizeit,,Das stimmt.,Phrase,درست است,"""that' s correct""",,,Das stimmt genau.,کاملاً درست است.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Krankenhaus,Noun,بیمارستان,hospital,die Krankenhäuser,,Ich bin im Krankenhaus.,من در بیمارستان هستم.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Arzt,Noun,پزشک,doctor,die Ärzte,,Der Arzt hilft.,پزشک کمک می‌کند.,,
+Starten Wir,A1,5,Freizeit,🔴 die,Krankenschwester,Noun,پرستار (زن),nurse (female),die Krankenschwestern,,Die Krankenschwester ist nett.,پرستار زن مهربان است.,,
+Starten Wir,A1,5,Freizeit,🔴 die,Tankstelle,Noun,پمپ بنزین,gas station,die Tankstellen,,Ich fahre zur Tankstelle.,من به پمپ بنزین می‌روم.,,
+Starten Wir,A1,5,Freizeit,🟢 das,Call-Center,Noun,کال سنتر,call center,die Call-Center,,Ich arbeite im Call-Center.,من در کال سنتر کار می‌کنم.,,
+Starten Wir,A1,5,Freizeit,🔵 der,Januar,Noun,ژانویه,January,die Januar,,Im Januar ist es kalt.,در ژانویه سرد است.,im Januar,در ژانویه
+Starten Wir,A1,5,Freizeit,🔵 der,Februar,Noun,فوریه,February,die Februar,,Im Februar friere ich.,در فوریه یخ می‌زنم.,im Februar,در فوریه
+Starten Wir,A1,5,Freizeit,🔵 der,März,Noun,مارس,March,die März,,Im März blühen Blumen.,در مارس گل‌ها شکوفه می‌دهند.,im März,در مارس
+Starten Wir,A1,5,Freizeit,🔵 der,April,Noun,آوریل,April,die April,,Im April ist es warm.,در آوریل گرم است.,im April,در آوریل
+Starten Wir,A1,5,Freizeit,🔵 der,Mai,Noun,مه,May,die Mai,,Im Mai ist es schön.,در مه زیبا است.,im Mai,در مه
+Starten Wir,A1,5,Freizeit,🔵 der,Juni,Noun,ژوئن,June,die Juni,,Im Juni ist Sommer.,در ژوئن تابستان است.,im Juni,در ژوئن
+Starten Wir,A1,5,Freizeit,🔵 der,Juli,Noun,ژوئیه,July,die Juli,,Im Juli ist es heiß.,در ژوئیه داغ است.,im Juli,در ژوئیه
+Starten Wir,A1,5,Freizeit,🔵 der,August,Noun,اوت,August,die August,,Im August sind Ferien.,در اوت تعطیلات است.,im August,در اوت
+Starten Wir,A1,5,Freizeit,🔵 der,September,Noun,سپتامبر,September,die September,,Im September beginnt die Schule.,در سپتامبر مدرسه شروع می‌شود.,im September,در سپتامبر
+Starten Wir,A1,5,Freizeit,🔵 der,Oktober,Noun,اکتبر,October,die Oktober,,Im Oktober ist es bunt.,در اکتبر رنگارنگ است.,im Oktober,در اکتبر
+Starten Wir,A1,5,Freizeit,🔵 der,November,Noun,نوامبر,November,die November,,Im November ist es dunkel.,در نوامبر تاریک است.,im November,در نوامبر
+Starten Wir,A1,5,Freizeit,🔵 der,Dezember,Noun,دسامبر,December,die Dezember,,Im Dezember ist Weihnachten.,در دسامبر کریسمس است.,im Dezember,در دسامبر
+Starten Wir,A1,5,Freizeit,🔴 die,Sekunde,Noun,ثانیه,second,die Sekunden,,Eine Sekunde bitte.,یک ثانیه لطفاً.,,
+Starten Wir,A1,5,Freizeit,🔴 die,Minute,Noun,دقیقه,minute,die Minuten,,Ich habe eine Minute Zeit.,من یک دقیقه وقت دارم.,eine Minute warten,یک دقیقه صبر کردن
+Starten Wir,A1,5,Freizeit,🔴 die,Stunde,Noun,ساعت,hour,die Stunden,,Ich warte eine Stunde.,من یک ساعت منتظر می‌مانم.,eine Stunde warten,یک ساعت صبر کردن
+Starten Wir,A1,5,Freizeit,🔴 die,Woche,Noun,هفته,week,die Wochen,,Ich habe eine Woche Urlaub.,من یک هفته تعطیلات دارم.,pro Woche,در هفته
+Starten Wir,A1,5,Freizeit,🟢 das,Jahr,Noun,سال,year,die Jahre,,Das Jahr ist lang.,سال طولانی است.,pro Jahr,در سال
+Starten Wir,A1,5,Freizeit,🟢 das,Wochenende,Noun,آخر هفته,weekend,die Wochenenden,,Ich schlafe am Wochenende.,من آخر هفته می‌خوابم.,am Wochenende,آخر هفته
+Starten Wir,A1,5,Freizeit,,öffnen,Verb,باز کردن,to open,,öffnete | geöffnet,Ich öffne die Tür.,من در را باز می‌کنم.,die Tür öffnen,در را باز کردن
+Starten Wir,A1,5,Freizeit,,schließen,Verb,بستن,to close,,schloss | geschlossen,Ich schließe die Tür.,من در را می‌بندم.,die Tür schließen,در را بستن
+Starten Wir,A1,5,Freizeit,,gleich,Adverb,الان,soon/right away,,,Ich komme gleich.,من الان می‌آیم.,,
+Starten Wir,A1,5,Freizeit,,jetzt,Adverb,اکنون,now,,,Ich mache es jetzt.,من الان انجام می‌دهم.,,
+Starten Wir,A1,5,Freizeit,,morgens,Adverb,صبح‌ها,in the morning,,,Ich trinke morgens Kaffee.,من صبح‌ها قهوه می‌نوشم.,,
+Starten Wir,A1,5,Freizeit,,vormittags,Adverb,قبل از ظهر,in the forenoon,,,Ich arbeite vormittags.,من قبل از ظهر کار می‌کنم.,,
+Starten Wir,A1,5,Freizeit,,mittags,Adverb,ظهر,at noon,,,Ich esse mittags.,من ظهر غذا می‌خورم.,,
+Starten Wir,A1,5,Freizeit,,nachmittags,Adverb,بعد از ظهر,in the afternoon,,,Ich spiele nachmittags.,من بعد از ظهر بازی می‌کنم.,,
+Starten Wir,A1,5,Freizeit,,abends,Adverb,عصرها,in the evening,,,Ich lese abends.,من عصرها می‌خوانم.,,
+Starten Wir,A1,5,Freizeit,,plus,Preposition,بعلاوه,plus,,,10 plus 5 ist 15.,۱۰ بعلاوه ۵ می‌شود ۱۵.,,
+Starten Wir,A1,5,Freizeit,,minus,Preposition,منها,minus,,,10 minus 5 ist 5.,۱۰ منها ۵ می‌شود ۵.,,
+Starten Wir,A1,5,Freizeit,,kurz,Adjective,کوتاه,short,,,Der Tag ist kurz.,روز کوتاه است.,,
+Starten Wir,A1,5,Freizeit,,lang,Adjective,بلند,long,,,Die Nacht ist lang.,شب بلند است.,,
+Starten Wir,A1,5,Freizeit,,können,Verb,توانستن,can/to be able to,,konnte | gekonnt,Ich kann Deutsch.,من آلمانی بلدم.,etwas können,چیزی بلد بودن
+Starten Wir,A1,5,Freizeit,,wissen,Verb,دانستن,to know (fact),,wusste | gewusst,Ich weiß das nicht.,من این را نمی‌دانم.,etwas wissen,چیزی دانستن
+Starten Wir,A1,5,Freizeit,,müssen,Verb,باید,must/have to,,musste | gemusst,Ich muss lernen.,من باید درس بخوانم.,etwas tun müssen,مجبور بودن کاری کردن
+Starten Wir,A1,5,Freizeit,,auch,Adverb,هم,also/too,,,Ich komme auch.,من هم می‌آیم.,,
+Starten Wir,A1,5,Freizeit,,kennen,Verb,شناختن,to know (person),,kannte | gekannt,Ich kenne den Mann.,من آن مرد را می‌شناسم.,jemanden kennen,کسی را شناختن
+Starten Wir,A1,5,Freizeit,,aufräumen,Verb,تمیز کردن,to tidy up,,räumte auf | aufgeräumt,Ich räume mein Zimmer auf.,من اتاقم را تمیز می‌کنم.,das Zimmer aufräumen,اتاق را تمیز کردن
+Starten Wir,A1,5,Freizeit,,waschen,Verb,شستن,to wash,,wusch | gewaschen,Ich wasche die Wäsche.,من لباس‌ها را می‌شویم.,die Wäsche waschen,لباس شستن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Geschäft,Noun,فروشگاه,shop/store,die Geschäfte,,Ich gehe ins Geschäft.,من به فروشگاه می‌روم.,ins Geschäft gehen,به فروشگاه رفتن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Bank,Noun,بانک,bank,die Banken,,Ich gehe zur Bank.,من به بانک می‌روم.,zur Bank gehen,به بانک رفتن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Haus,Noun,خانه,house,die Häuser,,Das Haus ist groß.,خانه بزرگ است.,im Haus wohnen,در خانه زندگی کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Kirche,Noun,کلیسا,church,die Kirchen,,Die Kirche ist alt.,کلیسا قدیمی است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Schule,Noun,مدرسه,school,die Schulen,,Ich gehe zur Schule.,من به مدرسه می‌روم.,zur Schule gehen,به مدرسه رفتن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Café,Noun,کافه,cafe,die Cafés,,Ich sitze im Café.,من در کافه نشسته‌ام.,im Café sitzen,در کافه نشستن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Bahnhof,Noun,ایستگاه قطار,train station,die Bahnhöfe,,Ich warte am Bahnhof.,من در ایستگاه قطار منتظرم.,am Bahnhof warten,در ایستگاه قطار منتظر بودن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,interessant,Adjective,جالب,interesting,,,Das Buch ist interessant.,کتاب جالب است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,langweilig,Adjective,خسته‌کننده,boring,,,Der Film ist langweilig.,فیلم خسته‌کننده است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,modern,Adjective,مدرن,modern,,,Das Haus ist modern.,خانه مدرن است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,schön,Adjective,زیبا,beautiful,,,Das Bild ist schön.,تصویر زیبا است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,hässlich,Adjective,زشت,ugly,,,Die Blume ist hässlich.,گل زشت است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,neu,Adjective,جدید,new,,,Der Wagen ist neu.,ماشین جدید است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,alt,Adjective,پیر,old,,,Er ist alt.,او پیر است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,wichtig,Adjective,مهم,important,,,Das ist wichtig.,این مهم است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,grillen,Verb,کباب کردن,to grill,,grillte | gegrillt,Ich grille gern.,من کباب کردن دوست دارم.,im Garten grillen,در باغ کباب کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Single,Noun,مجرد,single,die Singles,,Er ist Single.,او مجرد است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Person,Noun,شخص,person,die Personen,,Die Person ist nett.,آن شخص مهربان است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,rechts,Adverb,راست,right,,,Gehe rechts.,برو راست.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,links,Adverb,چپ,left,,,Gehe links.,برو چپ.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,oben,Adverb,بالا,up/top,,,Das Bild hängt oben.,تصویر بالا آویزان است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,unten,Adverb,پایین,down/bottom,,,Der Schlüssel liegt unten.,کلید پایین است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,weit,Adjective,دور,far,,,Die Stadt ist weit.,شهر دور است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,besuchen,Verb,دیدن,to visit,,besuchte | besucht,Ich besuche meine Oma.,من مادربزرگم را می‌بینم.,jemanden besuchen,از کسی دیدن کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Land,Noun,روستا/کشور,countryside/country,die Länder,,Ich lebe auf dem Land.,من در رستا زندگی می‌کنم.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Stadt,Noun,شهر,city,die Städte,,Ich lebe in der Stadt.,من در شهر زندگی می‌کنم.,in der Stadt leben,در شهر زندگی کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Dorf,Noun,روستا,village,die Dörfer,,Das Dorf ist klein.,روستا کوچک است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Zentrum,Noun,مرکز شهر,center,die Zentren,,Ich gehe ins Zentrum.,من به مرکز شهر می‌روم.,im Zentrum wohnen,در مرکز زندگی کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Straße,Noun,خیابان,street,die Straßen,,Die Straße ist lang.,خیابان بلند است.,in der Straße wohnen,در خیابان زندگی کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,S-Bahn,Noun,قطار شهری,S-Bahn,die S-Bahnen,,Ich fahre mit der S-Bahn.,من با قطار شهری می‌روم.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Stadtpark,Noun,پارک شهری,city park,die Stadtparks,,Ich gehe in den Stadtpark.,من به پارک شهری می‌روم.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Parkbank,Noun,نیمکت,park bench,die Parkbänke,,Ich sitze auf der Parkbank.,من روی نیمکت نشسته‌ام.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Lieblingsplatz,Noun,جای مورد علاقه,favorite place,die Lieblingsplätze,,Das ist mein Lieblingsplatz.,این جای مورد علاقه من است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Baum,Noun,درخت,tree,die Bäume,,Der Baum ist hoch.,درخت بلند است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,gratis,Adjective,رایگان,free,,,Das ist gratis.,این رایگان است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Zimmer,Noun,اتاق,room,die Zimmer,,Ich habe ein Zimmer.,من یک اتاق دارم.,ein Zimmer haben,اتاق داشتن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Wohnzimmer,Noun,پذیرایی,living room,die Wohnzimmer,,Ich sitze im Wohnzimmer.,من در پذیرایی نشسته‌ام.,im Wohnzimmer sitzen,در پذیرایی نشستن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Schlafzimmer,Noun,اتاق خواب,bedroom,die Schlafzimmer,,Ich schlafe im Schlafzimmer.,من در اتاق خواب می‌خوابم.,im Schlafzimmer schlafen,در اتاق خواب خوابیدن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Gästezimmer,Noun,اتاق مهمان,guest room,die Gästezimmer,,Das Gästezimmer ist frei.,اتاق مهمان خالی است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Bad,Noun,حمام,bathroom,die Bäder,,Ich bin im Bad.,من در حمام هستم.,im Bad sein,در حمام بودن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,Möbel,Noun,مبلمان,furniture,die Möbel,,Die Möbel sind neu.,مبلمان جدید است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Fernseher,Noun,تلویزیون,TV set,die Fernseher,,Der Fernseher ist an.,تلویزیون روشن است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Couch,Noun,مبل,couch,die Couches,,Ich sitze auf der Couch.,من روی مبل نشسته‌ام.,auf der Couch sitzen,روی مبل نشستن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Tisch,Noun,میز,table,die Tische,,Der Tisch ist rund.,میز گرد است.,am Tisch sitzen,پای میز نشستن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Schrank,Noun,کمد,cupboard,die Schränke,,Der Schrank ist voll.,کمد پر است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Lampe,Noun,لامپ,lamp,die Lampen,,Die Lampe ist hell.,لامپ روشن است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Stuhl,Noun,صندلی,chair,die Stühle,,Der Stuhl ist bequem.,صندلی راحت است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Bild,Noun,تصویر,picture,die Bilder,,Das Bild hängt an der Wand.,تصویر به دیوار آویزان است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,Bett,Noun,تخت,bed,die Betten,,Ich schlafe im Bett.,من در تخت می‌خوابم.,im Bett schlafen,در تخت خوابیدن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Mikrowelle,Noun,مایکروویو,microwave,die Mikrowellen,,Die Mikrowelle ist warm.,مایکروویو گرم است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Kühlschrank,Noun,یخچال,fridge,die Kühlschränke,,Der Kühlschrank ist groß.,یخچال بزرگ است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Dusche,Noun,دوش,shower,die Duschen,,Ich nehme eine Dusche.,من دوش می‌گیرم.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🟢 das,WC,Noun,دستشویی,toilet,die WCs,,Das WC ist sauber.,دستشویی تمیز است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Wohnung,Noun,آپارتمان,apartment,die Wohnungen,,Ich suche eine Wohnung.,من دنبال آپارتمان هستم.,eine Wohnung suchen,آپارتمان گشتن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,WG,Noun,خوابگاه مشترک,shared flat,die WGs,,Ich lebe in einer WG.,من در خوابگاه مشترک زندگی می‌کنم.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Miete,Noun,اجاره,rent,die Mieten,,Die Miete ist hoch.,اجاره بالا است.,Miete bezahlen,اجاره پرداخت کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Balkon,Noun,بالکن,balcony,die Balkone,,Der Balkon ist schön.,بالکن زیبا است.,auf dem Balkon sitzen,روی بالکن نشستن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔵 der,Garten,Noun,باغ,garden,die Gärten,,Der Garten ist grün.,باغ سبز است.,im Garten arbeiten,در باغ کار کردن
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",🔴 die,Garage,Noun,گاراژ,garage,die Garagen,,Das Auto ist in der Garage.,ماشین در گاراژ است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,hell,Adjective,روشن,bright/light,,,Das Zimmer ist hell.,اتاق روشن است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,dunkel,Adjective,تاریک,dark,,,Das Zimmer ist dunkel.,اتاق تاریک است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,laut,Adjective,بلند,loud,,,Die Straße ist laut.,خیابان پر سروصدا است.,,
+Starten Wir,A1,6,"Meine Stadt, meine Wohnung",,ruhig,Adjective,آرام,quiet,,,Das Dorf ist ruhig.,روستا آرام است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Wetter,Noun,آب و هوا,weather,-,,Wie ist das Wetter?,آب و هوا چطور است؟,Wie ist das Wetter?,آب‌وهوا چطور است؟
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Sonne,Noun,خورشید,sun,-,,Die Sonne scheint.,خورشید می‌تابد.,die Sonne scheint,خورشید می‌تابد
+Starten Wir,A1,7,"Wie, wo und wann?",,sonnig,Adjective,آفتابی,sunny,,,Heute ist es sonnig.,امروز آفتابی است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Regen,Noun,باران,rain,-,,Es fällt Regen.,باران می‌بارد.,es gibt Regen,باران می‌بارد
+Starten Wir,A1,7,"Wie, wo und wann?",,regnen,Verb,باران آمدن,to rain,,regnete | geregnet,Es regnet heute.,امروز باران می‌آید.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Schnee,Noun,برف,snow,-,,Der Schnee ist weiß.,برف سفید است.,es gibt Schnee,برف می‌بارد
+Starten Wir,A1,7,"Wie, wo und wann?",,schneien,Verb,برف آمدن,to snow,,schneite | geschneit,Es schneit stark.,برف شدید می‌بارد.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Wolke,Noun,ابر,cloud,die Wolken,,Die Wolke ist grau.,ابر خاکستری است.,eine Wolke am Himmel,ابری در آسمان
+Starten Wir,A1,7,"Wie, wo und wann?",,bewölkt,Adjective,ابری,cloudy,,,Heute ist es bewölkt.,امروز ابری است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Grad,Noun,درجه,degree,die Grade,,Es sind 20 Grad.,۲۰ درجه است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,warm,Adjective,گرم,warm,,,Es ist warm.,گرم است.,es ist warm,هوا گرم است
+Starten Wir,A1,7,"Wie, wo und wann?",,kühl,Adjective,خنک,cool,,,Es ist kühl.,خنک است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,kalt,Adjective,سرد,cold,,,Es ist kalt.,سرد است.,es ist kalt,هوا سرد است
+Starten Wir,A1,7,"Wie, wo und wann?",,schlecht,Adjective,بد,bad,,,Das Wetter ist schlecht.,آب و هوا بد است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Norden,Noun,شمال,north,-,,Der Norden ist kalt.,شمال سرد است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Süden,Noun,جنوب,south,-,,Der Süden ist warm.,جنوب گرم است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Westen,Noun,غرب,west,-,,Der Westen ist windig.,غرب بادى است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Osten,Noun,شرق,east,-,,Der Osten ist sonnig.,شرق آفتابی است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,Stimmt!,Phrase,درسته,correct!,,,Stimmt genau!,کاملاً درسته!,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Lebenslauf,Noun,رزومه,CV/resume,die Lebensläufe,,Ich schreibe meinen Lebenslauf.,من رزومه‌ام را می‌نویسم.,einen Lebenslauf schreiben,رزومه نوشتن
+Starten Wir,A1,7,"Wie, wo und wann?",,leben,Verb,زندگی کردن,to live,,lebte | gelebt,Ich lebe in Berlin.,من در برلین زندگی می‌کنم.,in einer Stadt leben,در شهری زندگی کردن
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Geburtsdatum,Noun,تاریخ تولد,date of birth,die Geburtsdaten,,Mein Geburtsdatum ist der 1. Mai.,تاریخ تولد من اول مه است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Geburtstag,Noun,تولد,birthday,die Geburtstage,,Ich habe Geburtstag.,من تولدم است.,Geburtstag feiern,تولد جشن گرفتن
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Geburtsort,Noun,محل تولد,place of birth,die Geburtsorte,,Mein Geburtsort ist München.,محل تولد من مونیخ است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Zentimeter,Noun,سانتی‌متر,centimeter,die Zentimeter,,Ich bin 180 Zentimeter groß.,من ۱۸۰ سانتی‌متر قد دارم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,groß,Adjective,بلند,tall/big,,,Er ist groß.,او بلند است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Familienstand,Noun,وضعیت تاهل,marital status,-,,Was ist dein Familienstand?,وضعیت تاهلت چیست؟,,
+Starten Wir,A1,7,"Wie, wo und wann?",,ledig,Adjective,مجرد,single,,,Ich bin ledig.,من مجرد هستم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,verheiratet,Adjective,متاهل,married,,,Ich bin verheiratet.,من متاهل هستم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Postleitzahl,Noun,کد پستی,postal code,die Postleitzahlen,,Meine Postleitzahl ist 10115.,کد پستی من ۱۰۱۱۵ است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Hausnummer,Noun,پلاک,house number,die Hausnummern,,Die Hausnummer ist 10.,پلاک ۱۰ است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Abitur,Noun,دیپلم,high school diploma,-,,Ich habe mein Abitur gemacht.,من دیپلم گرفتم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Gymnasium,Noun,دبیرستان,high school,die Gymnasien,,Ich gehe aufs Gymnasium.,من به دبیرستان می‌روم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Universität,Noun,دانشگاه,university,die Universitäten,,Ich studiere an der Universität.,من در دانشگاه درس می‌خوانم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Hobby,Noun,سرگرمی,hobby,die Hobbys,,Was ist dein Hobby?,سرگرمی تو چیست؟,ein Hobby haben,سرگرمی داشتن
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Interesse,Noun,علاقه,interest,die Interessen,,Ich habe Interesse an Musik.,من به موسیقی علاقه دارم.,Interesse an etwas haben,به چیزی علاقه داشتن
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Fremdsprache,Noun,زبان خارجی,foreign language,die Fremdsprachen,,Deutsch ist meine Fremdsprache.,آلمانی زبان خارجی من است.,eine Fremdsprache lernen,زبان خارجی یاد گرفتن
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Morgen,Noun,صبح,morning/tomorrow,die Morgen,,Ich warte bis morgen.,من تا فردا منتظر می‌مانم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Vormittag,Noun,قبل از ظهر,forenoon,die Vormittage,,Am Vormittag arbeite ich.,قبل از ظهر کار می‌کنم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Mittag,Noun,ظهر,noon,die Mittage,,Ich esse zu Mittag.,من ناهار می‌خورم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,gestern,Adverb,دیروز,yesterday,,,Ich war gestern hier.,من دیروز اینجا بودم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,heute,Adverb,امروز,today,,,Heute ist Montag.,امروز دوشنبه است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,reisen,Verb,سفر کردن,to travel,,reiste | gereist,Ich reise ins Ausland.,من به خارج سفر می‌کنم.,ins Ausland reisen,به خارج سفر کردن
+Starten Wir,A1,7,"Wie, wo und wann?",,schnell,Adjective,سریع,fast,,,Das Auto ist schnell.,ماشین سریع است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",,langsam,Adjective,آهسته,slow,,,Er geht langsam.,او آهسته می‌رود.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Autobahn,Noun,بزرگراه,highway,die Autobahnen,,Ich fahre auf der Autobahn.,من در بزرگراه رانندگی می‌کنم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,ICE,Noun,قطار سریع,ICE train,die ICEs,,Der ICE ist pünktlich.,قطار سریع سر وقت است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Hotel,Noun,هتل,hotel,die Hotels,,Ich übernacht im Hotel.,من در هتل اقامت می‌کنم.,im Hotel übernachten,در هتل اقامت کردن
+Starten Wir,A1,7,"Wie, wo und wann?",🟢 das,Fahrrad,Noun,دوچرخه,bicycle,die Fahrräder,,Ich fahre Fahrrad.,من دوچرخه سواری می‌کنم.,Fahrrad fahren,دوچرخه‌سواری کردن
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Nachmittag,Noun,بعد از ظهر,afternoon,die Nachmittage,,Am Nachmittag lerne ich.,بعد از ظهر درس می‌خوانم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Abend,Noun,عصر,evening,die Abende,,Am Abend esse ich.,عصر غذا می‌خورم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Nacht,Noun,شب,night,die Nächte,,Die Nacht ist lang.,شب بلند است.,in der Nacht,در شب
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Lieblingsmonat,Noun,ماه مورد علاقه,favorite month,die Lieblingsmonate,,Mein Lieblingsmonat ist Juli.,ماه مورد علاقه من ژوئیه است.,der Lieblingsmonat ist,ماه مورد علاقه ... است
+Starten Wir,A1,7,"Wie, wo und wann?",,kaputt,Adjective,خراب/خسته,broken/exhausted,,,Ich bin kaputt.,من خسته‌ام/خرابم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔴 die,Farm,Noun,مزرعه,farm,die Farmen,,Ich arbeite auf der Farm.,من در مزرعه کار می‌کنم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Cowboy,Noun,کابوی,cowboy,die Cowboys,,Der Cowboy reitet.,کابوی سوارکاری می‌کند.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Fahrradkurier,Noun,پیک دوچرخه,bike courier,die Fahrradkuriere,,Der Fahrradkurier ist schnell.,پیک دوچرخه سریع است.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Kurierservice,Noun,سرویس پیک,courier service,die Kurierservices,,Ich nutze den Kurierservice.,من از سرویس پیک استفاده می‌کنم.,,
+Starten Wir,A1,7,"Wie, wo und wann?",🔵 der,Banker,Noun,بانکدار,banker,die Banker,,Der Banker arbeitet.,بانکدار کار می‌کند.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Verkehr,Noun,ترافیک,traffic,-,,Es gibt viel Verkehr.,ترافیک زیاد است.,viel Verkehr haben,ترافیک زیاد داشتن
+Starten Wir,A1,8,Unterwegs,🔴 die,Umwelt,Noun,محیط زیست,environment,-,,Die Umwelt ist wichtig.,محیط زیست مهم است.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Stau,Noun,ترافیک سنگین,traffic jam,die Staus,,Es gibt Stau.,ترافیک سنگین وجود دارد.,im Stau stehen,در ترافیک ماندن
+Starten Wir,A1,8,Unterwegs,🟢 das,Carsharing,Noun,اشتراک خودرو,car sharing,-,,Carsharing ist praktisch.,اشتراک خودرو کاربردی است.,,
+Starten Wir,A1,8,Unterwegs,,mieten,Verb,اجاره کردن,to rent,,mietete | gemietet,Ich miete ein Auto.,من ماشین اجاره می‌کنم.,ein Auto mieten,ماشین اجاره کردن
+Starten Wir,A1,8,Unterwegs,,hinkommen,Verb,رسیدن,to get there,,kam hin | hingekommen,Ich komme hin.,من می‌رسم.,,
+Starten Wir,A1,8,Unterwegs,,bequem,Adjective,راحت,comfortable,,,Das Sofa ist bequem.,مبل راحت است.,,
+Starten Wir,A1,8,Unterwegs,,ideal,Adjective,ایده‌آل,ideal,,,Das ist ideal.,این ایده‌آل است.,,
+Starten Wir,A1,8,Unterwegs,,zu Fuß,Phrase,پیاده,on foot,,,Ich gehe zu Fuß.,من پیاده می‌روم.,,
+Starten Wir,A1,8,Unterwegs,🟢 das,Verkehrsmittel,Noun,وسیله نقلیه,means of transport,die Verkehrsmittel,,Welches Verkehrsmittel nimmst du?,کدام وسیله نقلیه را برمی‌داری؟,,
+Starten Wir,A1,8,Unterwegs,🟢 das,Motorrad,Noun,موتور,motorcycle,die Motorräder,,Ich fahre Motorrad.,من موتور سواری می‌کنم.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Zug,Noun,قطار,train,die Züge,,Der Zug kommt.,قطار می‌آید.,den Zug nehmen,قطار گرفتن
+Starten Wir,A1,8,Unterwegs,🔴 die,Ankunft,Noun,ورود,arrival,die Ankünfte,,Wann ist die Ankunft?,ورود کی است؟,,
+Starten Wir,A1,8,Unterwegs,,warten,Verb,منتظر ماندن,to wait,,wartete | gewartet,Ich warte auf dich.,من منتظر تو هستم.,auf jemanden warten,منتظر کسی ماندن
+Starten Wir,A1,8,Unterwegs,🟢 das,Gleis,Noun,سکو,platform/track,die Gleise,,Der Zug fährt von Gleis 3 ab.,قطار از سکو ۳ حرکت می‌کند.,,
+Starten Wir,A1,8,Unterwegs,🔴 die,Abfahrt,Noun,خروج,departure,die Abfahrten,,Wann ist die Abfahrt?,خروج کی است؟,,
+Starten Wir,A1,8,Unterwegs,🔴 die,Straßenbahn,Noun,تراموا,tram,die Straßenbahnen,,Die Straßenbahn ist langsam.,تراموا آهسته است.,,
+Starten Wir,A1,8,Unterwegs,🟢 das,Elektroauto,Noun,ماشین برقی,electric car,die Elektroautos,,Das Elektroauto ist leise.,ماشین برقی بی‌صدا است.,,
+Starten Wir,A1,8,Unterwegs,,fliegen,Verb,پرواز کردن,to fly,,flog | geflogen,Ich fliege nach Berlin.,من به برلین پرواز می‌کنم.,nach ... fliegen,به ... پرواز کردن
+Starten Wir,A1,8,Unterwegs,🟢 das,Flugzeug,Noun,هواپیما,airplane,die Flugzeuge,,Das Flugzeug ist groß.,هواپیما بزرگ است.,mit dem Flugzeug fliegen,با هواپیما پرواز کردن
+Starten Wir,A1,8,Unterwegs,🟢 das,TukTuk,Noun,توک‌توک,tuk-tuk,die TukTuks,,Ich fahre mit dem TukTuk.,من با توک‌توک می‌روم.,,
+Starten Wir,A1,8,Unterwegs,,fit,Adjective,آماده,fit,,,Ich bin fit.,من آماده‌ام.,,
+Starten Wir,A1,8,Unterwegs,,bleiben,Verb,ماندن,to stay,,blieb | geblieben,Ich bleibe hier.,من اینجا می‌مانم.,zu Hause bleiben,در خانه ماندن
+Starten Wir,A1,8,Unterwegs,,sehen,Verb,دیدن,to see,,sah | gesehen,Ich sehe dich.,من تو را می‌بینم.,einen Film sehen,فیلم دیدن
+Starten Wir,A1,8,Unterwegs,🔴 die,Hexe,Noun,جادوگر,witch,die Hexen,,Die Hexe fliegt.,جادوگر پرواز می‌کند.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Vampir,Noun,خون‌آشام,vampire,die Vampire,,Der Vampir mag die Nacht.,خون‌آشام شب را دوست دارد.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Weg,Noun,راه,way/path,die Wege,,Der Weg ist kurz.,راه کوتاه است.,auf dem Weg sein,در راه بودن
+Starten Wir,A1,8,Unterwegs,,geradeaus,Adverb,مستقیم,straight ahead,,,Gehe geradeaus.,مستقیم برو.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Marktplatz,Noun,میدان بازار,market square,die Marktplätze,,Ich gehe zum Marktplatz.,من به میدان بازار می‌روم.,auf dem Marktplatz,در میدان بازار
+Starten Wir,A1,8,Unterwegs,🔴 die,Hauptstraße,Noun,خیابان اصلی,main street,die Hauptstraßen,,Die Hauptstraße ist breit.,خیابان اصلی پهن است.,,
+Starten Wir,A1,8,Unterwegs,🔴 die,Gasse,Noun,کوچه,alley,die Gassen,,Die Gasse ist eng.,کوچه تنگ است.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Taxistand,Noun,ایستگاه تاکسی,taxi stand,die Taxistände,,Ich warte am Taxistand.,من در ایستگاه تاکسی منتظرم.,,
+Starten Wir,A1,8,Unterwegs,🔴 die,Bushaltestelle,Noun,ایستگاه اتوبوس,bus stop,die Bushaltestellen,,Ich steige an der Bushaltestelle aus.,من در ایستگاه اتوبوس پیاده می‌شوم.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Treffpunkt,Noun,محل قرار,meeting point,die Treffpunkte,,Der Treffpunkt ist das Café.,محل قرار کافه است.,,
+Starten Wir,A1,8,Unterwegs,🟢 das,Rathaus,Noun,شهرداری,town hall,die Rathäuser,,Ich gehe zum Rathaus.,من به شهرداری می‌روم.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Supermarkt,Noun,سوپرمارکت,supermarket,die Supermärkte,,Ich kaufe im Supermarkt ein.,من از سوپرمارکت خرید می‌کنم.,im Supermarkt einkaufen,از سوپرمارکت خرید کردن
+Starten Wir,A1,8,Unterwegs,🔴 die,Bustour,Noun,تور اتوبوس,bus tour,die Bustouren,,Ich mache eine Bustour.,من تور اتوبوس می‌روم.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Stadtrundgang,Noun,تور شهری,city tour,die Stadtrundgänge,,Der Stadtrundgang dauert zwei Stunden.,تور شهری دو ساعت طول می‌کشد.,,
+Starten Wir,A1,8,Unterwegs,🔴 die,Sehenswürdigkeit,Noun,جاذبه گردشگری,sight,die Sehenswürdigkeiten,,Das ist eine Sehenswürdigkeit.,این یک جاذبه گردشگری است.,eine Sehenswürdigkeit besuchen,از جاذبه دیدن کردن
+Starten Wir,A1,8,Unterwegs,,berühmt,Adjective,مشهور,famous,,,Die Stadt ist berühmt.,شهر مشهور است.,,
+Starten Wir,A1,8,Unterwegs,🔴 die,Million,Noun,میلیون,million,die Millionen,,Eine Million Euro.,یک میلیون یورو.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Einwohner,Noun,ساکن,inhabitant,die Einwohner,,Die Stadt hat viele Einwohner.,شهر ساکنان زیادی دارد.,,
+Starten Wir,A1,8,Unterwegs,🔵 der,Tourist,Noun,گردشگر,tourist,die Touristen,,Der Tourist fotografiert.,گردشگر عکس می‌گیرد.,als Tourist reisen,به‌عنوان گردشگر سفر کردن
+Starten Wir,A1,8,Unterwegs,🔴 die,Touristin,Noun,گردشگر (زن),tourist (female),die Touristinnen,,Die Touristin kommt.,گردشگر زن می‌آید.,,
+Starten Wir,A1,8,Unterwegs,,einfach,Adjective,ساده,simple,,,Das ist einfach.,این ساده است.,,
+Starten Wir,A1,8,Unterwegs,,wunderschön,Adjective,بسیار زیبا,gorgeous,,,Das ist wunderschön.,این بسیار زیبا است.,,
+Starten Wir,A1,8,Unterwegs,,Naja.,Interjection,خب...,well,,,"Naja, vielleicht.",شاید، خب,,
+Starten Wir,A1,8,Unterwegs,,Gute Idee.,Phrase,ایده خوب,good idea,,,Gute Idee!,ایده خوب!,,
+Starten Wir,A1,8,Unterwegs,,"Ja, gerne.",Phrase,بله حتماً,"yes, gladly",,,"Ja, gerne.",بله حتماً.,,
+Starten Wir,A1,8,Unterwegs,,"Nein, das finde ich nicht gut.",Phrase,نه خوب نیست,"""no, I don' t think it' s good""",,,"Nein, das finde ich nicht gut.",نه این به نظرم خوب نیست.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Flohmarkt,Noun,بازار دست‌دوم,flea market,die Flohmärkte,,Ich gehe zum Flohmarkt.,من به بازار دست‌دوم می‌روم.,auf den Flohmarkt gehen,به بازار دست‌دوم رفتن
+Starten Wir,A1,9,Unter Freunden,🔵 der,Markt,Noun,بازار,market,die Märkte,,Ich kaufe am Markt.,من از بازار خرید می‌کنم.,auf dem Markt einkaufen,از بازار خرید کردن
+Starten Wir,A1,9,Unter Freunden,🔵 der,Besucher,Noun,بازدیدکننده,visitor,die Besucher,,Der Besucher kommt.,بازدیدکننده می‌آید.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Musikinstrument,Noun,ساز,musical instrument,die Musikinstrumente,,Ich spiele ein Musikinstrument.,من ساز می‌نوازم.,ein Musikinstrument spielen,ساز نواختن
+Starten Wir,A1,9,Unter Freunden,🔴 die,Handtasche,Noun,کیف دستی,handbag,die Handtaschen,,Die Handtasche ist rot.,کیف دستی قرمز است.,eine Handtasche tragen,کیف دستی حمل کردن
+Starten Wir,A1,9,Unter Freunden,🔴 die,Tasche,Noun,کیف,bag,die Taschen,,Ich habe eine Tasche.,من یک کیف دارم.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Schuh,Noun,کفش,shoe,die Schuhe,,Der Schuh ist neu.,کفش جدید است.,Schuhe anziehen,کفش پوشیدن
+Starten Wir,A1,9,Unter Freunden,🔴 die,Geldbörse,Noun,کیف پول,wallet,die Geldbörsen,,Ich habe kein Geld in der Geldbörse.,من در کیف پول پول ندارم.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Geld,Noun,پول,money,-,,Ich brauche Geld.,من پول نیاز دارم.,Geld sparen,پول پس‌انداز کردن
+Starten Wir,A1,9,Unter Freunden,🔴 die,Börse,Noun,بورس/کیسه,purse/exchange,die Börsen,,Die Börse ist leer.,بورس/کیسه خالی است.,,
+Starten Wir,A1,9,Unter Freunden,🔴 die,Hand,Noun,دست,hand,die Hände,,Die Hand ist warm.,دست گرم است.,die Hand geben,دست دادن
+Starten Wir,A1,9,Unter Freunden,🔵 der,Fuß,Noun,پا,foot,die Füße,,Der Fuß ist verletzt.,پا مجروح است.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Winter,Noun,زمستان,winter,die Winter,,Im Winter ist es kalt.,در زمستان سرد است.,im Winter,در زمستان
+Starten Wir,A1,9,Unter Freunden,,bekommen,Verb,گرفتن,to receive/get,,bekam | bekommen,Ich bekomme ein Geschenk.,من هدیه می‌گیرم.,ein Geschenk bekommen,هدیه گرفتن
+Starten Wir,A1,9,Unter Freunden,,bald,Adverb,به زودی,soon,,,Ich komme bald.,من به زودی می‌آیم.,,
+Starten Wir,A1,9,Unter Freunden,,wieder,Adverb,دوباره,again,,,Ich lerne wieder Deutsch.,من دوباره آلمانی می‌خوانم.,,
+Starten Wir,A1,9,Unter Freunden,,vielleicht,Adverb,شاید,maybe,,,Ich komme vielleicht.,من شاید بیایم.,,
+Starten Wir,A1,9,Unter Freunden,,alle,Pronoun,همه,all/everyone,,,Alle sind hier.,همه اینجا هستند.,,
+Starten Wir,A1,9,Unter Freunden,,viele,Adjective,زیاد,many,,,Ich habe viele Bücher.,من کتاب‌های زیادی دارم.,,
+Starten Wir,A1,9,Unter Freunden,,wenige,Adjective,کم,few,,,Wenige Leute wissen das.,افراد کمی این را می‌دانند.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Stern,Noun,ستاره,star,die Sterne,,Der Stern leuchtet.,ستاره می‌درخشد.,,
+Starten Wir,A1,9,Unter Freunden,,jobben,Verb,کار پاره‌وقت,to work part-time,,jobte | gejobbt,Ich jobbe am Wochenende.,من آخر هفته کار پاره‌وقت می‌کنم.,,
+Starten Wir,A1,9,Unter Freunden,,genau,Adjective,دقیق,exact/exactly,,,Genau richtig.,کاملاً درست.,,
+Starten Wir,A1,9,Unter Freunden,,denn,Conjunction,زیرا,because/well,,,Warum denn?,چرا؟,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Buch,Noun,کتاب,book,die Bücher,,Das Buch ist spannend.,کتاب هیجان‌انگیز است.,ein Buch lesen,کتاب خواندن
+Starten Wir,A1,9,Unter Freunden,🟢 das,Comicheft,Noun,مجله کمیک,comic book,die Comichefte,,Ich lese ein Comicheft.,من مجله کمیک می‌خوانم.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Comic,Noun,کمیک,comic,die Comics,,Der Comic ist lustig.,کمیک خنده‌دار است.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Heft,Noun,دفترچه,notebook,die Hefte,,Ich schreibe ins Heft.,من در دفترچه می‌نویسم.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Glas,Noun,لیوان,glass,die Gläser,,Das Glas ist voll.,لیوان پر است.,ein Glas Wasser,یک لیوان آب
+Starten Wir,A1,9,Unter Freunden,🔵 der,Ball,Noun,توپ,ball,die Bälle,,Ich spiele Ball.,من توپ بازی می‌کنم.,Ball spielen,توپ بازی کردن
+Starten Wir,A1,9,Unter Freunden,🔴 die,Winterjacke,Noun,کاپشن زمستانی,winter jacket,die Winterjacken,,Die Winterjacke ist warm.,کاپشن زمستانی گرم است.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Fotoapparat,Noun,دوربین,camera,die Fotoapparate,,Ich habe einen Fotoapparat.,من دوربین دارم.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Foto,Noun,عکس,photo,die Fotos,,Das Foto ist schön.,عکس زیبا است.,ein Foto machen,عکس گرفتن
+Starten Wir,A1,9,Unter Freunden,🔵 der,Apparat,Noun,دستگاه,device,die Apparate,,Der Apparat funktioniert.,دستگاه کار می‌کند.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Online-Shop,Noun,فروشگاه آنلاین,online shop,die Online-Shops,,Ich kaufe im Online-Shop.,من از فروشگاه آنلاین خرید می‌کنم.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Kontakt,Noun,تماس,contact,die Kontakte,,Ich habe Kontakt zu Freunden.,من با دوستان تماس دارم.,Kontakt zu jemandem haben,با کسی تماس داشتن
+Starten Wir,A1,9,Unter Freunden,🟢 das,soziales Netzwerk,Noun,شبکه اجتماعی,social network,die sozialen Netzwerke,,Ich nutze ein soziales Netzwerk.,من از شبکه اجتماعی استفاده می‌کنم.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Baby,Noun,نوزاد,baby,die Babys,,Das Baby schläft.,نوزاد خواب است.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Marketing,Noun,بازاریابی,marketing,-,,Ich studiere Marketing.,من بازاریابی می‌خوانم.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Mitglied,Noun,عضو,member,die Mitglieder,,Ich bin Mitglied im Verein.,من عضو باشگاه هستم.,Mitglied in einem Verein sein,عضو باشگاهی بودن
+Starten Wir,A1,9,Unter Freunden,,Echt?,Interjection,واقعاً؟,really?,,,Echt? Das ist toll!,واقعاً؟ این عالیه!,,
+Starten Wir,A1,9,Unter Freunden,,Wahnsinn!,Interjection,دیوانگی!,madness/wow!,,,Wahnsinn! Das ist super!,دیوانگی! این عالیه!,,
+Starten Wir,A1,9,Unter Freunden,,Cool!,Interjection,باحال!,cool!,,,Cool! Ich komme.,باحال! من می‌آیم.,,
+Starten Wir,A1,9,Unter Freunden,,Wirklich?,Interjection,واقعاً؟,really?,,,Wirklich? Ich glaube es nicht.,واقعاً؟ من باور نمی‌کنم.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Durst,Noun,تشنگی,thirst,-,,Ich habe Durst.,من تشنه هستم.,Durst haben,تشنه بودن
+Starten Wir,A1,9,Unter Freunden,🔵 der,Hunger,Noun,گرسنگی,hunger,-,,Ich habe Hunger.,من گرسنه هستم.,Hunger haben,گرسنه بودن
+Starten Wir,A1,9,Unter Freunden,,geöffnet,Adjective,باز,open,,,Der Laden ist geöffnet.,فروشگاه باز است.,,
+Starten Wir,A1,9,Unter Freunden,,mögen,Verb,دوست داشتن,to like,,mochte | gemocht,Ich mag Kaffee.,من قهوه دوست دارم.,etwas mögen,چیزی دوست داشتن
+Starten Wir,A1,9,Unter Freunden,🔴 die,Kaffeemaschine,Noun,قهوه‌ساز,coffee machine,die Kaffeemaschinen,,Die Kaffeemaschine ist laut.,قهوه‌ساز بلند است.,,
+Starten Wir,A1,9,Unter Freunden,🔴 die,Maschine,Noun,ماشین,machine,die Maschinen,,Die Maschine ist neu.,ماشین جدید است.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Kellner,Noun,گارسون (مرد),waiter,die Kellner,,Der Kellner bringt Wasser.,گارسون آب می‌آورد.,,
+Starten Wir,A1,9,Unter Freunden,🔴 die,Kellnerin,Noun,گارسون (زن),waitress,die Kellnerinnen,,Die Kellnerin ist freundlich.,گارسون زن مهربان است.,,
+Starten Wir,A1,9,Unter Freunden,🔴 die,Nachspeise,Noun,دسر,dessert,die Nachspeisen,,Ich esse eine Nachspeise.,من دسر می‌خورم.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Espresso,Noun,اسپرسو,espresso,die Espressi,,Ich trinke einen Espresso.,من اسپرسو می‌نوشم.,,
+Starten Wir,A1,9,Unter Freunden,,zahlen,Verb,پرداخت کردن,to pay,,zahlte | gezahlt,Ich zahle bar.,من نقدی پرداخت می‌کنم.,bar zahlen,نقدی پرداخت کردن
+Starten Wir,A1,9,Unter Freunden,🔴 die,Wirtschaft,Noun,اقتصاد,economy,die Wirtschaften,,Die Wirtschaft ist stark.,اقتصاد قوی است.,,
+Starten Wir,A1,9,Unter Freunden,🟢 das,Ausland,Noun,خارج,abroad,-,,Ich reise ins Ausland.,من به خارج سفر می‌کنم.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Angestellte,Noun,کارمند,employee,die Angestellten,,Der Angestellte arbeitet.,کارمند کار می‌کند.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Flüchtling,Noun,پناهجو,refugee,die Flüchtlinge,,Der Flüchtling kommt.,پناهجو می‌آید.,,
+Starten Wir,A1,9,Unter Freunden,,helfen,Verb,کمک کردن,to help,,half | geholfen,Ich helfe dir.,من به تو کمک می‌کنم.,jemandem helfen,به کسی کمک کردن
+Starten Wir,A1,9,Unter Freunden,,wollen,Verb,خواستن,to want,,wollte | gewollt,Ich will lernen.,من می‌خواهم درس بخوانم.,etwas tun wollen,خواستن کاری کردن
+Starten Wir,A1,9,Unter Freunden,,unternehmen,Verb,انجام دادن,to undertake/do,,unternahm | unternommen,Ich unternehme etwas.,من کاری انجام می‌دهم.,,
+Starten Wir,A1,9,Unter Freunden,🔵 der,Ausflug,Noun,گردش,trip/excursion,die Ausflüge,,Ich mache einen Ausflug.,من گردش می‌روم.,einen Ausflug machen,گردش رفتن
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Urlaub,Noun,تعطیلات,vacation,die Urlaube,,Ich habe Urlaub.,من تعطیلات دارم.,Urlaub machen,تعطیلات رفتن
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Campingurlaub,Noun,تعطیلات کمپینگ,camping vacation,die Campingurlaube,,Der Campingurlaub ist schön.,تعطیلات کمپینگ زیبا است.,,
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Wanderung,Noun,پیاده‌روی,hike,die Wanderungen,,Ich mache eine Wanderung.,من پیاده‌روی می‌کنم.,eine Wanderung machen,پیاده‌روی کردن
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Berg,Noun,کوه,mountain,die Berge,,Der Berg ist hoch.,کوه بلند است.,auf den Berg steigen,به کوه بالا رفتن
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Insel,Noun,جزیره,island,die Inseln,,Die Insel ist schön.,جزیره زیبا است.,auf einer Insel,در جزیره
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Strand,Noun,ساحل,beach,die Strände,,Ich gehe zum Strand.,من به ساحل می‌روم.,am Strand liegen,در ساحل دراز کشیدن
+Starten Wir,A1,10,Ich war noch nie,🔵 der,See,Noun,دریاچه,lake,die Seen,,Der See ist blau.,دریاچه آبی است.,am See,کنار دریاچه
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Wald,Noun,جنگل,forest,die Wälder,,Ich gehe in den Wald.,من به جنگل می‌روم.,im Wald wandern,در جنگل پیاده‌روی کردن
+Starten Wir,A1,10,Ich war noch nie,🟢 das,Meer,Noun,دریا,sea,die Meere,,Das Meer ist tief.,دریا عمیق است.,am Meer,کنار دریا
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Nordsee,Noun,دریای شمال,North Sea,-,,Ich fahre zur Nordsee.,من به دریای شمال می‌روم.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Urlaubsort,Noun,محل تعطیلات,vacation spot,die Urlaubsorte,,Der Urlaubsort ist ruhig.,محل تعطیلات آرام است.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Lieblingsort,Noun,جای مورد علاقه,favorite place,die Lieblingsorte,,Das ist mein Lieblingsort.,این جای مورد علاقه من است.,,
+Starten Wir,A1,10,Ich war noch nie,🟢 das,Museum,Noun,موزه,museum,die Museen,,Ich besuche das Museum.,من از موزه دیدن می‌کنم.,ein Museum besuchen,از موزه دیدن کردن
+Starten Wir,A1,10,Ich war noch nie,,besichtigen,Verb,بازدید کردن,to visit/sightsee,,besichtigte | besichtigt,Ich besichtige das Schloss.,من از قلعه بازدید می‌کنم.,eine Stadt besichtigen,از شهری دیدن کردن
+Starten Wir,A1,10,Ich war noch nie,,segeln,Verb,قایق‌رانی,to sail,,segelte | gesegelt,Ich segle gern.,من قایق‌رانی دوست دارم.,segeln gehen,قایق‌رانی رفتن
+Starten Wir,A1,10,Ich war noch nie,,windsurfen,Verb,بادسواری,to windsurf,,windsurfte | gewindsurft,Ich windsurfe am Meer.,من در دریا بادسواری می‌کنم.,,
+Starten Wir,A1,10,Ich war noch nie,,Ski fahren,Phrase,اسکی کردن,to ski,,fuhr Ski | Ski gefahren,Ich fahre Ski im Winter.,من در زمستان اسکی می‌کنم.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Alltag,Noun,روزمره,daily life,-,,Der Alltag ist stressig.,روزمره پراسترس است.,,
+Starten Wir,A1,10,Ich war noch nie,,jeden Tag,Phrase,هر روز,every day,,,Ich lerne jeden Tag.,من هر روز درس می‌خوانم.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Typ,Noun,تیپ/شخص,guy/type,die Typen,,Der Typ ist cool.,آن شخص باحال است.,,
+Starten Wir,A1,10,Ich war noch nie,,früh,Adverb,زود,early,,,Ich gehe früh schlafen.,من زود می‌خوابم.,,
+Starten Wir,A1,10,Ich war noch nie,,allein,Adjective,تنها,alone,,,Ich bin allein.,من تنها هستم.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Rap,Noun,رپ,rap,-,,Ich höre Rap.,من رپ گوش می‌دهم.,,
+Starten Wir,A1,10,Ich war noch nie,,fehlen,Verb,کم بودن,to be missing,,fehlte | gefehlt,Mir fehlt Geld.,من پول کم دارم.,,
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Jahreszeit,Noun,فصل,season,die Jahreszeiten,,Welche Jahreszeit magst du?,کدام فصل را دوست داری؟,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Frühling,Noun,بهار,spring,die Frühlinge,,Der Frühling ist schön.,بهار زیبا است.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Sommer,Noun,تابستان,summer,die Sommer,,Im Sommer ist es warm.,در تابستان گرم است.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Herbst,Noun,پاییز,autumn,die Herbste,,Im Herbst fällt Laub.,در پاییز برگ می‌ریزد.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Kilometer,Noun,کیلومتر,kilometer,die Kilometer,,Das ist 10 Kilometer.,این ۱۰ کیلومتر است.,,
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Film,Noun,فیلم,film/movie,die Filme,,Ich sehe einen Film.,من فیلم می‌بینم.,einen Film sehen,فیلم دیدن
+Starten Wir,A1,10,Ich war noch nie,,schon,Adverb,قبلاً,already,,,Ich war schon dort.,من قبلاً آنجا بوده‌ام.,,
+Starten Wir,A1,10,Ich war noch nie,,gerade,Adjective,مستقیم,straight,,,Die Linie ist gerade.,خط مستقیم است.,,
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Übernachtung,Noun,اقامت,overnight stay,die Übernachtungen,,Ich brauche eine Übernachtung.,من به اقامت نیاز دارم.,,
+Starten Wir,A1,10,Ich war noch nie,,übernachten,Verb,اقامت کردن,to stay overnight,,übernachtete | übernachtet,Ich übernacht im Hotel.,من در هتل اقامت می‌کنم.,,
+Starten Wir,A1,10,Ich war noch nie,🟢 das,Einzelzimmer,Noun,اتاق یک‌نفره,single room,die Einzelzimmer,,Ich buche ein Einzelzimmer.,من اتاق یک‌نفره رزرو می‌کنم.,,
+Starten Wir,A1,10,Ich war noch nie,🟢 das,Doppelzimmer,Noun,اتاق دونفره,double room,die Doppelzimmer,,Ich will ein Doppelzimmer.,من اتاق دونفره می‌خواهم.,,
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Suite,Noun,سوئیت,suite,die Suiten,,Die Suite ist luxuriös.,سوئیت لوکس است.,,
+Starten Wir,A1,10,Ich war noch nie,🟢 das,Appartement,Noun,آپارتمان,apartment,die Appartements,,Ich miete ein Appartement.,من آپارتمان اجاره می‌کنم.,,
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Terrasse,Noun,تراس,terrace,die Terrassen,,Die Terrasse ist sonnig.,تراس آفتابی است.,,
+Starten Wir,A1,10,Ich war noch nie,🟢 das,Frühstücksbuffet,Noun,بوفه صبحانه,breakfast buffet,die Frühstücksbuffets,,Das Frühstücksbuffet ist reichhaltig.,بوفه صبحانه مفصل است.,,
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Pension,Noun,مهمان‌سرا,guesthouse,die Pensionen,,Ich wohne in einer Pension.,من در مهمان‌سرا زندگی می‌کنم.,,
+Starten Wir,A1,10,Ich war noch nie,🔴 die,Jugendherberge,Noun,خوابگاه جوانان,youth hostel,die Jugendherbergen,,Die Jugendherberge ist günstig.,خوابگاه جوانان ارزان است.,,
+Starten Wir,A1,10,Ich war noch nie,,sterben,Verb,مردن,to die,,starb | gestorben,Die Blumen sterben ohne Wasser.,گل‌ها بدون آب می‌میرند.,an etwas sterben,بر اثر چیزی مردن
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Geschäftsmann,Noun,بیزنس‌من,businessman,die Geschäftsleute,,Der Geschäftsmann ist reich.,بیزنس‌من ثروتمند است.,als Geschäftsmann,به‌عنوان بیزنس‌من
+Starten Wir,A1,10,Ich war noch nie,🔵 der,Hotelier,Noun,صاحب هتل,hotelier,die Hoteliers,,Der Hotelier ist freundlich.,صاحب هتل مهربان است.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Auge,Noun,چشم,eye,die Augen,,Das Auge ist blau.,چشم آبی است.,die Augen öffnen,چشم‌ها را باز کردن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Arm,Noun,بازو,arm,die Arme,,Der Arm ist verletzt.,بازو مجروح است.,den Arm bewegen,بازو را تکان دادن
+Starten Wir,A1,11,Bist du fit?,🟢 das,Bein,Noun,پا,leg,die Beine,,Das Bein ist lang.,پا بلند است.,sich das Bein verletzen,پا را مجروح کردن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Körper,Noun,بدن,body,die Körper,,Der Körper ist stark.,بدن قوی است.,den Körper bewegen,بدن را تکان دادن
+Starten Wir,A1,11,Bist du fit?,,zumachen,Verb,بستن,to close,,machte zu | zugemacht,Ich mache die Tür zu.,من در را می‌بندم.,,
+Starten Wir,A1,11,Bist du fit?,,aufmachen,Verb,باز کردن,to open,,machte auf | aufgemacht,Ich mache das Fenster auf.,من پنجره را باز می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Sportart,Noun,رشته ورزشی,sport type,die Sportarten,,Welche Sportart magst du?,کدام رشته ورزشی را دوست داری؟,eine Sportart machen,رشتهٔ ورزشی کردن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Lieblingssport,Noun,ورزش مورد علاقه,favorite sport,die Lieblingssporte,,Mein Lieblingssport ist Fußball.,ورزش مورد علاقه من فوتبال است.,,
+Starten Wir,A1,11,Bist du fit?,,beliebt,Adjective,محبوب,popular,,,Der Sport ist beliebt.,ورزش محبوب است.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Pilates,Noun,پیلاتس,pilates,-,,Ich mache Pilates.,من پیلاتس کار می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Step,Noun,استپ,step,die Steps,,Der Step ist gut.,استپ خوب است.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Tennis,Noun,تنیس,tennis,-,,Ich spiele Tennis.,من تنیس بازی می‌کنم.,Tennis spielen,تنیس بازی کردن
+Starten Wir,A1,11,Bist du fit?,🟢 das,Thaiboxen,Noun,تای‌بوکس,thaiboxing,-,,Ich mache Thaiboxen.,من تای‌بوکس کار می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Boxen,Noun,بوکس,boxing,-,,Ich boxe gern.,من بوکس دوست دارم.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Skialpin,Noun,اسکی آلپاین,alpine skiing,-,,Der Skialpin ist schwer.,اسکی آلپاین سخت است.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Skispringen,Noun,پرش با اسکی,ski jumping,-,,Das Skispringen ist cool.,پرش با اسکی باحال است.,,
+Starten Wir,A1,11,Bist du fit?,,danken,Verb,تشکر کردن,to thank,,dankte | gedankt,Ich danke dir.,من از تو تشکر می‌کنم.,jemandem danken,از کسی تشکر کردن
+Starten Wir,A1,11,Bist du fit?,,schenken,Verb,هدیه دادن,to give as gift,,schenkte | geschenkt,Ich schenke dir ein Buch.,من به تو کتاب هدیه می‌دهم.,jemandem etwas schenken,به کسی چیزی هدیه دادن
+Starten Wir,A1,11,Bist du fit?,,gehören,Verb,تعلق داشتن,to belong,,gehörte | gehört,Das gehört mir.,این متعلق به من است.,jemandem gehören,متعلق به کسی بودن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Mund,Noun,دهان,mouth,die Münder,,Der Mund ist offen.,دهان باز است.,den Mund öffnen,دهان را باز کردن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Körperteil,Noun,عضو بدن,body part,die Körperteile,,Das ist ein Körperteil.,این یک عضو بدن است.,,
+Starten Wir,A1,11,Bist du fit?,,einatmen,Verb,دم کشیدن,to inhale,,atmete ein | eingeatmet,Ich atme ein.,من دم می‌کشم.,,
+Starten Wir,A1,11,Bist du fit?,,ausatmen,Verb,بازدم,to exhale,,atmete aus | ausgeatmet,Atme aus.,بازدم کن.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Spiel,Noun,بازی,game,die Spiele,,Das Spiel ist spannend.,بازی هیجان‌انگیز است.,ein Spiel spielen,بازی کردن
+Starten Wir,A1,11,Bist du fit?,🟢 das,Basketballspiel,Noun,بازی بسکتبال,basketball game,die Basketballspiele,,Ich sehe das Basketballspiel.,من بازی بسکتبال را می‌بینم.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Fußballspiel,Noun,بازی فوتبال,football game,die Fußballspiele,,Das Fußballspiel ist laut.,بازی فوتبال پر سروصدا است.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Tennismatch,Noun,مسابقه تنیس,tennis match,die Tennismatches,,Das Tennismatch ist spannend.,مسابقه تنیس هیجان‌انگیز است.,,
+Starten Wir,A1,11,Bist du fit?,,legen,Verb,گذاشتن,to lay/put,,legte | gelegt,Ich lege das Buch hin.,من کتاب را می‌گذارم.,,
+Starten Wir,A1,11,Bist du fit?,,trainieren,Verb,تمرین کردن,to train,,trainierte | trainiert,Ich trainiere hart.,من سخت تمرین می‌کنم.,hart trainieren,سخت تمرین کردن
+Starten Wir,A1,11,Bist du fit?,,laufen,Verb,دویدن,to run,,lief | gelaufen,Ich laufe schnell.,من سریع می‌دوم.,schnell laufen,سريع دویدن
+Starten Wir,A1,11,Bist du fit?,,kämpfen,Verb,مبارزه کردن,to fight,,kämpfte | gekämpft,Ich kämpfe für dich.,من برای تو مبارزه می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,,heben,Verb,بالا بردن,to lift,,hob | gehoben,Ich hebe die Last.,من بار را بالا می‌برم.,,
+Starten Wir,A1,11,Bist du fit?,,relaxen,Verb,ریلکس کردن,to relax,,relaxte | relaxt,Ich relaxe nach der Arbeit.,من بعد از کار ریلکس می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,,entspannen,Verb,آرام شدن,to relax/unwind,,entspannte | entspannt,Ich entspanne mich.,من آرام می‌شوم.,,
+Starten Wir,A1,11,Bist du fit?,,entspannt,Adjective,آرام,relaxed,,,Ich bin entspannt.,من آرام هستم.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Fan,Noun,هوادار,fan,die Fans,,Ich bin Fan von Fußball.,من هوادار فوتبال هستم.,Fan von etwas sein,هوادار چیزی بودن
+Starten Wir,A1,11,Bist du fit?,🟢 das,Trikot,Noun,پیراهن ورزشی,jersey,die Trikots,,Das Trikot ist rot.,پیراهن ورزشی قرمز است.,ein Trikot tragen,پیراهن ورزشی پوشیدن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Raum,Noun,فضا/اتاق,room/space,die Räume,,Der Raum ist groß.,فضا بزرگ است.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Team,Noun,تیم,team,die Teams,,Das Team ist gut.,تیم خوب است.,in einem Team spielen,در تیم بازی کردن
+Starten Wir,A1,11,Bist du fit?,🟢 das,Training,Noun,تمرین,training,die Trainings,,Das Training ist hart.,تمرین سخت است.,Training haben,تمرین داشتن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Trainer,Noun,مربی (مرد),coach (male),die Trainer,,Der Trainer ist streng.,مربی سخت‌گیر است.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Trainerin,Noun,مربی (زن),coach (female),die Trainerinnen,,Die Trainerin hilft uns.,مربی زن به ما کمک می‌کند.,,
+Starten Wir,A1,11,Bist du fit?,,gefallen,Verb,پسند آمدن,to like/please,,gefiel | gefallen,Das gefällt mir.,این را دوست دارم.,jemandem gefallen,مورد پسند کسی بودن
+Starten Wir,A1,11,Bist du fit?,,meinen,Verb,منظور داشتن,to mean,,meinte | gemeint,Ich meine das ernst.,من جدی منظورم این است.,,
+Starten Wir,A1,11,Bist du fit?,,glauben,Verb,اعتقاد داشتن,to believe,,glaubte | geglaubt,Ich glaube dir.,من به تو اعتقاد دارم.,jemandem glauben,کسی را باور کردن
+Starten Wir,A1,11,Bist du fit?,,einmal,Adverb,یک‌بار,once,,,Ich war einmal dort.,من یک‌بار آنجا بودم.,,
+Starten Wir,A1,11,Bist du fit?,,zweimal,Adverb,دو بار,twice,,,Ich komme zweimal.,من دو بار می‌آیم.,,
+Starten Wir,A1,11,Bist du fit?,,Wie oft?,Phrase,چند بار؟,how often?,,,Wie oft trainierst du?,چند بار تمرین می‌کنی؟,,
+Starten Wir,A1,11,Bist du fit?,,pro Woche,Phrase,در هفته,per week,,,Ich trainiere dreimal pro Woche.,من سه بار در هفته تمرین می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,,pro Monat,Phrase,در ماه,per month,,,Ich spare 100 Euro pro Monat.,من ماهی ۱۰۰ یورو پس‌انداز می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Dialog,Noun,گفتگو,dialogue,die Dialoge,,Der Dialog ist gut.,گفتگو خوب است.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Vokabel,Noun,لغت,vocabulary,die Vokabeln,,Ich lerne Vokabeln.,من لغت یاد می‌گیرم.,,
+Starten Wir,A1,11,Bist du fit?,,ergänzen,Verb,تکمیل کردن,to complete,,ergänzte | ergänzt,Ergänze den Satz.,جمله را تکمیل کن.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Antwort,Noun,پاسخ,answer,die Antworten,,Die Antwort ist richtig.,پاسخ درست است.,,
+Starten Wir,A1,11,Bist du fit?,,lachen,Verb,خندیدن,to laugh,,lachte | gelacht,Ich lache laut.,من بلند می‌خندم.,,
+Starten Wir,A1,11,Bist du fit?,,reden,Verb,صحبت کردن,to talk,,redete | geredet,Ich rede mit dir.,من با تو صحبت می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,,ankreuzen,Verb,علامت زدن,to tick/check,,kreuzte an | angekreuzt,Ich kreuze an.,من علامت می‌زنم.,,
+Starten Wir,A1,11,Bist du fit?,,träumen,Verb,رویا دیدن,to dream,,träumte | geträumt,Ich träume von dir.,من رویای تو را می‌بینم.,,
+Starten Wir,A1,11,Bist du fit?,,tun,Verb,انجام دادن,to do,,tat | getan,Ich tue mein Bestes.,من بهترینم را انجام می‌دهم.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Prozent,Noun,درصد,percent,die Prozente,,Ich gebe 100 Prozent.,من ۱۰۰ درصد تلاش می‌کنم.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Nummer,Noun,شماره,number,die Nummern,,Ruf die Nummer an.,به شماره زنگ بزن.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Fenster,Noun,پنجره,window,die Fenster,,Das Fenster ist offen.,پنجره باز است.,,
+Starten Wir,A1,11,Bist du fit?,,öffnen,Verb,باز کردن,to open,,öffnete | geöffnet,Ich öffne die Tür.,من در را باز می‌کنم.,die Tür öffnen,در را باز کردن
+Starten Wir,A1,11,Bist du fit?,,aussehen,Verb,به نظر رسیدن,to look,,sah aus | ausgesehen,Du siehst gut aus.,تو خوب به نظر می‌رسی.,,
+Starten Wir,A1,11,Bist du fit?,,zuerst,Adverb,اول,first,,,Ich komme zuerst.,من اول می‌آیم.,,
+Starten Wir,A1,11,Bist du fit?,,dann,Adverb,سپس,then,,,Ich gehe dann nach Hause.,من سپس به خانه می‌روم.,,
+Starten Wir,A1,11,Bist du fit?,,beide,Pronoun,هر دو,both,,,Beide sind hier.,هر دو اینجا هستند.,,
+Starten Wir,A1,11,Bist du fit?,,jung,Adjective,جوان,young,,,Er ist jung.,او جوان است.,,
+Starten Wir,A1,11,Bist du fit?,,alt,Adjective,پیر,old,,,Er ist alt.,او پیر است.,,
+Starten Wir,A1,11,Bist du fit?,,seit,Preposition,از,since,,,Ich lerne seit einem Jahr Deutsch.,من از یک سال پیش آلمانی یاد می‌گیرم.,,
+Starten Wir,A1,11,Bist du fit?,,unser,Determiner,مال ما,our,,,Das ist unser Haus.,این خانه ما است.,,
+Starten Wir,A1,11,Bist du fit?,,sofort,Adverb,فورا,immediately,,,Ich komme sofort.,من فورا می‌آیم.,,
+Starten Wir,A1,11,Bist du fit?,,rauchen,Verb,سیگار کشیدن,to smoke,,rauchte | geraucht,Ich rauche nicht.,من سیگار نمی‌کشم.,nicht rauchen,سیگار نکشیدن
+Starten Wir,A1,11,Bist du fit?,🟢 das,Rauchen,Noun,سیگار کشیدن,smoking,-,,Rauchen ist verboten.,سیگار کشیدن ممنوع است.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Hühnersuppe,Noun,سوپ مرغ,chicken soup,die Hühnersuppen,,Die Hühnersuppe ist warm.,سوپ مرغ گرم است.,Hühnersuppe essen,سوپ مرغ خوردن
+Starten Wir,A1,11,Bist du fit?,🔵 der,Patient,Noun,بیمار (مرد),patient (male),die Patienten,,Der Patient liegt im Bett.,بیمار در تخت است.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Patientin,Noun,بیمار (زن),patient (female),die Patientinnen,,Die Patientin kommt.,بیمار زن می‌آید.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Ärztin,Noun,پزشک (زن),doctor (female),die Ärztinnen,,Die Ärztin hilft mir.,پزشک زن به من کمک می‌کند.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Doktor,Noun,دکتر,doctor,die Doktoren,,Der Doktor ist klug.,دکتر باهوش است.,,
+Starten Wir,A1,11,Bist du fit?,,wehtun,Verb,درد گرفتن,to hurt,,tat weh | wehgetan,Mein Kopf tut weh.,سرم درد می‌کند.,,
+Starten Wir,A1,11,Bist du fit?,,krank,Adjective,بیمار,sick,,,Ich bin krank.,من بیمار هستم.,,
+Starten Wir,A1,11,Bist du fit?,,erkältet,Adjective,سرماخورده,having a cold,,,Ich bin erkältet.,من سرماخورده‌ام.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Schnupfen,Noun,آبریزش بینی,cold/runny nose,-,,Ich habe Schnupfen.,من آبریزش بینی دارم.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Husten,Noun,سرفه,cough,-,,Ich habe Husten.,من سرفه دارم.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Fieber,Noun,تب,fever,-,,Ich habe Fieber.,من تب دارم.,,
+Starten Wir,A1,11,Bist du fit?,🔴 die,Tablette,Noun,قرص,tablet/pill,die Tabletten,,Ich nehme eine Tablette.,من یک قرص می‌خورم.,eine Tablette nehmen,قرص خوردن
+Starten Wir,A1,11,Bist du fit?,,krankschreiben,Verb,مرخصی استعلاجی,to write sick note,,schrieb krank | krankgeschrieben,Der Arzt schreibt mich krank.,پزشک من را مرخصی استعلاجی می‌نویسد.,,
+Starten Wir,A1,11,Bist du fit?,🟢 das,Antibiotikum,Noun,آنتی‌بیوتیک,antibiotic,die Antibiotika,,Ich nehme Antibiotika.,من آنتی‌بیوتیک می‌خورم.,,
+Starten Wir,A1,11,Bist du fit?,🔵 der,Tipp,Noun,نکته,tip,die Tipps,,Gib mir einen Tipp.,به من یک نکته بده.,,
+Starten Wir,A1,11,Bist du fit?,,leicht,Adjective,آسان,easy/light,,,Die Arbeit ist leicht.,کار آسان است.,,
+Starten Wir,A1,11,Bist du fit?,,schwer,Adjective,سخت,hard/heavy,,,Das ist schwer.,این سخت است.,,
+Starten Wir,A1,11,Bist du fit?,,dürfen,Verb,اجازه داشتن,may/to be allowed,,durfte | gedurft,Ich darf gehen.,من اجازه دارم بروم.,,
+Starten Wir,A1,11,Bist du fit?,,verboten,Adjective,ممنوع,forbidden,,,Rauchen ist verboten.,سیگار کشیدن ممنوع است.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Journalist,Noun,روزنامه‌نگار (مرد),journalist (male),die Journalisten,,Der Journalist schreibt.,روزنامه‌نگار می‌نویسد.,als Journalist arbeiten,به‌عنوان روزنامه‌نگار کار کردن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Journalistin,Noun,روزنامه‌نگار (زن),journalist (female),die Journalistinnen,,Die Journalistin fragt.,روزنامه‌نگار زن سوال می‌پرسد.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Pilot,Noun,خلبان (مرد),pilot (male),die Piloten,,Der Pilot fliegt.,خلبان پرواز می‌کند.,Pilot sein,خلبان بودن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Pilotin,Noun,خلبان (زن),pilot (female),die Pilotinnen,,Die Pilotin ist klug.,خلبان زن باهوش است.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Hausmann,Noun,خانه‌دار (مرد),househusband,die Hausmänner,,Der Hausmann kocht.,خانه‌دار مرد آشپزی می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Hausfrau,Noun,خانه‌دار (زن),housewife,die Hausfrauen,,Die Hausfrau arbeitet.,خانه‌دار زن کار می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Schauspieler,Noun,بازیگر (مرد),actor,die Schauspieler,,Der Schauspieler spielt.,بازیگر بازی می‌کند.,Schauspieler sein,بازیگر بودن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Schauspielerin,Noun,بازیگر (زن),actress,die Schauspielerinnen,,Die Schauspielerin ist berühmt.,بازیگر زن مشهور است.,,
+Starten Wir,A1,12,Beruf und Leben,,zusammenarbeiten,Verb,همکاری کردن,to cooperate,,arbeitete zusammen | zusammengearbeitet,Ich arbeite mit dir zusammen.,من با تو همکاری می‌کنم.,mit jemandem zusammenarbeiten,با کسی همکاری کردن
+Starten Wir,A1,12,Beruf und Leben,,verdienen,Verb,کسب کردن,to earn,,verdiente | verdient,Ich verdiene Geld.,من پول کسب می‌کنم.,Geld verdienen,پول درآوردن
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Arbeitsplatz,Noun,محل کار,workplace,die Arbeitsplätze,,Der Arbeitsplatz ist neu.,محل کار جدید است.,einen Arbeitsplatz haben,محل کار داشتن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Arbeitszeit,Noun,ساعت کار,working hours,die Arbeitszeiten,,Die Arbeitszeit ist lang.,ساعت کار بلند است.,die Arbeitszeit ist,ساعت کار ... است
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Traumjob,Noun,شغل رویایی,dream job,die Traumjobs,,Das ist mein Traumjob.,این شغل رویایی من است.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Werkstatt,Noun,کارگاه,workshop,die Werkstätten,,Ich arbeite in der Werkstatt.,من در کارگاه کار می‌کنم.,,
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Yogastudio,Noun,استودیو یوگا,yoga studio,die Yogastudios,,Ich gehe ins Yogastudio.,من به استودیو یوگا می‌روم.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Forschungsstation,Noun,ایستگاه تحقیقات,research station,die Forschungsstationen,,Die Forschungsstation ist isoliert.,ایستگاه تحقیقات ایزوله است.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Aufgabe,Noun,وظیفه,task,die Aufgaben,,Die Aufgabe ist leicht.,وظیفه آسان است.,,
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Problem,Noun,مشکل,problem,die Probleme,,Das Problem ist groß.,مشکل بزرگ است.,ein Problem haben,مشکل داشتن
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Kunde,Noun,مشتری (مرد),customer (male),die Kunden,,Der Kunde kauft.,مشتری خرید می‌کند.,einen Kunden bedienen,مشتری را سرویس دادن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Karriere,Noun,شغل/حرفه,career,die Karrieren,,Ich baue meine Karriere auf.,من شغلم را می‌سازم.,Karriere machen,پیشرفت شغلی کردن
+Starten Wir,A1,12,Beruf und Leben,,glücklich,Adjective,خوشحال,happy,,,Ich bin glücklich.,من خوشحال هستم.,,
+Starten Wir,A1,12,Beruf und Leben,,spannend,Adjective,هیجان‌انگیز,exciting,,,Der Film ist spannend.,فیلم هیجان‌انگیز است.,,
+Starten Wir,A1,12,Beruf und Leben,,stressig,Adjective,پراسترس,stressful,,,Die Arbeit ist stressig.,کار پراسترس است.,,
+Starten Wir,A1,12,Beruf und Leben,,sicher,Adjective,مطمئن,safe/sure,,,Ich bin sicher.,من مطمئن هستم.,,
+Starten Wir,A1,12,Beruf und Leben,,nützlich,Adjective,مفید,useful,,,Das ist nützlich.,این مفید است.,,
+Starten Wir,A1,12,Beruf und Leben,,kreativ,Adjective,خلاق,creative,,,Sie ist kreativ.,او خلاق است.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Fitnesstrainer,Noun,مربی فیتنس,fitness trainer (male),die Fitnesstrainer,,Der Fitnesstrainer hilft mir.,مربی فیتنس به من کمک می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Programmierer,Noun,برنامه‌نویس,programmer (male),die Programmierer,,Der Programmierer codet.,برنامه‌نویس کد می‌زند.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Fitnesstrainerin,Noun,مربی فیتنس (زن),fitness trainer (female),die Fitnesstrainerinnen,,Die Fitnesstrainerin ist stark.,مربی فیتنس زن قوی است.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Programmiererin,Noun,برنامه‌نویس (زن),programmer (female),die Programmiererinnen,,Die Programmiererin arbeitet.,برنامه‌نویس زن کار می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Krankenpfleger,Noun,پرستار (مرد),nurse (male),die Krankenpfleger,,Der Krankenpfleger hilft.,پرستار مرد کمک می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Psychologe,Noun,روانشناس,psychologist (male),die Psychologen,,Der Psychologe hört zu.,روانشناس گوش می‌دهد.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Krankenschwester,Noun,پرستار (زن),nurse (female),die Krankenschwestern,,Die Krankenschwester ist nett.,پرستار زن مهربان است.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Psychologin,Noun,روانشناس (زن),psychologist (female),die Psychologinnen,,Die Psychologin hilft.,روانشناس زن کمک می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Automechaniker,Noun,مکانیک,mechanic (male),die Automechaniker,,Der Automechaniker repariert.,مکانیک تعمیر می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Redakteur,Noun,ویراستار,editor (male),die Redakteure,,Der Redakteur schreibt.,ویراستار می‌نویسد.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Automechanikerin,Noun,مکانیک (زن),mechanic (female),die Automechanikerinnen,,Die Automechanikerin arbeitet.,مکانیک زن کار می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Redakteurin,Noun,ویراستار (زن),editor (female),die Redakteurinnen,,Die Redakteurin ist klug.,ویراستار زن باهوش است.,,
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Verkäufer,Noun,فروشنده,salesman,die Verkäufer,,Der Verkäufer ist freundlich.,فروشنده مهربان است.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Küchenhilfe,Noun,کمک آشپز,kitchen helper,die Küchenhilfen,,Die Küchenhilfe kocht.,کمک آشپز آشپزی می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Verkäuferin,Noun,فروشنده (زن),saleswoman,die Verkäuferinnen,,Die Verkäuferin hilft.,فروشنده زن کمک می‌کند.,,
+Starten Wir,A1,12,Beruf und Leben,,updaten,Verb,بروزرسانی,to update,,updatete | geupdatet,Ich update das Programm.,من برنامه را بروز می‌کنم.,,
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Video,Noun,ویدیو,video,die Videos,,Ich sehe ein Video.,من ویدیو می‌بینم.,ein Video sehen,ویدیو دیدن
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Blog,Noun,وبلاگ,blog,die Blogs,,Ich lese einen Blog.,من وبلاگ می‌خوانم.,einen Blog lesen,وبلاگ خواندن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Zeitung,Noun,روزنامه,newspaper,die Zeitungen,,Ich lese die Zeitung.,من روزنامه می‌خوانم.,Zeitung lesen,روزنامه خواندن
+Starten Wir,A1,12,Beruf und Leben,🟢 das,TV-Studio,Noun,استودیو تلویزیون,TV studio,die TV-Studios,,Ich arbeite im TV-Studio.,من در استودیو تلویزیون کار می‌کنم.,,
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Programm,Noun,برنامه,program,die Programme,,Das Programm ist gut.,برنامه خوب است.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Information,Noun,اطلاعات,information,die Informationen,,Ich brauche Informationen.,من به اطلاعات نیاز دارم.,,
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Skript,Noun,فیلمنامه,script,die Skripte,,Ich schreibe ein Skript.,من فیلمنامه می‌نویسم.,,
+Starten Wir,A1,12,Beruf und Leben,,Leute,Noun,مردم,people,die Leute,,Die Leute sind nett.,مردم مهربان هستند.,,
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Welt,Noun,جهان,world,die Welten,,Die Welt ist groß.,جهان بزرگ است.,,
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Mittagessen,Noun,ناهار,lunch,die Mittagessen,,Das Mittagessen ist fertig.,ناهار آماده است.,Mittagessen essen,ناهار خوردن
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Abendessen,Noun,شام,dinner,die Abendessen,,Das Abendessen ist lecker.,شام خوشمزه است.,Abendessen essen,شام خوردن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Hausaufgabe,Noun,تکلیف,homework,die Hausaufgaben,,Ich mache meine Hausaufgaben.,من تکالیفم را انجام می‌دهم.,Hausaufgaben machen,تکلیف انجام دادن
+Starten Wir,A1,12,Beruf und Leben,,vor,Preposition,قبل,in front of,,,Ich warte vor dem Haus.,من جلوی خانه منتظرم.,,
+Starten Wir,A1,12,Beruf und Leben,,international,Adjective,بین‌المللی,international,,,Die Firma ist international.,شرکت بین‌المللی است.,,
+Starten Wir,A1,12,Beruf und Leben,,nach,Preposition,بعد,after,,,Nach der Arbeit gehe ich nach Hause.,بعد از کار به خانه می‌روم.,,
+Starten Wir,A1,12,Beruf und Leben,,jährlich,Adjective,سالانه,annual,,,Die Konferenz findet jährlich statt.,کنفرانس سالانه برگزار می‌شود.,,
+Starten Wir,A1,12,Beruf und Leben,,verstehen,Verb,فهمیدن,to understand,,verstand | verstanden,Ich verstehe Deutsch.,من آلمانی می‌فهمم.,,
+Starten Wir,A1,12,Beruf und Leben,,planen,Verb,برنامه‌ریزی,to plan,,plante | geplant,Ich plane meinen Urlaub.,من تعطیلاتم را برنامه‌ریزی می‌کنم.,einen Urlaub planen,تعطیلات برنامه‌ریزی کردن
+Starten Wir,A1,12,Beruf und Leben,,schälen,Verb,پوست کندن,to peel,,schälte | geschält,Ich schäle den Apfel.,من سیب را پوست می‌کنم.,einen Apfel schälen,سیب پوست کندن
+Starten Wir,A1,12,Beruf und Leben,,reisen,Verb,سفر کردن,to travel,,reiste | gereist,Ich reise ins Ausland.,من به خارج سفر می‌کنم.,ins Ausland reisen,به خارج سفر کردن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Auszeit,Noun,استراحت,time off,die Auszeiten,,Ich nehme eine Auszeit.,من استراحت می‌گیرم.,eine Auszeit nehmen,استراحت گرفتن
+Starten Wir,A1,12,Beruf und Leben,🔴 die,Muttersprache,Noun,زبان مادری,native language,die Muttersprachen,,Deutsch ist meine Muttersprache.,آلمانی زبان مادری من است.,die Muttersprache sprechen,به زبان مادری صحبت کردن
+Starten Wir,A1,12,Beruf und Leben,🟢 das,Wort,Noun,کلمه,word,die Wörter,,Ich lerne ein neues Wort.,من یک کلمه جدید یاد می‌گیرم.,ein Wort lernen,کلمه‌ای یاد گرفتن
+Starten Wir,A1,12,Beruf und Leben,🔵 der,Besuch,Noun,ملاقات,visit,die Besuche,,Der Besuch war schön.,ملاقات خوب بود.,Besuch bekommen,ملاقات داشتن
+Starten Wir,A1,12,Beruf und Leben,,"""Wie geht' s?""",Phrase,حالت چطوره؟,how are you?,,,"""Wie geht's?""",حالت چطوره؟,,
+Starten Wir,A1,12,Beruf und Leben,,"""Was darf' s denn sein?""",Phrase,چی میل دارید؟,what can I get you?,,,"""Was darf's denn sein?""",چی میل دارید؟,,
