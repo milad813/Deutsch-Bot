@@ -26,6 +26,7 @@ class Database:
 
         self._create_tables()
         self._migrate()
+        self._migrate_pending_to_phase()
         self._create_indexes()
 
     @contextmanager
@@ -198,7 +199,24 @@ class Database:
                     if "duplicate column name" not in str(e).lower():
                         logger.warning("Migration failed: %s", e)
 
-
+    def _migrate_pending_to_phase(self):
+        """مهاجرت یک‌باره: کلمات pending_reviews → phase='learning' در word_stats."""
+        with self._cursor() as c:
+            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='pending_reviews'")
+            if not c.fetchone():
+                return
+            c.execute("SELECT COUNT(*) FROM pending_reviews")
+            count = c.fetchone()[0]
+            if count == 0:
+                return
+        with self._cursor(commit=True) as c:
+            c.execute("""
+                UPDATE word_stats SET phase = 'learning', next_review = datetime('now')
+                WHERE word_id IN (SELECT word_id FROM pending_reviews)
+            """)
+            c.execute("DELETE FROM pending_reviews")
+        logger.info("مهاجرت pending_reviews → phase='learning': %d کلمه", count)
+        
     def _create_indexes(self):
         with self._cursor(commit=True) as c:
             try:
@@ -658,7 +676,7 @@ class Database:
             FROM words w
             JOIN word_stats ws ON w.id = ws.word_id
             WHERE ws.user_id = ?
-              AND date(ws.next_review) <= date('now')
+              AND ws.next_review <= datetime('now')
         """
         params = [user_id]
 
@@ -785,7 +803,7 @@ class Database:
                 FROM words w
                 JOIN word_stats ws ON w.id = ws.word_id
                 WHERE ws.user_id = ?
-                  AND date(ws.next_review) <= date('now')
+                  AND ws.next_review <= datetime('now')
                 ORDER BY ws.next_review ASC
                 """,
                 (user_id,),
@@ -800,7 +818,7 @@ class Database:
                 FROM words w
                 JOIN word_stats ws ON w.id = ws.word_id
                 WHERE ws.user_id = ?
-                  AND date(ws.next_review) <= date('now')
+                  AND ws.next_review <= datetime('now')
                 """,
                 (user_id,),
             )
@@ -877,6 +895,52 @@ class Database:
                         srs_level, last_review, next_review, phase, stability, difficulty
                     ),
                 )
+
+
+    # ─── کلمات سخت معوق (جایگزین pending_reviews) ───
+
+    def get_hard_due_word_objects(self, user_id, limit=20, exclude_ids=None):
+        query = f"""
+        SELECT {self._word_columns('w')}
+        FROM words w
+        JOIN word_stats ws ON w.id = ws.word_id
+        WHERE ws.user_id = ?
+        AND ws.phase = 'learning'
+        AND ws.next_review <= datetime('now')
+        """
+        params = [user_id]
+        exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
+        query += exclude_sql
+        query += " ORDER BY ws.next_review ASC LIMIT ?"
+        params.extend(exclude_params)
+        params.append(limit)
+        with self._cursor() as c:
+            c.execute(query, tuple(params))
+            return [self._row_to_word(row) for row in c.fetchall()]
+
+    def count_hard_due_words(self, user_id):
+        with self._cursor() as c:
+            c.execute("""
+            SELECT COUNT(*)
+            FROM words w
+            JOIN word_stats ws ON w.id = ws.word_id
+            WHERE ws.user_id = ?
+            AND ws.phase = 'learning'
+            AND ws.next_review <= datetime('now')
+            """, (user_id,))
+            return c.fetchone()[0]
+
+    # ─── تنظیمات کاربر ───
+
+    def update_user_setting(self, user_id: int, preferred_level: str):
+        with self._cursor(commit=True) as c:
+            c.execute(
+                """INSERT INTO user_settings (user_id, preferred_level)
+                VALUES (?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET preferred_level = ?""",
+                (user_id, preferred_level, preferred_level),
+            )
+
 
     def get_word_stats_full(self, user_id: int, word_id: int) -> Optional[Dict]:
         with self._cursor() as c:
@@ -1001,53 +1065,6 @@ class Database:
     def level_from_xp(xp: int):
         level = (xp // 100) + 1
         return level, xp % 100, 100
-
-    def add_pending_review(self, user_id: int, word_id: int, hours: float = 4.0) -> None:
-        due_str = (_utc_now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
-        with self._cursor(commit=True) as c:
-            c.execute(
-                "SELECT due_at FROM pending_reviews WHERE user_id=? AND word_id=?",
-                (user_id, word_id),
-            )
-            r = c.fetchone()
-            if r is None:
-                c.execute(
-                    "INSERT INTO pending_reviews(user_id, word_id, due_at) VALUES(?,?,?)",
-                    (user_id, word_id, due_str),
-                )
-            elif r[0] and r[0] > due_str:
-                c.execute(
-                    "UPDATE pending_reviews SET due_at=? WHERE user_id=? AND word_id=?",
-                    (due_str, user_id, word_id),
-                )
-
-    def get_pending_review_word_ids(self, user_id: int) -> List[int]:
-        with self._cursor() as c:
-            c.execute(
-                "SELECT word_id FROM pending_reviews "
-                "WHERE user_id=? AND due_at <= datetime('now')",
-                (user_id,),
-            )
-            return [r[0] for r in c.fetchall()]
-
-    def count_pending_reviews(self, user_id: int) -> int:
-        with self._cursor() as c:
-            c.execute(
-                "SELECT COUNT(*) FROM pending_reviews "
-                "WHERE user_id=? AND due_at <= datetime('now')",
-                (user_id,),
-            )
-            return c.fetchone()[0]
-
-    def clear_pending_reviews(self, user_id: int, word_ids: List[int]) -> None:
-        if not word_ids:
-            return
-        ph = ",".join("?" for _ in word_ids)
-        with self._cursor(commit=True) as c:
-            c.execute(
-                f"DELETE FROM pending_reviews WHERE user_id=? AND word_id IN ({ph})",
-                [user_id] + list(word_ids),
-            )
 
     def add_grammar_point(
         self, lesson_id, topic_key, title_fa, level, explanation_fa,

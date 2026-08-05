@@ -77,7 +77,7 @@ if not GROQ_API_KEYS and GROQ_API_KEY:
 GROQ_MODEL = get_env("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_MAX_TOKENS = _get_int("GROQ_MAX_TOKENS", 400)
 GROQ_TEMPERATURE = _get_float("GROQ_TEMPERATURE", 0.7)
-
+USER_INTERESTS = get_env("USER_INTERESTS", "")
 _BOT_MODE_STR = get_env("BOT_MODE", "hybrid").lower()
 try:
     BOT_MODE = BotMode(_BOT_MODE_STR)
@@ -116,8 +116,8 @@ def validate_config() -> None:
     if missing:
         raise RuntimeError("این متغیرها تنظیم نشده‌اند: " + ", ".join(missing))
 
-    if not GROQ_API_KEY:
-        logging.warning("GROQ_API_KEY تنظیم نشده. قابلیت LLM غیرفعال است.")
+    if not GROQ_API_KEYS:
+        logging.warning("GROQ_API_KEYS تنظیم نشده. قابلیت LLM غیرفعال است.")
 
 
 def setup_logging() -> None:

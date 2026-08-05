@@ -489,11 +489,6 @@ async def handle_quiz_answer(query, context):
         fsrs.review(user_id, quiz_info["word_id"], grade)
 
     db.record_activity(user_id, 10 if is_correct else 0)
-    if quiz_info.get("word_id"):
-        if is_correct:
-            db.clear_pending_reviews(user_id, [quiz_info["word_id"]])
-        else:
-            db.add_pending_review(user_id, quiz_info["word_id"])
 
     _update_quiz_session(
         context,

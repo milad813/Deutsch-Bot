@@ -270,7 +270,6 @@ Return ONLY the German sentence."""
         except Exception as e:
             logger.warning("خطا در تولید جمله مثال: %s", e)
             return None
-
     async def generate_contextual_example(
         self,
         word: str,
@@ -280,20 +279,23 @@ Return ONLY the German sentence."""
     ) -> Optional[Dict]:
         if not self.is_available():
             return None
-
         word_display = f"{article} {word}".strip() if article else word
+
+        interests = config.USER_INTERESTS.strip()
+        interest_hint = ""
+        if interests:
+            interest_hint = f"\n- Try to relate the sentence to these topics: {interests}"
 
         prompt = f"""Create ONE simple German sentence at level {level} using the word "{word_display}" (meaning: {meaning}).
 Requirements:
 - Use a different context each time
 - Keep it short
-- Use correct grammatical form
+- Use correct grammatical form{interest_hint}
 Return ONLY JSON:
 {{
-  "de": "German sentence",
-  "fa": "Persian translation"
+"de": "German sentence",
+"fa": "Persian translation"
 }}"""
-
         try:
             content = await self._chat(
                 "You create diverse natural German sentences with Persian translations.",
@@ -301,22 +303,18 @@ Return ONLY JSON:
                 temperature=0.95,
                 max_tokens=150,
             )
-
             result = json.loads(self._clean_json(content))
             if not isinstance(result, dict):
                 return None
-
             de = str(result.get("de") or "").strip()
             fa = str(result.get("fa") or "").strip()
-
             if not de:
                 return None
-
             return {"de": de, "fa": fa}
         except Exception as e:
             logger.warning("خطا در تولید مثال بافت‌مند: %s", e)
             return None
-
+        
     async def explain_mistake(
         self,
         word: str,
@@ -347,3 +345,52 @@ Return a short friendly explanation."""
         except Exception as e:
             logger.warning("خطا در تولید توضیح خطا: %s", e)
             return f"❌ جواب درست: {correct_answer}"
+
+    async def generate_verb_forms_batch(self, verbs: List[Dict]) -> List[Dict]:
+        """تولید فرم‌های فعل (Präsens/Präteritum/Perfekt) برای یک batch فعل.
+        هر verb: {"id": int, "german": str}
+        """
+        if not self.is_available():
+            return []
+
+        lines = []
+        for v in verbs:
+            lines.append(f'{v["id"]} | {v["german"]}')
+        body = "\n".join(lines)
+
+        prompt = f"""You are a German grammar expert. For each German verb below, provide:
+- Präsens (3rd person singular: er/sie/es)
+- Präteritum (3rd person singular)
+- Perfekt (Partizip II with haben/sein)
+
+Return ONLY a JSON array in the SAME order and SAME length:
+[{{"id": <id>, "verb_forms": "er geht – ging – ist gegangen"}}]
+
+Format: "er/sie/es form – Präteritum – Partizip II (with auxiliary)"
+Example: "er geht – ging – ist gegangen"
+
+VERBS:
+{body}"""
+        try:
+            content = await self._chat(
+                "You output only valid JSON arrays.",
+                prompt, temperature=0.1, max_tokens=800,
+            )
+            data = json.loads(self._clean_json(content))
+            if not isinstance(data, list):
+                return []
+            result = []
+            by_id = {}
+            for item in data:
+                if isinstance(item, dict) and item.get("id") is not None:
+                    try:
+                        by_id[int(item["id"])] = str(item.get("verb_forms") or "").strip()
+                    except (ValueError, TypeError):
+                        continue
+            for v in verbs:
+                forms = by_id.get(v["id"], "")
+                result.append({"id": v["id"], "german": v["german"], "verb_forms": forms})
+            return result
+        except Exception as e:
+            logger.warning("خطا در تولید verb_forms: %s", e)
+            return []

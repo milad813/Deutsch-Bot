@@ -19,11 +19,10 @@ SESSION_KEYS = {
     "current_flashcard", "flashcard_queue", "learning_session",
     "active_lesson_id", "quiz_flash", "quiz_wrong_word_ids",
     "quiz_fixed_word_ids", "current_tts_text", "flashcard_only_new",
-    "flashcard_only_due", "flashcard_pending_only", "flashcard_skipped_ids",
+    "flashcard_only_due", "flashcard_hard_only", "flashcard_skipped_ids",
     "tts_message",
     "study_words", "study_index", "study_lesson_id",
-    # LTR قدیمی
-    "ltr_words", "ltr_index", "ltr_lesson_id", "ltr_wrong_in_session",
+    "ltr_words", "ltr_index", "ltr_lesson_id",
     "ltr_word_results", "ltr_current_word_id",
     "ltr_state", "ltr_correct_answer", "ltr_correct_index",
     "ltr_delayed_1", "ltr_delayed_2", "ltr_round",

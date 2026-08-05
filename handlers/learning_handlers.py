@@ -56,19 +56,26 @@ def _get_level_for_context(context, user_id: int) -> str:
 # Flashcard
 # ============================================================
 
-async def start_flashcard_session(update, context, lesson_id: Optional[int] = None, only_new: bool = False, only_due: bool = False, pending_only: bool = False):    
+async def start_flashcard_session(
+    update, context,
+    lesson_id: Optional[int] = None,
+    only_new: bool = False,
+    only_due: bool = False,
+    hard_only: bool = False,
+):
     query = getattr(update, "callback_query", None)
     if query is None and hasattr(update, "data"):
         query = update
     user_id = query.from_user.id if query else update.effective_user.id
+
     context.user_data["active_lesson_id"] = lesson_id
     context.user_data["flashcard_only_new"] = only_new
     context.user_data["flashcard_only_due"] = only_due
-    context.user_data["flashcard_pending_only"] = pending_only
+    context.user_data["flashcard_hard_only"] = hard_only
     context.user_data["flashcard_skipped_ids"] = set()
-    if pending_only:
-        ids = db.get_pending_review_word_ids(user_id)
-        words = db.get_word_objects_by_ids(ids) if ids else []
+
+    if hard_only:
+        words = db.get_hard_due_word_objects(user_id, limit=config.FLASHCARD_QUEUE_LIMIT)
     elif only_due:
         words = db.get_due_word_objects(
             user_id, limit=config.FLASHCARD_QUEUE_LIMIT, lesson_id=lesson_id,
@@ -82,8 +89,9 @@ async def start_flashcard_session(update, context, lesson_id: Optional[int] = No
             new_limit=config.FLASHCARD_NEW_LIMIT,
             only_new=only_new,
         )
+
     if not words:
-        if pending_only:
+        if hard_only:
             msg = "🎉 هیچ کلمه‌ی سختِ معوقی نداری!"
         elif only_due:
             msg = "🎉 آفرین! هیچ کلمه‌ای برای مرور نداری!"
@@ -93,9 +101,9 @@ async def start_flashcard_session(update, context, lesson_id: Optional[int] = No
             msg = "🎉 آفرین! هیچ کلمه‌ای برای مرور نداری!"
         await _send_or_edit(query, update, msg, back_inline_keyboard())
         return
+
     context.user_data["flashcard_queue"] = deque([w.id for w in words[1:]])
     await _render_flashcard_front(query, update, context, words[0])
-
 async def _render_flashcard_front(query, update, context, word: Word, notice: Optional[str] = None):
     if query:
         user_id = query.from_user.id
@@ -228,11 +236,6 @@ async def handle_rate_card(query, context, suffix: str = None):
 
     _, interval_days = fsrs.review_flashcard(user_id, word_id, grade)
     db.record_activity(user_id, 5)
-    if not context.user_data.get("flashcard_pending_only"):
-        if grade == 1:
-            db.add_pending_review(user_id, word_id)
-    else:
-        db.clear_pending_reviews(user_id, [word_id])
     grade_names = {1: "😵 Again", 2: "😬 Hard", 3: "🙂 Good", 4: "😎 Easy"}
     notice = f"✅ {grade_names.get(grade, grade)} ثبت شد (مرور بعدی: {interval_days} روز)"
 
@@ -270,12 +273,12 @@ async def _go_next_flashcard(query, context, notice: Optional[str] = None):
         if word:
             await _render_flashcard_front(query, None, context, word, notice=notice)
             return
-    if context.user_data.get("flashcard_pending_only", False):
+    if context.user_data.get("flashcard_hard_only", False):
         context.user_data.pop("current_flashcard", None)
         context.user_data.pop("flashcard_queue", None)
         context.user_data.pop("current_tts_text", None)
         context.user_data.pop("flashcard_skipped_ids", None)
-        context.user_data.pop("flashcard_pending_only", None)
+        context.user_data.pop("flashcard_hard_only", None)
         await render(
             query,
             "🎉 مرور کلمات سخت امروز تمام شد! آفرین! 🔥",
@@ -450,9 +453,6 @@ async def _finalize_ltr_word(query, context, word_id: int):
         wrong_list = context.user_data.setdefault("ltr_wrong_in_session", [])
         if word_id not in wrong_list:
             wrong_list.append(word_id)
-        db.add_pending_review(user_id, word_id)
-    else:
-        db.clear_pending_reviews(user_id, [word_id])
 
 async def start_study_session(query, context, lesson_id: int):
     user_id = query.from_user.id

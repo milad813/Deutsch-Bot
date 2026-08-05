@@ -130,29 +130,26 @@ class FSRSService:
             reps = state.reps + 1
             lapses = state.lapses + (1 if grade == 1 else 0)
 
-        interval_days = self.params.next_interval(stability)
-        next_review = now + timedelta(days=interval_days)
+        # ─── تغییر کلیدی: grade=1 → مرور فوری ۴ ساعته ───
+        if grade == 1:
+            interval_days = 0
+            next_review = now + timedelta(hours=4)
+            phase = "learning"
+        else:
+            interval_days = self.params.next_interval(stability)
+            next_review = now + timedelta(days=interval_days)
+            if state is None:
+                phase = "mastered" if grade >= 4 else "review"
+            elif state.phase == "learning":
+                phase = "review" if grade >= 3 else "learning"
+            elif grade >= 3 and (reps - lapses) >= 3:
+                phase = "mastered"
+            else:
+                phase = "review"
 
         ease_factor = max(1.3, min(2.5, (11.0 - difficulty) / 2))
         srs_level = max(0, reps - lapses)
         srs_level = min(5, srs_level)
-
-        if state is None:
-            if grade == 1:
-                phase = "learning"
-            elif grade >= 3 and srs_level >= 3:
-                phase = "mastered"
-            else:
-                phase = "review"
-        else:
-            if state.phase == "learning":
-                phase = "review" if grade >= 3 else "learning"
-            elif grade == 1:
-                phase = "learning"
-            elif grade >= 3 and srs_level >= 3:
-                phase = "mastered"
-            else:
-                phase = "review"
 
         self.db.update_word_stats_fsrs(
             user_id=user_id,
@@ -178,7 +175,6 @@ class FSRSService:
             next_review=next_review,
             phase=phase,
         )
-
         return new_state, interval_days
 
     def grade_from_correctness(self, is_correct: bool) -> int:
