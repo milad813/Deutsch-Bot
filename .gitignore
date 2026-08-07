@@ -1,10 +1,5 @@
 ```
-# Database files
-*.db
-
-# Dependencies
-.venv/
-venv/
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -14,25 +9,12 @@ __pycache__/
 *.log
 *.tmp
 
-# Environment files
+# Environment
 .env
 .env.local
 *.env.*
 
-# Editors
-.vscode/
-.idea/
-
-# Coverage reports
-.coverage
-coverage/
-htmlcov/
-
-# Python specific
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-dist/
+# Dependencies
+.venv/
+venv/
 ```
