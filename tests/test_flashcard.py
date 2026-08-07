@@ -43,8 +43,9 @@ class TestFlashcardSessionManager:
             
     def test_get_next_word(self, manager, sample_word):
         """Test getting next word from queue."""
+        from collections import deque
         manager.sessions[123] = {
-            "queue": [sample_word],
+            "queue": deque([sample_word]),
             "skipped_ids": set(),
             "completed_count": 0,
         }
