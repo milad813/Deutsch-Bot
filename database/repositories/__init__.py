@@ -113,6 +113,23 @@ class UserRepository(BaseRepository):
             return {'correct': 0, 'total': 0}
         return {'correct': row[0], 'total': row[1]}
         
+    def get_quiz_stats(self, user_id: int) -> tuple:
+        """Get quiz stats as tuple (correct, total)."""
+        stats = self.get_stats(user_id)
+        return (stats['correct'], stats['total'])
+    
+    def get_progress(self, user_id: int) -> dict:
+        """Get user progress (xp, streak, last_active_date)."""
+        query = """
+            SELECT xp, streak, last_active_date
+            FROM user_progress
+            WHERE user_id = ?
+        """
+        row = self.fetch_one(query, (user_id,))
+        if row:
+            return {"xp": row[0] or 0, "streak": row[1] or 0, "last_active_date": row[2]}
+        return {"xp": 0, "streak": 0, "last_active_date": None}
+        
     def update_quiz_stats(self, user_id: int, is_correct: bool) -> None:
         """Update user quiz statistics."""
         correct_inc = 1 if is_correct else 0
