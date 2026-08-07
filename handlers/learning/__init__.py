@@ -9,8 +9,14 @@ from handlers.learning.flashcard_session import (
     handle_skip_flashcard,
 )
 
-# LTR session will be added in next step
-# from handlers.learning.ltr_session import (...)
+from handlers.learning.ltr_session import (
+    LTRSessionManager,
+    _sample_unique_ltr,
+    _make_ltr_options,
+    _ltr_wrong_display_german_options,
+    _ltr_answer_keyboard,
+    _ltr_intro_keyboard,
+)
 
 __all__ = [
     # Flashcard
@@ -20,12 +26,11 @@ __all__ = [
     "handle_rate_card",
     "handle_next_flashcard",
     "handle_skip_flashcard",
-    # LTR - coming soon
-    # "LTRSessionManager",
-    # "start_study_session",
-    # "handle_ltr_start",
-    # "handle_ltr_exit",
-    # "handle_ltr_ready",
-    # "handle_ltr_answer",
-    # "handle_ltr_summary",
+    # LTR
+    "LTRSessionManager",
+    "_sample_unique_ltr",
+    "_make_ltr_options",
+    "_ltr_wrong_display_german_options",
+    "_ltr_answer_keyboard",
+    "_ltr_intro_keyboard",
 ]
