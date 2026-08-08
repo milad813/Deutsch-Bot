@@ -254,23 +254,25 @@ class StoryRepository(BaseRepository):
         title_fa: str,
         text_de: str,
         text_fa: str,
-        audio_url: str = None,
+        target_word_ids: str = None,
+        questions_json: str = None,
+        level: str = None,
     ) -> int:
         """Add a story."""
         query = """
             INSERT INTO stories
-            (lesson_id, title_de, title_fa, text_de, text_fa, audio_url)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (lesson_id, title_de, title_fa, text_de, text_fa, target_word_ids, questions_json, level)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
         return self.insert(
-            query, (lesson_id, title_de, title_fa, text_de, text_fa, audio_url)
+            query, (lesson_id, title_de, title_fa, text_de, text_fa, target_word_ids, questions_json, level)
         )
 
     def get_by_lesson(self, lesson_id: int) -> list:
         """Get all stories for a lesson."""
         query = """
             SELECT id, lesson_id, title_de, title_fa, text_de, text_fa,
-                   audio_url, created_at
+                   target_word_ids, questions_json, level, created_at
             FROM stories
             WHERE lesson_id = ?
         """
@@ -280,7 +282,7 @@ class StoryRepository(BaseRepository):
         """Get a story by ID."""
         query = """
             SELECT id, lesson_id, title_de, title_fa, text_de, text_fa,
-                   audio_url, created_at
+                   target_word_ids, questions_json, level, created_at
             FROM stories
             WHERE id = ?
         """
