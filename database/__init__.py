@@ -41,7 +41,9 @@ class Database:
     # Backward compatibility methods - delegate to repositories
     def get_all_books(self) -> list:
         """Get all books (backward compatibility)."""
-        return self.books.get_all()
+        # Return only 3 fields: id, name, level (exclude created_at for backward compat)
+        books = self.books.get_all()
+        return [(b[0], b[1], b[2]) for b in books]  # (id, name, level)
     
     def get_due_word_count(self, user_id: int) -> int:
         """Get count of words due for review (backward compatibility)."""
@@ -105,19 +107,32 @@ class Database:
         """Get user settings (backward compatibility)."""
         return self.users.get_settings(user_id)
     
+    def get_flashcard_words(
+        self,
+        user_id: int,
+        limit: int = 10,
+        lesson_id: int = None,
+        include_new: bool = True,
+        new_limit: int = 5,
+        exclude_ids=None,
+    ):
+        """Get flashcard words (backward compatibility - alias for get_for_flashcard)."""
+        return self.words.get_for_flashcard(
+            user_id=user_id,
+            limit=limit,
+            lesson_id=lesson_id,
+            include_new=include_new,
+            new_limit=new_limit,
+            exclude_ids=exclude_ids,
+        )
+    
     @staticmethod
     def level_from_xp(xp: int) -> tuple:
         """Calculate level from XP (backward compatibility)."""
-        if xp < 100:
-            return "A1", "مبتدی", 100 - xp
-        elif xp < 300:
-            return "A2", "پایه‌ای", 300 - xp
-        elif xp < 600:
-            return "B1", "متوسط", 600 - xp
-        elif xp < 900:
-            return "B2", "بالای متوسط", 900 - xp
-        else:
-            return "C1", "پیشرفته", 0
+        # Old implementation: level = (xp // 100) + 1, progress = xp % 100, next = 100
+        level = (xp // 100) + 1
+        progress = xp % 100
+        return level, progress, 100
         
 
 __all__ = [
