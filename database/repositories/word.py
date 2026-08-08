@@ -251,28 +251,88 @@ class WordRepository(BaseRepository):
         return [self._row_to_word(row) for row in rows]
 
     def get_flashcard_words(
-        self, user_id: int, lesson_id: Optional[int] = None, limit: int = 20
+        self, user_id: int, lesson_id: Optional[int] = None, limit: int = 20,
+        include_new: bool = False, new_limit: int = 5, exclude_ids: Optional[list] = None
     ) -> List[Word]:
         """Get words for flashcard practice."""
+        # Get reviewed words (words with stats)
         if lesson_id:
             query = f"""
-                SELECT {self._word_columns('w')}
+                SELECT {self._word_columns('w')}, ws.next_review, ws.strength
                 FROM words w
-                WHERE w.user_id = ? AND w.lesson_id = ?
-                ORDER BY RANDOM()
+                JOIN word_stats ws ON w.id = ws.word_id
+                WHERE ws.user_id = ? AND w.lesson_id = ?
+                AND ws.next_review <= datetime('now')
+                ORDER BY ws.next_review ASC
                 LIMIT ?
             """
             params = (user_id, lesson_id, limit)
         else:
             query = f"""
-                SELECT {self._word_columns('w')}
+                SELECT {self._word_columns('w')}, ws.next_review, ws.strength
                 FROM words w
-                WHERE w.user_id = ?
-                ORDER BY RANDOM()
+                JOIN word_stats ws ON w.id = ws.word_id
+                WHERE ws.user_id = ?
+                AND ws.next_review <= datetime('now')
+                ORDER BY ws.next_review ASC
                 LIMIT ?
             """
             params = (user_id, limit)
 
+        rows = self.fetch_all(query, params)
+        words = [self._row_to_word(row) for row in rows]
+        
+        # If include_new is True, add new words
+        if include_new and len(words) < limit:
+            remaining = limit - len(words)
+            new_words = self.get_new_word_objects(
+                user_id=user_id,
+                lesson_id=lesson_id,
+                limit=remaining,
+                exclude_ids=[w.id for w in words] + (exclude_ids or [])
+            )
+            words.extend(new_words)
+        
+        return words[:limit]
+
+    def get_new_word_objects(
+        self, user_id: int, lesson_id: Optional[int] = None, limit: int = 20,
+        exclude_ids: Optional[list] = None
+    ) -> List[Word]:
+        """Get new words for learning."""
+        exclude_clause = ""
+        params_list = [user_id]
+        
+        if lesson_id:
+            params_list.append(lesson_id)
+            lesson_filter = "AND w.lesson_id = ?"
+        else:
+            lesson_filter = ""
+            
+        if exclude_ids:
+            placeholders = ','.join('?' * len(exclude_ids))
+            exclude_clause = f"AND w.id NOT IN ({placeholders})"
+            params_list.extend(exclude_ids)
+        
+        params = tuple(params_list) + (limit,)
+        
+        query = f"""
+            SELECT {self._word_columns('w')}
+            FROM words w
+            LEFT JOIN word_stats ws ON w.id = ws.word_id AND ws.user_id = ?
+            WHERE w.user_id = ? {lesson_filter}
+            AND (ws.word_id IS NULL OR ws.reviews = 0)
+            {exclude_clause}
+            ORDER BY RANDOM()
+            LIMIT ?
+        """
+        
+        # Rebuild params with the user_id repeated for the JOIN condition
+        if lesson_id:
+            params = (user_id, user_id, lesson_id) + (tuple(exclude_ids) if exclude_ids else ()) + (limit,)
+        else:
+            params = (user_id, user_id) + (tuple(exclude_ids) if exclude_ids else ()) + (limit,)
+            
         rows = self.fetch_all(query, params)
         return [self._row_to_word(row) for row in rows]
 
