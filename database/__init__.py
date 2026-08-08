@@ -4,7 +4,7 @@ from database.connection import DEFAULT_OWNER_ID, DatabaseConnection, _utc_now
 from database.repositories import (BaseRepository, BookRepository,
                                    ExtendedWordRepository,
                                    LessonRepository, StoryRepository,
-                                   UserRepository, WordRepository)
+                                   UserRepository)
 
 # Import legacy database for fallback methods
 import sys
@@ -155,7 +155,6 @@ __all__ = [
     "_utc_now",
     "DEFAULT_OWNER_ID",
     "BaseRepository",
-    "WordRepository",
     "BookRepository",
     "LessonRepository",
     "UserRepository",
