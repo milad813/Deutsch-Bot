@@ -175,11 +175,11 @@ async def _show_ltr_intro(query, context, word, lesson_id: int):
     from ui import esc
     
     msg = (
-        f"🧠 <b>تمرین عمیق (LTR)</b>\\n"
-        f"📚 درس: {lesson_id}\\n\\n"
-        f"🇩🇪 <b>{esc(word.display_german)}</b>\\n"
-        f"🇮🇷 {esc(word.persian)}\\n\\n"
-        "در این حالت، کلمات را با روش یادگیری فعال تمرین می‌کنیم.\\n"
+        f"🧠 <b>تمرین عمیق (LTR)</b>\n"
+        f"📚 درس: {lesson_id}\n\n"
+        f"🇩🇪 <b>{esc(word.display_german)}</b>\n"
+        f"🇮🇷 {esc(word.persian)}\n\n"
+        "در این حالت، کلمات را با روش یادگیری فعال تمرین می‌کنیم.\n"
         "برای هر کلمه، چند سوال مختلف پرسیده می‌شود."
     )
     

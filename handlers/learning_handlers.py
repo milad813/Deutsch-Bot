@@ -95,9 +95,9 @@ async def _show_ltr_question(query, context, word):
     progress = LTRSessionManager(context).get_progress_info()
     
     msg = (
-        f"🧠 <b>سوال {progress['position']} از {progress['total']}</b>\\n"
-        f"{progress['progress_bar']} ({progress['percentage']}%)\\n\\n"
-        f"🇮🇷 {esc(word.persian)}\\n\\n"
+        f"🧠 <b>سوال {progress['position']} از {progress['total']}</b>\n"
+        f"{progress['progress_bar']} ({progress['percentage']}%)\n\n"
+        f"🇮🇷 {esc(word.persian)}\n\n"
         "کدام گزینه آلمانی صحیح است؟"
     )
     
@@ -110,15 +110,13 @@ async def handle_ltr_summary(query, context):
     summary = ltr_manager.get_session_summary()
     
     msg = (
-        f"📊 <b>خلاصه جلسه تمرین عمیق</b>\\n\\n"
-        f"✅ کلمات صحیح: {summary['correct_words']} از {summary['total_words']}\\n"
-        f"❌ کلمات غلط: {summary['wrong_words']}\\n"
-        f"🎯 دقت: {summary['accuracy']}%\\n\\n"
+        "📊 <b>خلاصه جلسه تمرین عمیق</b>\n\n"
+        f"✅ کلمات صحیح: {summary['correct_words']} از {summary['total_words']}\n"
+        f"❌ کلمات غلط: {summary['wrong_words']}\n"
+        f"🎯 دقت: {summary['accuracy']}%\n\n"
     )
-    
-    if summary['wrong_word_ids']:
-        msg += "⚠️ کلماتی که نیاز به مرور بیشتر دارند ثبت شدند.\\n\\n"
-    
+    if summary["wrong_word_ids"]:
+        msg += "⚠️ کلماتی که نیاز به مرور بیشتر دارند ثبت شدند.\n\n"
     # Clear session
     ltr_manager.clear_session()
     
