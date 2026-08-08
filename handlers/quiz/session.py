@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QuizQuestion:
     """Represents a single quiz question."""
+
     question_type: str
     question_text: str
     correct_answer: str
@@ -21,6 +22,7 @@ class QuizQuestion:
 @dataclass
 class QuizSessionState:
     """Holds the state of a quiz session."""
+
     user_id: int
     total_questions: int
     current_question: int = 0
@@ -28,7 +30,7 @@ class QuizSessionState:
     wrong_answers: int = 0
     question_history: List[Dict[str, Any]] = field(default_factory=list)
     is_finished: bool = False
-    
+
     @property
     def accuracy(self) -> float:
         """Calculate accuracy percentage."""
@@ -36,7 +38,7 @@ class QuizSessionState:
         if total == 0:
             return 0.0
         return (self.correct_answers / total) * 100
-    
+
     @property
     def progress_percentage(self) -> int:
         """Calculate progress percentage."""
@@ -66,12 +68,13 @@ class QuizSessionManager:
             total_questions=total_questions,
         )
         self.sessions[user_id] = session
-        
+
         logger.info(
             "Created quiz session for user %d with %d questions",
-            user_id, total_questions
+            user_id,
+            total_questions,
         )
-        
+
         return session
 
     def get_session(self, user_id: int) -> Optional[QuizSessionState]:
@@ -109,12 +112,14 @@ class QuizSessionManager:
         if not session:
             return
 
-        session.question_history.append({
-            "question_type": question_type,
-            "word_id": word_id,
-            "is_correct": is_correct,
-            "metadata": metadata or {},
-        })
+        session.question_history.append(
+            {
+                "question_type": question_type,
+                "word_id": word_id,
+                "is_correct": is_correct,
+                "metadata": metadata or {},
+            }
+        )
 
     def end_session(self, user_id: int) -> Optional[QuizSessionState]:
         """End and return the session."""
@@ -122,8 +127,10 @@ class QuizSessionManager:
         if session:
             logger.info(
                 "Ended quiz session for user %d: %d/%d correct (%.1f%%)",
-                user_id, session.correct_answers, 
-                session.current_question, session.accuracy
+                user_id,
+                session.correct_answers,
+                session.current_question,
+                session.accuracy,
             )
         return session
 

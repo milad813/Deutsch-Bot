@@ -42,7 +42,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif due > 0:
         welcome += f"📅 {due} کلمه برای مرور داری!\n"
     welcome += "از منوی زیر شروع کن! 🚀"
-    await render(update, welcome, reply_markup=get_main_menu_keyboard(due, streak, hard))
+    await render(
+        update, welcome, reply_markup=get_main_menu_keyboard(due, streak, hard)
+    )
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,13 +67,29 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_quiz_menu(update, context):
     keyboard = [
-        [InlineKeyboardButton("🎯 آرتیکل (der/die/das)", callback_data="quiz_type:article")],
-        [InlineKeyboardButton("🧠 معنی (آلمانی→فارسی)", callback_data="quiz_type:meaning")],
-        [InlineKeyboardButton("🔄 معکوس (فارسی→آلمانی)", callback_data="quiz_type:reverse")],
+        [
+            InlineKeyboardButton(
+                "🎯 آرتیکل (der/die/das)", callback_data="quiz_type:article"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🧠 معنی (آلمانی→فارسی)", callback_data="quiz_type:meaning"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🔄 معکوس (فارسی→آلمانی)", callback_data="quiz_type:reverse"
+            )
+        ],
         [InlineKeyboardButton("📝 جای خالی", callback_data="quiz_type:cloze")],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ]
-    await render(update, "🤖 نوع کوییز را انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await render(
+        update,
+        "🤖 نوع کوییز را انتخاب کنید:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
 
 
 async def show_quiz_source(query, context):
@@ -101,25 +119,48 @@ async def show_books_for_quiz(query, context):
         return
     keyboard = []
     for book_id, name, level in books:
-        keyboard.append([InlineKeyboardButton(f"📖 {name} ({level})", callback_data=f"quiz_book:{book_id}")])
-    keyboard.append([InlineKeyboardButton("🔙 مرحله قبل", callback_data="show_quiz_source")])
-    await render(query, "📖 یک کتاب انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"📖 {name} ({level})", callback_data=f"quiz_book:{book_id}"
+                )
+            ]
+        )
+    keyboard.append(
+        [InlineKeyboardButton("🔙 مرحله قبل", callback_data="show_quiz_source")]
+    )
+    await render(
+        query, "📖 یک کتاب انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 async def show_lessons_for_quiz(query, context, book_id):
     lessons = db.get_lessons_by_book(book_id)
     if not lessons:
-        await render(query, "📭 درسی ندارد.", reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔙 بازگشت", callback_data="show_quiz_source")]
-        ]))
+        await render(
+            query,
+            "📭 درسی ندارد.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔙 بازگشت", callback_data="show_quiz_source")]]
+            ),
+        )
         return
     keyboard = []
     for lesson_id, num, title in lessons:
-        keyboard.append([
-            InlineKeyboardButton(f"📝 {_format_lesson_name(num, title or '')}", callback_data=f"quiz_lesson:{lesson_id}")
-        ])
-    keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="show_quiz_source")])
-    await render(query, "📖 یک درس انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"📝 {_format_lesson_name(num, title or '')}",
+                    callback_data=f"quiz_lesson:{lesson_id}",
+                )
+            ]
+        )
+    keyboard.append(
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="show_quiz_source")]
+    )
+    await render(
+        query, "📖 یک درس انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 async def show_quiz_count(query, context):
@@ -149,7 +190,11 @@ async def show_books(update_or_query, context, is_message: bool = False):
     else:
         text = "📚 یک کتاب انتخاب کنید:"
         kb = [
-            [InlineKeyboardButton(f"📖 {name} ({level})", callback_data=f"book_{book_id}")]
+            [
+                InlineKeyboardButton(
+                    f"📖 {name} ({level})", callback_data=f"book_{book_id}"
+                )
+            ]
             for book_id, name, level in books
         ]
         kb.append([InlineKeyboardButton("🔙", callback_data="back_to_main_menu")])
@@ -159,12 +204,21 @@ async def show_books(update_or_query, context, is_message: bool = False):
 async def show_lessons(query, context, book_id: int):
     lessons = db.get_lessons_by_book(book_id)
     if not lessons:
-        await render(query, "📭 درسی ندارد.", reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔙", callback_data="show_books_inline")]
-        ]))
+        await render(
+            query,
+            "📭 درسی ندارد.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔙", callback_data="show_books_inline")]]
+            ),
+        )
         return
     kb = [
-        [InlineKeyboardButton(f"📝 {_format_lesson_name(num, title or '')}", callback_data=f"lesson_{lesson_id}")]
+        [
+            InlineKeyboardButton(
+                f"📝 {_format_lesson_name(num, title or '')}",
+                callback_data=f"lesson_{lesson_id}",
+            )
+        ]
         for lesson_id, num, title in lessons
     ]
     kb.append([InlineKeyboardButton("🔙", callback_data="show_books_inline")])
@@ -173,16 +227,42 @@ async def show_lessons(query, context, book_id: int):
 
 async def show_lesson_options(query, context, lesson_id: int):
     lesson = db.get_lesson(lesson_id)
-    lesson_name = _format_lesson_name(lesson[0], lesson[1] or '') if lesson else "این درس"
+    lesson_name = (
+        _format_lesson_name(lesson[0], lesson[1] or "") if lesson else "این درس"
+    )
     book_id = db.get_book_id_by_lesson(lesson_id)
     back_cb = f"book_{book_id}" if book_id else "show_books_inline"
     keyboard = [
-        [InlineKeyboardButton("📋 مشاهده لیست کلمات", callback_data=f"lesson_words_{lesson_id}_0")],
-        [InlineKeyboardButton("🧠 تمرین عمیق (LTR)", callback_data=f"study_lesson:{lesson_id}")],
-        [InlineKeyboardButton("📖 داستان این درس", callback_data=f"story_lesson:{lesson_id}")],
-        [InlineKeyboardButton("🎴 فلش‌کارت", callback_data=f"flashcard_lesson:{lesson_id}")],
-        [InlineKeyboardButton("🤖 کوییز", callback_data=f"quiz_from_lesson:{lesson_id}")],
-        [InlineKeyboardButton("📐 گرامر این درس", callback_data=f"grammar_lesson:{lesson_id}")],
+        [
+            InlineKeyboardButton(
+                "📋 مشاهده لیست کلمات", callback_data=f"lesson_words_{lesson_id}_0"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🧠 تمرین عمیق (LTR)", callback_data=f"study_lesson:{lesson_id}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📖 داستان این درس", callback_data=f"story_lesson:{lesson_id}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🎴 فلش‌کارت", callback_data=f"flashcard_lesson:{lesson_id}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🤖 کوییز", callback_data=f"quiz_from_lesson:{lesson_id}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📐 گرامر این درس", callback_data=f"grammar_lesson:{lesson_id}"
+            )
+        ],
         [InlineKeyboardButton("🔙 بازگشت به لیست درس‌ها", callback_data=back_cb)],
     ]
     await render(
@@ -195,7 +275,11 @@ async def show_lesson_options(query, context, lesson_id: int):
 async def show_lesson_words(query, context, lesson_id: int, page: int = 0):
     words = db.get_words_by_lesson_full(lesson_id)
     if not words:
-        await render(query, "📭 کلمه‌ای ندارد.", reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"))
+        await render(
+            query,
+            "📭 کلمه‌ای ندارد.",
+            reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
+        )
         return
     total = len(words)
     max_page = max(0, (total - 1) // ITEMS_PER_PAGE)
@@ -208,8 +292,15 @@ async def show_lesson_words(query, context, lesson_id: int, page: int = 0):
     page_words = words[start:end]
 
     type_emoji = {
-        "Noun": "🏷️", "Verb": "🏃", "Adjective": "🎨", "Adverb": "➡️",
-        "Preposition": "📍", "Pronoun": "👤", "Conjunction": "🔗", "Phrase": "💬", "سایر": "📌",
+        "Noun": "🏷️",
+        "Verb": "🏃",
+        "Adjective": "🎨",
+        "Adverb": "➡️",
+        "Preposition": "📍",
+        "Pronoun": "👤",
+        "Conjunction": "🔗",
+        "Phrase": "💬",
+        "سایر": "📌",
     }
 
     msg = f"📝 کلمات درس ({total} کلمه) - صفحه {page + 1}\n"
@@ -241,12 +332,22 @@ async def show_lesson_words(query, context, lesson_id: int, page: int = 0):
     keyboard = []
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("⬅️ قبلی", callback_data=f"lesson_words_{lesson_id}_{page - 1}"))
+        nav.append(
+            InlineKeyboardButton(
+                "⬅️ قبلی", callback_data=f"lesson_words_{lesson_id}_{page - 1}"
+            )
+        )
     if end < total:
-        nav.append(InlineKeyboardButton("➡️ بعدی", callback_data=f"lesson_words_{lesson_id}_{page + 1}"))
+        nav.append(
+            InlineKeyboardButton(
+                "➡️ بعدی", callback_data=f"lesson_words_{lesson_id}_{page + 1}"
+            )
+        )
     if nav:
         keyboard.append(nav)
-    keyboard.append([InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{lesson_id}")])
+    keyboard.append(
+        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{lesson_id}")]
+    )
     await render(query, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
 
@@ -282,12 +383,20 @@ async def show_dashboard_simple(update, context):
 
     keyboard = []
     if hard > 0:
-        keyboard.append([InlineKeyboardButton(
-            f"🔥 مرور کلمات سخت ({hard})", callback_data="flashcard_hard"
-        )])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"🔥 مرور کلمات سخت ({hard})", callback_data="flashcard_hard"
+                )
+            ]
+        )
     if due_today > 0:
-        keyboard.append([InlineKeyboardButton("🚀 شروع مرور", callback_data="flashcard_due")])
-    keyboard.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")])
+        keyboard.append(
+            [InlineKeyboardButton("🚀 شروع مرور", callback_data="flashcard_due")]
+        )
+    keyboard.append(
+        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
+    )
     await render(update, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
 
@@ -297,7 +406,11 @@ LEVELS = ["A1", "A2", "B1", "B2"]
 
 
 async def show_settings_menu(update, context):
-    user_id = update.effective_user.id if hasattr(update, "effective_user") else update.from_user.id
+    user_id = (
+        update.effective_user.id
+        if hasattr(update, "effective_user")
+        else update.from_user.id
+    )
     settings = db.get_user_settings(user_id)
     current_level = settings.get("preferred_level", "A1")
 
@@ -321,9 +434,9 @@ async def show_level_select(query, context):
     keyboard = []
     for lvl in LEVELS:
         marker = "✅ " if lvl == current_level else ""
-        keyboard.append([
-            InlineKeyboardButton(f"{marker}{lvl}", callback_data=f"set_level:{lvl}")
-        ])
+        keyboard.append(
+            [InlineKeyboardButton(f"{marker}{lvl}", callback_data=f"set_level:{lvl}")]
+        )
     keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="show_settings")])
     await render(
         query,
@@ -344,8 +457,14 @@ async def handle_set_level(query, context, suffix: str):
         query,
         f"✅ سطح شما به <b>{level}</b> تغییر کرد!\n"
         "از الان مثال‌ها و داستان‌ها با این سطح ساخته می‌شوند.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("⚙️ تنظیمات", callback_data="show_settings")],
-            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-        ]),
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("⚙️ تنظیمات", callback_data="show_settings")],
+                [
+                    InlineKeyboardButton(
+                        "🔙 منوی اصلی", callback_data="back_to_main_menu"
+                    )
+                ],
+            ]
+        ),
     )

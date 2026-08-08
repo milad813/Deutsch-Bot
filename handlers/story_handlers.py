@@ -66,7 +66,7 @@ async def _generate_story_for_lesson(lesson_id: int):
     others = [w for w in words_data if w not in friendly]
     selected = friendly[:MAX_STORY_WORDS]
     if len(selected) < MIN_STORY_WORDS:
-        selected += others[:MAX_STORY_WORDS - len(selected)]
+        selected += others[: MAX_STORY_WORDS - len(selected)]
     if len(selected) < MIN_STORY_WORDS:
         return None
 
@@ -99,13 +99,19 @@ async def _generate_story_for_lesson(lesson_id: int):
             text_lower = text_de.lower()
             used = sum(1 for w in selected if w["german"].lower() in text_lower)
             if len(selected) > 0 and used / len(selected) < 0.7:
-                logger.warning("داستان فقط %d/%d کلمه داشت (تلاش %d)", used, len(selected), attempt + 1)
+                logger.warning(
+                    "داستان فقط %d/%d کلمه داشت (تلاش %d)",
+                    used,
+                    len(selected),
+                    attempt + 1,
+                )
                 continue
 
             # اعتبارسنجی سوالات
             questions = result.get("questions") or []
             valid_q = [
-                q for q in questions
+                q
+                for q in questions
                 if isinstance(q, dict)
                 and q.get("question")
                 and len(q.get("options") or []) >= 2
@@ -123,8 +129,13 @@ async def _generate_story_for_lesson(lesson_id: int):
                 questions_json=json.dumps(valid_q, ensure_ascii=False),
                 level=level,
             )
-            logger.info("داستان id=%d برای درس %d ساخته شد (%d کلمه، %d سوال)",
-                        story_id, lesson_id, len(selected), len(valid_q))
+            logger.info(
+                "داستان id=%d برای درس %d ساخته شد (%d کلمه، %d سوال)",
+                story_id,
+                lesson_id,
+                len(selected),
+                len(valid_q),
+            )
             return db.get_story(story_id)
 
         except Exception as e:
@@ -171,10 +182,14 @@ async def show_story_menu(query, context, lesson_id: int):
     kb = []
     for s in stories:
         title = s.get("title_fa") or s.get("title_de") or f"داستان {s['id']}"
-        kb.append([InlineKeyboardButton(
-            f"📖 {_short_label(title, 60)}",
-            callback_data=f"story_view:{s['id']}",
-        )])
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    f"📖 {_short_label(title, 60)}",
+                    callback_data=f"story_view:{s['id']}",
+                )
+            ]
+        )
     kb.append([InlineKeyboardButton("🔙 بازگشت", callback_data=f"lesson_{lesson_id}")])
     await render(
         query,
@@ -199,15 +214,27 @@ async def show_story(query, context, story_id: int):
         word_list = "، ".join(w.display_german for w in words[:10])
         msg += f"\n\n🎯 <b>کلمات:</b> {esc(word_list)}"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔊 تلفظ", callback_data=f"story_audio:{story_id}")],
+    kb = InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("🇮🇷 ترجمه", callback_data=f"story_fa:{story_id}"),
-            InlineKeyboardButton("🧩 کلمات", callback_data=f"story_words:{story_id}"),
-        ],
-        [InlineKeyboardButton("❓ سوالات درک مطلب", callback_data=f"story_quiz:{story_id}")],
-        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{story['lesson_id']}")],
-    ])
+            [InlineKeyboardButton("🔊 تلفظ", callback_data=f"story_audio:{story_id}")],
+            [
+                InlineKeyboardButton("🇮🇷 ترجمه", callback_data=f"story_fa:{story_id}"),
+                InlineKeyboardButton(
+                    "🧩 کلمات", callback_data=f"story_words:{story_id}"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "❓ سوالات درک مطلب", callback_data=f"story_quiz:{story_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔙 بازگشت به درس", callback_data=f"lesson_{story['lesson_id']}"
+                )
+            ],
+        ]
+    )
     await render(query, msg, reply_markup=kb)
 
 
@@ -221,10 +248,16 @@ async def show_story_translation(query, context, story_id: int):
     text_fa = story.get("text_fa") or "ترجمه‌ای موجود نیست."
     msg = f"🇮🇷 <b>ترجمه: {esc(title)}</b>\n\n{esc(text_fa)}"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇩🇪 متن آلمانی", callback_data=f"story_view:{story_id}")],
-        [InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🇩🇪 متن آلمانی", callback_data=f"story_view:{story_id}"
+                )
+            ],
+            [InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}")],
+        ]
+    )
     await render(query, msg, reply_markup=kb)
 
 
@@ -249,10 +282,16 @@ async def show_story_words(query, context, story_id: int):
         if len(words) > 15:
             msg += f"\n... و {len(words) - 15} کلمه دیگر"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{story_id}")],
-        [InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📖 بازگشت به داستان", callback_data=f"story_view:{story_id}"
+                )
+            ],
+            [InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}")],
+        ]
+    )
     await render(query, msg, reply_markup=kb)
 
 
@@ -267,7 +306,10 @@ async def play_story_audio(query, context, story_id: int):
 
     # حذف پرانتزهای فارسی برای TTS
     import re
-    clean_text = re.sub(r'\s*\([^)]*[\u0600-\u06FF][^)]*\)', '', story["text_de"]).strip()
+
+    clean_text = re.sub(
+        r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", story["text_de"]
+    ).strip()
     if not clean_text:
         clean_text = story["text_de"]
 
@@ -311,9 +353,16 @@ async def start_story_quiz(query, context, story_id: int):
         await render(
             query,
             "📭 سوالی برای این داستان ثبت نشده.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{story_id}")],
-            ]),
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "📖 بازگشت به داستان",
+                            callback_data=f"story_view:{story_id}",
+                        )
+                    ],
+                ]
+            ),
         )
         return
 
@@ -355,7 +404,13 @@ async def _show_story_question(query, context):
     kb = []
     for i, opt in enumerate(options):
         label = f"{chr(65 + i)}) {opt}"
-        kb.append([InlineKeyboardButton(_short_label(label, 64), callback_data=f"story_ans:{i}")])
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    _short_label(label, 64), callback_data=f"story_ans:{i}"
+                )
+            ]
+        )
 
     await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))
 
@@ -379,7 +434,7 @@ async def handle_story_answer(query, context, suffix: str):
         return
 
     correct_idx = quiz.get("current_correct_index", -1)
-    is_correct = (chosen == correct_idx)
+    is_correct = chosen == correct_idx
     correct_answer = options[correct_idx] if 0 <= correct_idx < len(options) else "?"
 
     if is_correct:
@@ -430,9 +485,19 @@ async def _show_story_quiz_summary(query, context):
     else:
         msg += "💡 پیشنهاد: داستان را دوباره بخوان و بعد دوباره تست بزن."
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📖 خواندن دوباره", callback_data=f"story_view:{story_id}")],
-        [InlineKeyboardButton("❓ کوییز دوباره", callback_data=f"story_quiz:{story_id}")],
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📖 خواندن دوباره", callback_data=f"story_view:{story_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "❓ کوییز دوباره", callback_data=f"story_quiz:{story_id}"
+                )
+            ],
+            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
     await render(query, msg, reply_markup=kb)

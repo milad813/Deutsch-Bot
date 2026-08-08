@@ -13,7 +13,7 @@ from handlers.quiz.session import (
 
 __all__ = [
     "QuizQuestion",
-    "QuizSessionState", 
+    "QuizSessionState",
     "QuizSessionManager",
     "quiz_session_manager",
 ]

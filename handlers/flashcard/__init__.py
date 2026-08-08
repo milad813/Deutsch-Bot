@@ -6,6 +6,6 @@ from handlers.flashcard.actions import FlashcardActionsHandler
 
 __all__ = [
     "FlashcardSessionManager",
-    "FlashcardDisplay", 
+    "FlashcardDisplay",
     "FlashcardActionsHandler",
 ]

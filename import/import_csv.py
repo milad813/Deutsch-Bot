@@ -37,7 +37,16 @@ def clean_article(value, german=None):
     return None
 
 
-WORD_TYPES = ("Noun", "Verb", "Adjective", "Adverb", "Preposition", "Pronoun", "Conjunction", "Phrase")
+WORD_TYPES = (
+    "Noun",
+    "Verb",
+    "Adjective",
+    "Adverb",
+    "Preposition",
+    "Pronoun",
+    "Conjunction",
+    "Phrase",
+)
 
 
 def clean_word_type(value):
@@ -158,6 +167,7 @@ def main():
     except Exception as e:
         print(f"❌ خطای غیرمنتظره: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         db.close()

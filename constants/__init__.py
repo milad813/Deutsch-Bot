@@ -4,13 +4,14 @@ import logging
 from enum import Enum
 from typing import Final
 
-
 # =============================================================================
 # Bot Configuration
 # =============================================================================
 
+
 class BotMode(Enum):
     """Bot operation modes."""
+
     ONLINE = "online"
     OFFLINE = "offline"
     HYBRID = "hybrid"
@@ -47,8 +48,10 @@ EMOJI_EMPTY: Final[str] = "⚪️"
 # Quiz Configuration
 # =============================================================================
 
+
 class QuizType(Enum):
     """Types of quiz questions."""
+
     ARTICLE = "article"
     MEANING = "meaning"
     REVERSE = "reverse"
@@ -63,14 +66,17 @@ MAX_QUIZ_OPTIONS: Final[int] = 4
 # Learning Session States
 # =============================================================================
 
+
 class FlashcardState(Enum):
     """States for flashcard learning session."""
+
     FRONT = "front"
     BACK = "back"
 
 
 class LTRStage(Enum):
     """Stages for Look-Test-Review learning method."""
+
     LOOK = "look"
     TEST = "test"
     REVIEW = "review"

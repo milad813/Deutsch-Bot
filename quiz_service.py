@@ -14,11 +14,13 @@ class QuizService:
         german_word = (german_word or "").strip()
         for article in ARTICLES:
             if german_word.lower().startswith(article + " "):
-                return article, german_word[len(article):].strip()
+                return article, german_word[len(article) :].strip()
         return None, german_word
 
     @staticmethod
-    def _unique_options(correct: str, wrong_options: List[str], total: int = 4) -> Optional[List[str]]:
+    def _unique_options(
+        correct: str, wrong_options: List[str], total: int = 4
+    ) -> Optional[List[str]]:
         correct = str(correct or "").strip()
         if not correct:
             return None
@@ -45,7 +47,9 @@ class QuizService:
         return options
 
     @staticmethod
-    def create_article_quiz(article: str, german_word: str, persian_meaning: str) -> Optional[Dict]:
+    def create_article_quiz(
+        article: str, german_word: str, persian_meaning: str
+    ) -> Optional[Dict]:
         if not article or article.lower() not in ARTICLES:
             return None
 
@@ -70,16 +74,15 @@ class QuizService:
         }
 
     @staticmethod
-    def create_meaning_quiz(german_word: str, persian_meaning: str, wrong_options: List[str]) -> Optional[Dict]:
+    def create_meaning_quiz(
+        german_word: str, persian_meaning: str, wrong_options: List[str]
+    ) -> Optional[Dict]:
         correct = str(persian_meaning or "").strip()
         options = QuizService._unique_options(correct, wrong_options, total=4)
         if not options:
             return None
 
-        question = (
-            "🧠 معنی کلمه‌ی زیر چیست؟\n"
-            f"🇩🇪 <b>{esc(german_word)}</b>"
-        )
+        question = "🧠 معنی کلمه‌ی زیر چیست؟\n" f"🇩🇪 <b>{esc(german_word)}</b>"
 
         return {
             "type": "meaning",
@@ -90,15 +93,16 @@ class QuizService:
         }
 
     @staticmethod
-    def create_reverse_quiz(persian_meaning: str, correct_german: str, wrong_options: List[str]) -> Optional[Dict]:
+    def create_reverse_quiz(
+        persian_meaning: str, correct_german: str, wrong_options: List[str]
+    ) -> Optional[Dict]:
         correct = str(correct_german or "").strip()
         options = QuizService._unique_options(correct, wrong_options, total=4)
         if not options:
             return None
 
         question = (
-            "🔄 معادل آلمانی کلمه‌ی زیر چیست؟\n"
-            f"🇮🇷 <b>{esc(persian_meaning)}</b>"
+            "🔄 معادل آلمانی کلمه‌ی زیر چیست؟\n" f"🇮🇷 <b>{esc(persian_meaning)}</b>"
         )
 
         return {
@@ -126,7 +130,9 @@ class QuizService:
             parts = item.split()
             if len(parts) > 1:
                 # حذف sich/zu
-                without_reflexive = " ".join(p for p in parts if p.lower() not in {"sich", "zu"})
+                without_reflexive = " ".join(
+                    p for p in parts if p.lower() not in {"sich", "zu"}
+                )
                 if without_reflexive and without_reflexive not in candidates:
                     candidates.append(without_reflexive)
                 # اضافه کردن آخرین کلمه (برای separable verbs)
@@ -134,9 +140,10 @@ class QuizService:
                     candidates.append(parts[-1])
         return candidates
 
-
     @staticmethod
-    def create_cloze_quiz(german_word: str, persian_meaning: str, example_german: str) -> Optional[Dict]:
+    def create_cloze_quiz(
+        german_word: str, persian_meaning: str, example_german: str
+    ) -> Optional[Dict]:
         if not example_german:
             return None
 
@@ -155,7 +162,9 @@ class QuizService:
         if not match or not answer:
             return None
 
-        sentence_with_blank = sentence[:match.start()] + "______" + sentence[match.end():]
+        sentence_with_blank = (
+            sentence[: match.start()] + "______" + sentence[match.end() :]
+        )
 
         question = (
             "📝 کلمه‌ی مناسب برای جای خالی چیست؟\n"
@@ -176,7 +185,9 @@ class QuizService:
         example_german: str,
         wrong_options: List[str],
     ) -> Optional[Dict]:
-        cloze = QuizService.create_cloze_quiz(correct_word, persian_meaning, example_german)
+        cloze = QuizService.create_cloze_quiz(
+            correct_word, persian_meaning, example_german
+        )
         if not cloze:
             return None
 

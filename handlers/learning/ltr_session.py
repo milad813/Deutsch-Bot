@@ -27,11 +27,11 @@ class LTRSessionManager:
         new_words: List[Word],
     ) -> bool:
         """Initialize LTR session with words.
-        
+
         Returns True if session started, False if no words available.
         """
         all_words = weak_words + new_words
-        
+
         if not all_words:
             return False
 
@@ -57,7 +57,9 @@ class LTRSessionManager:
 
         logger.info(
             "Initialized LTR session for lesson %d: %d weak + %d new words",
-            lesson_id, weak_count, new_count
+            lesson_id,
+            weak_count,
+            new_count,
         )
 
         return True
@@ -84,7 +86,9 @@ class LTRSessionManager:
 
         next_index = index + 1
         self.user_data["ltr_main_index"] = next_index
-        self.user_data["ltr_main_progress"] = self.user_data.get("ltr_main_progress", 0) + 1
+        self.user_data["ltr_main_progress"] = (
+            self.user_data.get("ltr_main_progress", 0) + 1
+        )
 
         return next_index < len(word_ids)
 
@@ -116,16 +120,23 @@ class LTRSessionManager:
 
         # Remove existing task for same word/stage
         tasks[:] = [
-            t for t in tasks
-            if not (isinstance(t, dict) and t.get("word_id") == word_id and t.get("stage") == stage)
+            t
+            for t in tasks
+            if not (
+                isinstance(t, dict)
+                and t.get("word_id") == word_id
+                and t.get("stage") == stage
+            )
         ]
 
         progress = self.user_data.get("ltr_main_progress", 0)
-        tasks.append({
-            "word_id": word_id,
-            "stage": stage,
-            "due_after": progress + delay_main,
-        })
+        tasks.append(
+            {
+                "word_id": word_id,
+                "stage": stage,
+                "due_after": progress + delay_main,
+            }
+        )
 
     def get_due_delayed_task(self) -> Optional[Dict[str, Any]]:
         """Get next due delayed task."""
@@ -145,36 +156,40 @@ class LTRSessionManager:
 
     def record_word_result(self, word_id: int, is_correct: bool) -> None:
         """Record result for a word."""
-        results = self.user_data.setdefault("ltr_word_results", {}).setdefault(word_id, [])
+        results = self.user_data.setdefault("ltr_word_results", {}).setdefault(
+            word_id, []
+        )
         results.append(is_correct)
 
     def finalize_word(self, word_id: int) -> Dict[str, Any]:
         """Finalize word processing and return stats."""
-        user_id = self.context.bot_user_id if hasattr(self.context, 'bot_user_id') else None
-        
+        user_id = (
+            self.context.bot_user_id if hasattr(self.context, "bot_user_id") else None
+        )
+
         if not user_id:
             # Try to get from query context
-            user_id = getattr(getattr(self.context, '_query', None), 'from_user', None)
+            user_id = getattr(getattr(self.context, "_query", None), "from_user", None)
             if user_id:
                 user_id = user_id.id
 
         results = self.user_data.get("ltr_word_results", {}).get(word_id, [])
-        
+
         # Update SRS
         if user_id:
             fsrs.review_ltr(user_id, word_id, results)
-        
+
         # Calculate stats
         correct_count = sum(1 for r in results if r) if results else 0
         all_correct = all(results) if results else False
-        
+
         # Record activity
         if user_id:
             if results and all_correct:
                 db.record_activity(user_id, 20)
             elif results:
                 db.record_activity(user_id, 5 * correct_count)
-        
+
         # Track wrong answers
         if any(not r for r in results):
             wrong_list = self.user_data.setdefault("ltr_wrong_in_session", [])
@@ -191,11 +206,11 @@ class LTRSessionManager:
         """Get session summary statistics."""
         word_ids = self.user_data.get("ltr_words", [])
         wrong_list = self.user_data.get("ltr_wrong_in_session", [])
-        
+
         total = len(word_ids)
         wrong_count = len(wrong_list)
         correct_count = total - wrong_count
-        
+
         return {
             "total_words": total,
             "correct_words": correct_count,
@@ -242,10 +257,7 @@ def _sample_unique_ltr(primary: list, secondary: list, count: int) -> list:
 
 
 def _make_ltr_options(
-    correct: str,
-    wrongs: list,
-    total: int = 4,
-    min_options: int = 1
+    correct: str, wrongs: list, total: int = 4, min_options: int = 1
 ) -> Optional[list]:
     """Create multiple choice options with correct answer and distractors."""
     correct = str(correct or "").strip()
@@ -272,16 +284,19 @@ def _ltr_wrong_display_german_options(word: Word, count: int = 3) -> list:
     """Get wrong German display options for a word."""
     same_type_words = (
         db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
-        if word.word_type else []
+        if word.word_type
+        else []
     )
     other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
 
     same_type = [
-        w.display_german for w in same_type_words
+        w.display_german
+        for w in same_type_words
         if w.display_german and w.display_german != word.display_german
     ]
     other = [
-        w.display_german for w in other_words
+        w.display_german
+        for w in other_words
         if w.display_german
         and w.display_german != word.display_german
         and (not word.word_type or w.word_type != word.word_type)
@@ -296,10 +311,18 @@ def _ltr_answer_keyboard(options: list, with_tts: bool = False) -> InlineKeyboar
 
     for i, opt in enumerate(options):
         label = f"{chr(65 + i)}) {opt}"
-        rows.append([InlineKeyboardButton(_short_label(label, 64), callback_data=f"ltr_ans:{i}")])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    _short_label(label, 64), callback_data=f"ltr_ans:{i}"
+                )
+            ]
+        )
 
     if with_tts:
-        rows.append([InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")])
+        rows.append(
+            [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")]
+        )
 
     rows.append([InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")])
 
@@ -308,11 +331,13 @@ def _ltr_answer_keyboard(options: list, with_tts: bool = False) -> InlineKeyboar
 
 def _ltr_intro_keyboard() -> InlineKeyboardMarkup:
     """Create intro keyboard for LTR session."""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")],
-        [InlineKeyboardButton("✅ فهمیدم، بریم!", callback_data="ltr_ready")],
-        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")],
+            [InlineKeyboardButton("✅ فهمیدم، بریم!", callback_data="ltr_ready")],
+            [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
+        ]
+    )
 
 
 __all__ = [

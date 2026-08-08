@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+
 @dataclass
 class Word:
     id: int
@@ -25,9 +26,18 @@ class Word:
             return text or None
 
         for field_name in (
-            "german", "persian", "article", "word_type", "example_de", "example_fa",
-            "english_meaning", "plural_form", "verb_forms", "comparative",
-            "collocation_de", "collocation_fa",
+            "german",
+            "persian",
+            "article",
+            "word_type",
+            "example_de",
+            "example_fa",
+            "english_meaning",
+            "plural_form",
+            "verb_forms",
+            "comparative",
+            "collocation_de",
+            "collocation_fa",
         ):
             setattr(self, field_name, _clean(getattr(self, field_name)))
 

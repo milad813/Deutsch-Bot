@@ -7,6 +7,7 @@
   python import/generate_stories.py --words 12   # تعداد کلمات هر داستان
   python import/generate_stories.py --force      # حتی اگر داستان دارد، دوباره بساز
 """
+
 import os
 import sys
 import json
@@ -48,13 +49,15 @@ def get_lesson_words(db, lesson_id, max_words):
     words = []
     for word_id, article, german, persian, word_type in rows:
         disp = f"{article} {german}".strip() if article else german
-        words.append({
-            "id": word_id,
-            "display": disp,
-            "german": german,
-            "persian": persian,
-            "word_type": word_type,
-        })
+        words.append(
+            {
+                "id": word_id,
+                "display": disp,
+                "german": german,
+                "persian": persian,
+                "word_type": word_type,
+            }
+        )
     return words
 
 
@@ -119,7 +122,10 @@ def validate_story(result, words):
 
     usage_ratio = used / len(words) if words else 0
     if usage_ratio < 0.7:
-        return False, f"فقط {used}/{len(words)} کلمه استفاده شده: {', '.join(missing[:5])}"
+        return (
+            False,
+            f"فقط {used}/{len(words)} کلمه استفاده شده: {', '.join(missing[:5])}",
+        )
 
     questions = result.get("questions") or []
     valid_q = []
@@ -176,7 +182,9 @@ async def generate_story_for_lesson(llm, db, lesson_id, level, lesson_title, max
                 level=level,
             )
             n_questions = len(result.get("questions", []))
-            print(f"  ✅ داستان ذخیره شد (id={story_id}, {len(words)} کلمه, {n_questions} سوال)")
+            print(
+                f"  ✅ داستان ذخیره شد (id={story_id}, {len(words)} کلمه, {n_questions} سوال)"
+            )
             return True
 
         except json.JSONDecodeError as e:
@@ -190,10 +198,12 @@ async def generate_story_for_lesson(llm, db, lesson_id, level, lesson_title, max
 async def main():
     parser = argparse.ArgumentParser(description="تولید داستان برای درس‌ها")
     parser.add_argument("--lesson", type=int, help="فقط این درس")
-    parser.add_argument("--words", type=int, default=10,
-                        help="حداکثر کلمات هر داستان (پیش‌فرض ۱۰)")
-    parser.add_argument("--force", action="store_true",
-                        help="حتی اگر درس داستان دارد، دوباره بساز")
+    parser.add_argument(
+        "--words", type=int, default=10, help="حداکثر کلمات هر داستان (پیش‌فرض ۱۰)"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="حتی اگر درس داستان دارد، دوباره بساز"
+    )
     args = parser.parse_args()
 
     db = Database(config.DB_PATH)

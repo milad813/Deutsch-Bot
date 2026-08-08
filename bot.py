@@ -74,7 +74,9 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("menu", show_menu))
     application.add_handler(CallbackQueryHandler(inline_handler))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input)
+    )
     application.add_error_handler(on_error)
 
     job_queue = application.job_queue

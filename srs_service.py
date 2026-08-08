@@ -22,8 +22,23 @@ class FSRSState:
 
 class FSRSParams:
     w = (
-        0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01,
-        1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61
+        0.4,
+        0.6,
+        2.4,
+        5.8,
+        4.93,
+        0.94,
+        0.86,
+        0.01,
+        1.49,
+        0.14,
+        0.94,
+        2.18,
+        0.05,
+        0.34,
+        1.26,
+        0.29,
+        2.61,
     )
     request_retention = 0.9
 
@@ -87,8 +102,12 @@ class FSRSService:
 
         ease = stats.get("ease") or 2.5
         interval = stats.get("interval") or 0
-        difficulty = stats.get("difficulty", 0.0) or max(1.0, min(10.0, 11.0 - ease * 2))
-        stability = stats.get("stability", 0.0) or float(interval if interval > 0 else 0.1)
+        difficulty = stats.get("difficulty", 0.0) or max(
+            1.0, min(10.0, 11.0 - ease * 2)
+        )
+        stability = stats.get("stability", 0.0) or float(
+            interval if interval > 0 else 0.1
+        )
 
         reps = stats["correct"] + stats["wrong"]
         lapses = stats["wrong"]
@@ -96,7 +115,9 @@ class FSRSService:
         next_review = None
         if stats["next_review"]:
             try:
-                next_review = datetime.strptime(stats["next_review"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                next_review = datetime.strptime(
+                    stats["next_review"], "%Y-%m-%d %H:%M:%S"
+                ).replace(tzinfo=timezone.utc)
             except (ValueError, TypeError):
                 pass
 
@@ -126,7 +147,9 @@ class FSRSService:
             lapses = 1 if grade == 1 else 0
         else:
             difficulty = self.params.calc_difficulty(grade, state.difficulty)
-            stability = self.params.calc_stability(grade, state.stability, state.difficulty)
+            stability = self.params.calc_stability(
+                grade, state.stability, state.difficulty
+            )
             reps = state.reps + 1
             lapses = state.lapses + (1 if grade == 1 else 0)
 
@@ -210,10 +233,14 @@ class FSRSService:
             exclude_ids=exclude_ids,
         )
 
-    def review_flashcard(self, user_id: int, word_id: int, grade: int) -> Tuple[FSRSState, int]:
+    def review_flashcard(
+        self, user_id: int, word_id: int, grade: int
+    ) -> Tuple[FSRSState, int]:
         return self.review(user_id, word_id, grade)
 
-    def review_ltr(self, user_id: int, word_id: int, results: List[bool]) -> Tuple[FSRSState, int]:
+    def review_ltr(
+        self, user_id: int, word_id: int, results: List[bool]
+    ) -> Tuple[FSRSState, int]:
         if not results:
             return self.get_state(user_id, word_id), 0  # بدون تغییر
         final_results = list(results)[-3:]

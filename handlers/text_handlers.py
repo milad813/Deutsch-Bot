@@ -21,7 +21,9 @@ async def handle_text_input(update, context):
 
     menu_actions = {
         "📚 کتاب و درس‌ها": lambda: menus.show_books(update, context, is_message=True),
-        "🎴 فلش‌کارت": lambda: learning_handlers.start_flashcard_session(update, context),
+        "🎴 فلش‌کارت": lambda: learning_handlers.start_flashcard_session(
+            update, context
+        ),
         "🤖 کوییز": lambda: menus.show_quiz_menu(update, context),
         "📊 داشبورد": lambda: menus.show_dashboard_simple(update, context),
         "⚙️ تنظیمات": lambda: menus.show_settings_menu(update, context),

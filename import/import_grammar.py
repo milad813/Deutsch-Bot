@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """وارد کردن Grammer.json به جدول grammar_points.
 استفاده: python import_grammar.py [path/to/Grammer.json]"""
+
 import os
 import sys
 import json
@@ -84,8 +85,12 @@ def main():
                 level=p.get("level", ""),
                 explanation_fa=p.get("explanation_fa", ""),
                 rule_de=p.get("rule_de", ""),
-                examples_json=json.dumps(p.get("examples", []) or [], ensure_ascii=False),
-                exercises_json=json.dumps(p.get("exercises", []) or [], ensure_ascii=False),
+                examples_json=json.dumps(
+                    p.get("examples", []) or [], ensure_ascii=False
+                ),
+                exercises_json=json.dumps(
+                    p.get("exercises", []) or [], ensure_ascii=False
+                ),
                 certainty=p.get("certainty", ""),
                 note=p.get("note", ""),
             )

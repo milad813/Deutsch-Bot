@@ -22,7 +22,7 @@ class TestQuizQuestion:
             options=["house", "car", "tree", "book"],
             word_id=1,
         )
-        
+
         assert question.question_type == "multiple_choice"
         assert question.correct_answer == "house"
         assert len(question.options) == 4
@@ -37,7 +37,7 @@ class TestQuizQuestion:
             options=["der", "die", "das"],
             metadata={"difficulty": "hard"},
         )
-        
+
         assert question.metadata["difficulty"] == "hard"
 
 
@@ -50,7 +50,7 @@ class TestQuizSessionState:
             user_id=123,
             total_questions=10,
         )
-        
+
         assert state.user_id == 123
         assert state.total_questions == 10
         assert state.current_question == 0
@@ -71,7 +71,7 @@ class TestQuizSessionState:
             correct_answers=8,
             wrong_answers=2,
         )
-        
+
         assert state.accuracy == 80.0
 
     def test_progress_percentage(self):
@@ -81,7 +81,7 @@ class TestQuizSessionState:
             total_questions=10,
             current_question=5,
         )
-        
+
         assert state.progress_percentage == 50
 
     def test_progress_zero_total(self):
@@ -101,7 +101,7 @@ class TestQuizSessionManager:
     def test_create_session(self, manager):
         """Test creating a new session."""
         session = manager.create_session(user_id=123, total_questions=10)
-        
+
         assert session.user_id == 123
         assert session.total_questions == 10
         assert 123 in manager.sessions
@@ -110,14 +110,14 @@ class TestQuizSessionManager:
         """Test that creating session replaces existing one."""
         manager.create_session(user_id=123, total_questions=5)
         manager.create_session(user_id=123, total_questions=10)
-        
+
         session = manager.get_session(123)
         assert session.total_questions == 10
 
     def test_get_session(self, manager):
         """Test getting session."""
         manager.create_session(user_id=123, total_questions=10)
-        
+
         session = manager.get_session(123)
         assert session is not None
         assert session.user_id == 123
@@ -130,9 +130,9 @@ class TestQuizSessionManager:
     def test_advance_question_correct(self, manager):
         """Test advancing question with correct answer."""
         manager.create_session(user_id=123, total_questions=10)
-        
+
         session = manager.advance_question(123, is_correct=True)
-        
+
         assert session.current_question == 1
         assert session.correct_answers == 1
         assert session.wrong_answers == 0
@@ -140,9 +140,9 @@ class TestQuizSessionManager:
     def test_advance_question_wrong(self, manager):
         """Test advancing question with wrong answer."""
         manager.create_session(user_id=123, total_questions=10)
-        
+
         session = manager.advance_question(123, is_correct=False)
-        
+
         assert session.current_question == 1
         assert session.correct_answers == 0
         assert session.wrong_answers == 1
@@ -150,17 +150,17 @@ class TestQuizSessionManager:
     def test_advance_completes_session(self, manager):
         """Test that session completes when all questions answered."""
         manager.create_session(user_id=123, total_questions=3)
-        
+
         manager.advance_question(123, True)
         manager.advance_question(123, True)
         session = manager.advance_question(123, True)
-        
+
         assert session.is_finished is True
 
     def test_record_question(self, manager):
         """Test recording question details."""
         manager.create_session(user_id=123, total_questions=10)
-        
+
         manager.record_question(
             user_id=123,
             question_type="multiple_choice",
@@ -168,7 +168,7 @@ class TestQuizSessionManager:
             is_correct=True,
             metadata={"difficulty": "easy"},
         )
-        
+
         session = manager.get_session(123)
         assert len(session.question_history) == 1
         assert session.question_history[0]["question_type"] == "multiple_choice"
@@ -177,9 +177,9 @@ class TestQuizSessionManager:
     def test_end_session(self, manager):
         """Test ending session."""
         manager.create_session(user_id=123, total_questions=10)
-        
+
         session = manager.end_session(123)
-        
+
         assert session is not None
         assert 123 not in manager.sessions
 
@@ -194,9 +194,9 @@ class TestQuizSessionManager:
         manager.advance_question(123, True)
         manager.advance_question(123, False)
         manager.advance_question(123, True)
-        
+
         summary = manager.get_summary(123)
-        
+
         assert summary["total_questions"] == 10
         assert summary["answered"] == 3
         assert summary["correct"] == 2
@@ -215,6 +215,7 @@ class TestGlobalInstance:
     def test_global_instance_exists(self):
         """Test that global instance exists."""
         from handlers.quiz.session import quiz_session_manager
+
         assert quiz_session_manager is not None
         assert isinstance(quiz_session_manager, QuizSessionManager)
 

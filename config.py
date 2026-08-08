@@ -64,11 +64,13 @@ AUDIO_CACHE_DIR = get_env("AUDIO_CACHE_DIR", "audio_cache")
 
 GROQ_API_KEY = get_env("GROQ_API_KEY")
 
+
 def _get_list(key: str, default=None):
     value = get_env(key)
     if not value:
         return default or []
     return [v.strip() for v in value.split(",") if v.strip()]
+
 
 # کلیدهای چندگانه Groq (با کاما جدا کن). سازگار با کلید تکی قدیمی.
 GROQ_API_KEYS = _get_list("GROQ_API_KEYS")
@@ -109,7 +111,9 @@ def validate_config() -> None:
     if not TELEGRAM_BOT_TOKEN:
         missing.append("TELEGRAM_BOT_TOKEN")
     if ADMIN_USER_ID == 0 and not ALLOW_PUBLIC_ACCESS:
-        missing.append("ADMIN_USER_ID (یا اگر واقعاً می‌خواهی ربات عمومی باشد: ALLOW_PUBLIC_ACCESS=1)")
+        missing.append(
+            "ADMIN_USER_ID (یا اگر واقعاً می‌خواهی ربات عمومی باشد: ALLOW_PUBLIC_ACCESS=1)"
+        )
     if BOT_MODE == BotMode.ONLINE and not GROQ_API_KEY:
         missing.append("GROQ_API_KEY")
 
