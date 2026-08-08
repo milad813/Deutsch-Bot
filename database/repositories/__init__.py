@@ -58,7 +58,7 @@ class LessonRepository(BaseRepository):
     def get_by_book(self, book_id: int) -> list:
         """Get all lessons for a book."""
         query = """
-            SELECT id, book_id, lesson_number, title, created_at
+            SELECT id, lesson_number, title
             FROM lessons
             WHERE book_id = ?
             ORDER BY lesson_number
@@ -68,7 +68,7 @@ class LessonRepository(BaseRepository):
     def get_by_id(self, lesson_id: int) -> tuple:
         """Get a lesson by ID."""
         query = """
-            SELECT id, book_id, lesson_number, title, created_at
+            SELECT id, lesson_number, title
             FROM lessons
             WHERE id = ?
         """

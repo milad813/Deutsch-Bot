@@ -359,6 +359,32 @@ class ExtendedWordRepository(BaseRepository):
 
         return result
 
+    def get_flashcard_words(
+        self, user_id: int, lesson_id: Optional[int] = None, limit: int = 20,
+        include_new: bool = False, new_limit: int = 5, exclude_ids: Optional[list] = None
+    ) -> List[Word]:
+        """Get words for flashcard practice (alias for get_for_flashcard)."""
+        return self.get_for_flashcard(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            limit=limit,
+            include_new=include_new,
+            new_limit=new_limit,
+            exclude_ids=exclude_ids,
+        )
+
+    def get_new_word_objects(
+        self, user_id: int, lesson_id: Optional[int] = None, limit: int = 20,
+        exclude_ids: Optional[list] = None
+    ) -> List[Word]:
+        """Get new words for learning (alias for get_new)."""
+        return self.get_new(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            limit=limit,
+            exclude_ids=exclude_ids,
+        )
+
     def get_due_today(self, user_id: int) -> List[Tuple]:
         """Get words due today (simple format)."""
         query = """
