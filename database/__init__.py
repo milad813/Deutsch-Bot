@@ -107,6 +107,52 @@ class Database:
             exclude_ids=exclude_ids,
         )
 
+    def get_stories_by_lesson(self, lesson_id: int) -> list:
+        """Get stories by lesson ID (backward compatibility)."""
+        return self.stories.get_by_lesson(lesson_id)
+
+    def get_story(self, story_id: int) -> dict:
+        """Get story by ID (backward compatibility)."""
+        row = self.stories.get_by_id(story_id)
+        if not row:
+            return None
+        # Convert tuple to dict for backward compatibility
+        return {
+            "id": row[0],
+            "lesson_id": row[1],
+            "title_de": row[2],
+            "title_fa": row[3],
+            "text_de": row[4],
+            "text_fa": row[5],
+            "audio_url": row[6],
+            "created_at": row[7] if len(row) > 7 else None,
+        }
+
+    def add_story(
+        self, lesson_id: int, title_de: str, title_fa: str,
+        text_de: str, text_fa: str, target_word_ids: str = None,
+        questions_json: str = None, level: str = None
+    ) -> int:
+        """Add a story (backward compatibility)."""
+        return self.stories.add(
+            lesson_id=lesson_id,
+            title_de=title_de,
+            title_fa=title_fa,
+            text_de=text_de,
+            text_fa=text_fa,
+        )
+
+    def get_nouns_with_article_objects(
+        self, user_id: int, lesson_id: int = None, limit: int = 20, exclude_ids: list = None
+    ):
+        """Get nouns with articles (backward compatibility)."""
+        return self.words.get_nouns_with_article_objects(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            limit=limit,
+            exclude_ids=exclude_ids,
+        )
+
     def update_user_setting(self, user_id: int, preferred_level: str) -> None:
         """Update user setting (backward compatibility)."""
         self.users.update_setting(user_id, preferred_level)
