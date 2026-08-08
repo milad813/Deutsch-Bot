@@ -22,6 +22,7 @@ class LTRSessionManager:
 
     def initialize(
         self,
+        user_id: int,
         lesson_id: int,
         weak_words: List[Word],
         new_words: List[Word],
@@ -44,6 +45,7 @@ class LTRSessionManager:
         self.user_data.pop("ltr_delayed_2", None)
 
         # Initialize session state
+        self.user_data["ltr_user_id"] = user_id  # Store user_id for finalize_word
         self.user_data["ltr_words"] = [w.id for w in all_words]
         self.user_data["ltr_main_index"] = 0
         self.user_data["ltr_main_progress"] = 0
@@ -163,15 +165,8 @@ class LTRSessionManager:
 
     def finalize_word(self, word_id: int) -> Dict[str, Any]:
         """Finalize word processing and return stats."""
-        user_id = (
-            self.context.bot_user_id if hasattr(self.context, "bot_user_id") else None
-        )
-
-        if not user_id:
-            # Try to get from query context
-            user_id = getattr(getattr(self.context, "_query", None), "from_user", None)
-            if user_id:
-                user_id = user_id.id
+        # Get user_id from context.user_data (set by caller with query.from_user.id)
+        user_id = self.user_data.get("ltr_user_id")
 
         results = self.user_data.get("ltr_word_results", {}).get(word_id, [])
 
