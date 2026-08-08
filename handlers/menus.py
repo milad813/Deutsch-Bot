@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes
 
 import config
 from services import db, get_main_menu_keyboard, reset_session
-from ui import esc, back_inline_keyboard, render
+from ui import back_inline_keyboard, esc, render
 
 ITEMS_PER_PAGE = 5
 

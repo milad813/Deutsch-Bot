@@ -1,7 +1,7 @@
 import config
 from services import get_main_menu_keyboard
-from . import menus
-from . import learning_handlers
+
+from . import learning_handlers, menus
 
 
 async def handle_text_input(update, context):

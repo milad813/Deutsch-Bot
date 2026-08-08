@@ -4,12 +4,14 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
-from handlers import menus
-from handlers import quiz_handlers
-from handlers import learning_handlers
-from handlers import grammar_handlers
-from handlers import story_handlers
-from services import db, get_main_menu_keyboard, tts, reset_session
+from handlers import (
+    grammar_handlers,
+    learning_handlers,
+    menus,
+    quiz_handlers,
+    story_handlers,
+)
+from services import db, get_main_menu_keyboard, reset_session, tts
 from ui import back_inline_keyboard, render
 
 logger = logging.getLogger(__name__)

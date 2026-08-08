@@ -2,9 +2,9 @@
 """وارد کردن Grammer.json به جدول grammar_points.
 استفاده: python import_grammar.py [path/to/Grammer.json]"""
 
+import json
 import os
 import sys
-import json
 from json import JSONDecoder
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

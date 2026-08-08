@@ -1,21 +1,20 @@
 import logging
-from typing import Optional
+import random
 from collections import deque
+from typing import Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-import random
 import config
-
-from services import db, fsrs, llm
 from models import Word
+from services import db, fsrs, llm
 from ui import (
-    esc,
-    back_inline_keyboard,
     _bold_word_in_sentence,
-    render,
     _short_label,
+    back_inline_keyboard,
+    esc,
     progress_bar,
+    render,
 )
 
 logger = logging.getLogger(__name__)

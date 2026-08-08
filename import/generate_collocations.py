@@ -2,11 +2,11 @@
 """تولید collocation برای کلماتی که هنوز ندارند. قابل resume.
 استفاده: python import/generate_collocations.py"""
 
+import asyncio
+import json
+import logging
 import os
 import sys
-import json
-import asyncio
-import logging
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config

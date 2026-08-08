@@ -1,9 +1,11 @@
 import json
-import random
 import logging
+import random
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from services import db
-from ui import esc, render, back_inline_keyboard, _short_label
+from ui import _short_label, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
 

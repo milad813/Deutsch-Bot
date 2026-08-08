@@ -1,4 +1,5 @@
 from telegram import ReplyKeyboardMarkup
+
 import config
 from database import Database
 from llm_service import LLMService

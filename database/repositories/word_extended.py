@@ -1,7 +1,7 @@
 """Extended WordRepository methods for complex queries."""
 
-from typing import Dict, Iterable, List, Optional, Tuple
 from datetime import datetime, timezone
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from database.connection import DatabaseConnection
 from database.repositories.base import BaseRepository

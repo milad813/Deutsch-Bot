@@ -1,7 +1,7 @@
 import logging
 import os
-from typing import Dict, Optional
 from enum import Enum
+from typing import Dict, Optional
 
 
 class BotMode(Enum):

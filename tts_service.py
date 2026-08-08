@@ -1,6 +1,6 @@
-import os
-import logging
 import hashlib
+import logging
+import os
 import tempfile
 
 import config

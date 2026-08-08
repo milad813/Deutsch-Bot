@@ -1,15 +1,15 @@
 """Flashcard session management and rendering."""
 
 import logging
-from typing import Optional, Set
 from collections import deque
+from typing import Optional, Set
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
-from services import db, fsrs, llm
 from models import Word
-from ui import esc, back_inline_keyboard, _bold_word_in_sentence, render
+from services import db, fsrs, llm
+from ui import _bold_word_in_sentence, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
 

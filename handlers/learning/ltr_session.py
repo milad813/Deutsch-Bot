@@ -1,13 +1,13 @@
 """LTR (Learn-Test-Repeat) session management."""
 
 import logging
-from typing import Optional, List, Dict, Any
 import random
+from typing import Any, Dict, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from services import db, fsrs
 from models import Word
+from services import db, fsrs
 from ui import _short_label, progress_bar
 
 logger = logging.getLogger(__name__)

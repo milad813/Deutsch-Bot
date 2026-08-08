@@ -1,8 +1,8 @@
 """Database connection management and migrations."""
 
-import sqlite3
-import os
 import logging
+import os
+import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional

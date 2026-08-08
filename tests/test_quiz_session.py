@@ -1,11 +1,13 @@
 """Unit tests for quiz session functionality."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from handlers.quiz.session import (
     QuizQuestion,
-    QuizSessionState,
     QuizSessionManager,
+    QuizSessionState,
     quiz_session_manager,
 )
 

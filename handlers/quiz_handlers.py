@@ -1,15 +1,15 @@
-import random
 import logging
+import random
 import re
-from typing import Callable, Optional, Dict, List, Iterable
 from dataclasses import dataclass
+from typing import Callable, Dict, Iterable, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
-from services import db, llm, quiz_service, fsrs
 from models import Word
-from ui import esc, quiz_answer_keyboard, back_inline_keyboard, render
+from services import db, fsrs, llm, quiz_service
+from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
 
 logger = logging.getLogger(__name__)
 

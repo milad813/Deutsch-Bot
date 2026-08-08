@@ -1,8 +1,8 @@
-import math
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple, List, Iterable
+import math
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Iterable, List, Optional, Tuple
 
 from models import Word
 

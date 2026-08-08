@@ -1,9 +1,11 @@
 """Unit tests for flashcard functionality."""
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from handlers.flashcard.session import FlashcardSessionManager
+
 from handlers.flashcard.display import FlashcardDisplay
+from handlers.flashcard.session import FlashcardSessionManager
 from models import Word
 
 

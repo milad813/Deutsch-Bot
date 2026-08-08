@@ -1,16 +1,16 @@
 """Flashcard session management."""
 
 import logging
-from typing import TYPE_CHECKING, Optional, List, Set
 from collections import deque
+from typing import TYPE_CHECKING, List, Optional, Set
 
 if TYPE_CHECKING:
     from telegram import Update
     from telegram.ext import CallbackContext
 
-from services import db, fsrs
-from models import Word
 import config
+from models import Word
+from services import db, fsrs
 
 logger = logging.getLogger(__name__)
 

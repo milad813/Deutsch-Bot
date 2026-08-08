@@ -1,12 +1,14 @@
 """Unit tests for LTR session functionality."""
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from handlers.learning.ltr_session import (
     LTRSessionManager,
-    _sample_unique_ltr,
-    _make_ltr_options,
     _ltr_answer_keyboard,
+    _make_ltr_options,
+    _sample_unique_ltr,
 )
 from models import Word
 

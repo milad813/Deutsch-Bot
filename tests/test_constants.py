@@ -1,15 +1,16 @@
 """Unit tests for constants module."""
 
 import pytest
+
 from constants import (
+    BTN_SHOW_MEANING,
+    ERROR_GENERIC,
+    FLASHCARD_NEW_LIMIT,
+    FLASHCARD_QUEUE_LIMIT,
     BotMode,
-    QuizType,
     FlashcardState,
     LTRStage,
-    FLASHCARD_QUEUE_LIMIT,
-    FLASHCARD_NEW_LIMIT,
-    ERROR_GENERIC,
-    BTN_SHOW_MEANING,
+    QuizType,
 )
 
 

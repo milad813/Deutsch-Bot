@@ -7,10 +7,10 @@ if TYPE_CHECKING:
     from telegram import Update, CallbackQuery
     from telegram.ext import CallbackContext
 
+from handlers.flashcard.display import flashcard_display
+from handlers.flashcard.session import flashcard_session_manager
 from models import Word
 from services import db, fsrs
-from handlers.flashcard.session import flashcard_session_manager
-from handlers.flashcard.display import flashcard_display
 
 logger = logging.getLogger(__name__)
 

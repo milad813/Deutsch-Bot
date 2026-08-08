@@ -9,18 +9,18 @@ if TYPE_CHECKING:
     from telegram import Update, CallbackQuery
     from telegram.ext import CallbackContext
 
-from models import Word
-from ui import esc, render
 from constants import (
+    BTN_AGAIN,
+    BTN_BACK,
+    BTN_EASY,
+    BTN_GOOD,
+    BTN_HARD,
     BTN_SHOW_MEANING,
     BTN_SKIP,
     BTN_TTS,
-    BTN_BACK,
-    BTN_AGAIN,
-    BTN_HARD,
-    BTN_GOOD,
-    BTN_EASY,
 )
+from models import Word
+from ui import esc, render
 
 logger = logging.getLogger(__name__)
 

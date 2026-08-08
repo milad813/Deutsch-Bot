@@ -3,10 +3,10 @@
 استفاده: python import/generate_verb_forms.py
 """
 
-import os
-import sys
 import asyncio
 import logging
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
