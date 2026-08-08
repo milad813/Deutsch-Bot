@@ -37,8 +37,12 @@ class Database:
         return self._conn.conn
 
     def close(self):
-        """Close database connection."""
-        self._conn.close()
+        """Close database connections."""
+        try:
+            self._conn.close()
+        finally:
+            if hasattr(self, "_legacy"):
+                self._legacy.close()
 
     def __getattr__(self, name):
         """Fallback to legacy database for missing methods."""

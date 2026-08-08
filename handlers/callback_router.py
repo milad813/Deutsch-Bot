@@ -173,16 +173,18 @@ async def _show_ltr_intro(query, context, word, lesson_id: int):
     """Show LTR intro screen for a word."""
     from handlers.learning.ltr_session import _ltr_intro_keyboard
     from ui import esc
-    
+
+    context.user_data["current_tts_text"] = word.display_german
+
     msg = (
         f"🧠 <b>تمرین عمیق (LTR)</b>\n"
-        f"📚 درس: {lesson_id}\n\n"
+        f"📚 درس: {lesson_id}\n"
         f"🇩🇪 <b>{esc(word.display_german)}</b>\n"
-        f"🇮🇷 {esc(word.persian)}\n\n"
+        f"🇮🇷 {esc(word.persian)}\n"
         "در این حالت، کلمات را با روش یادگیری فعال تمرین می‌کنیم.\n"
         "برای هر کلمه، چند سوال مختلف پرسیده می‌شود."
     )
-    
+
     await render(query, msg, reply_markup=_ltr_intro_keyboard())
 
 
@@ -281,6 +283,11 @@ async def _handle_book(query, context, suffix: str):
 
 
 async def _handle_back_to_main_menu(query, context):
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
     await _cleanup_tts(context, query.from_user.id)
     reset_session(context)
     try:

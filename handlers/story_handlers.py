@@ -14,6 +14,24 @@ MAX_STORY_WORDS = 10
 MIN_STORY_WORDS = 4
 
 
+def _safe_json_list(raw):
+    try:
+        data = json.loads(raw or "[]")
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _safe_id_list(raw):
+    result = []
+    for item in _safe_json_list(raw):
+        try:
+            result.append(int(item))
+        except Exception:
+            continue
+    return result
+
+
 def _build_story_prompt(words, level, lesson_title):
     word_lines = []
     for w in words:
@@ -210,7 +228,7 @@ async def show_story(query, context, story_id: int):
     title = story.get("title_de") or story.get("title_fa") or "داستان"
     msg = f"📖 <b>{esc(title)}</b>\n\n{esc(story['text_de'])}"
 
-    target_ids = json.loads(story.get("target_word_ids") or "[]")
+    target_ids = _safe_id_list(story.get("target_word_ids"))
     words = db.get_word_objects_by_ids(target_ids) if target_ids else []
     if words:
         word_list = "، ".join(w.display_german for w in words[:10])
@@ -269,7 +287,7 @@ async def show_story_words(query, context, story_id: int):
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    target_ids = json.loads(story.get("target_word_ids") or "[]")
+    target_ids = _safe_id_list(story.get("target_word_ids"))
     words = db.get_word_objects_by_ids(target_ids) if target_ids else []
 
     if not words:
@@ -348,7 +366,7 @@ async def start_story_quiz(query, context, story_id: int):
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    questions = json.loads(story.get("questions_json") or "[]")
+    questions = _safe_json_list(story.get("questions_json"))
     questions = [q for q in questions if isinstance(q, dict) and q.get("question")]
 
     if not questions:

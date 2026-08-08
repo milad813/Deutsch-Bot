@@ -242,13 +242,20 @@ class FSRSService:
         self, user_id: int, word_id: int, results: List[bool]
     ) -> Tuple[FSRSState, int]:
         if not results:
-            return self.get_state(user_id, word_id), 0  # بدون تغییر
-        final_results = list(results)[-3:]
-        correct_count = sum(final_results)
-        if correct_count >= 3:
+            return self.get_state(user_id, word_id), 0
+
+        recent = list(results)[-3:]
+        correct_count = sum(recent)
+
+        if len(recent) == 1:
+            grade = 3 if recent[0] else 1
+        elif correct_count == len(recent):
+            grade = 4
+        elif correct_count >= len(recent) - 1:
             grade = 3
-        elif correct_count == 2:
+        elif correct_count > 0:
             grade = 2
         else:
             grade = 1
+
         return self.review(user_id, word_id, grade)
