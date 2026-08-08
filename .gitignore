@@ -13,3 +13,4 @@ database/repositories/__pycache__/
 handlers/__pycache__/
 handlers/learning/__pycache__/
 ```
+.env
