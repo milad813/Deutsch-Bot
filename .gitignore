@@ -1,1 +1,15 @@
-Nothing should be ignored since the changes only include Python source files (.py) which are legitimate code files that should be tracked in version control.
+```gitignore
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database cache
+database/__pycache__/
+database/repositories/__pycache__/
+
+# Handlers cache
+handlers/__pycache__/
+handlers/learning/__pycache__/
+```
