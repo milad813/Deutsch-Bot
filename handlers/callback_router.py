@@ -143,9 +143,8 @@ async def _handle_study_lesson(query, context, suffix: str):
     user_id = query.from_user.id
     
     # Get weak and new words for this lesson
-    weak_words = db.get_weak_word_objects(user_id, lesson_id=lesson_id, limit=20)
-    new_words = db.get_new_word_objects(lesson_id=lesson_id, limit=20)
-    
+    weak_words = db.get_weak_words_by_lesson(user_id, lesson_id, limit=20)
+    new_words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=20)    
     if not weak_words and not new_words:
         await render(
             query,

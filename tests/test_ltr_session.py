@@ -37,6 +37,7 @@ class TestLTRSessionManager:
 
         with patch("handlers.learning.ltr_session.db") as mock_db:
             result = manager.initialize(
+                user_id=123,
                 lesson_id=1,
                 weak_words=sample_words[:1],
                 new_words=sample_words[1:],
@@ -46,6 +47,7 @@ class TestLTRSessionManager:
             assert mock_context.user_data["ltr_words"] == [1, 2, 3]
             assert mock_context.user_data["ltr_lesson_id"] == 1
             assert mock_context.user_data["ltr_main_index"] == 0
+            assert mock_context.user_data["ltr_user_id"] == 123
 
     def test_initialize_no_words(self, mock_context):
         """Test initializing with no words."""

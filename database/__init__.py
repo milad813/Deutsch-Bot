@@ -2,7 +2,7 @@
 
 from database.connection import DEFAULT_OWNER_ID, DatabaseConnection, _utc_now
 from database.repositories import (BaseRepository, BookRepository,
-                                   ExtendedWordRepository, GrammarRepository,
+                                   ExtendedWordRepository,
                                    LessonRepository, StoryRepository,
                                    UserRepository, WordRepository)
 
@@ -26,7 +26,6 @@ class Database:
         self.books = BookRepository(self._conn)
         self.lessons = LessonRepository(self._conn)
         self.users = UserRepository(self._conn)
-        self.grammar = GrammarRepository(self._conn)
         self.stories = StoryRepository(self._conn)
         
         # Create legacy db instance for fallback methods
@@ -160,6 +159,5 @@ __all__ = [
     "BookRepository",
     "LessonRepository",
     "UserRepository",
-    "GrammarRepository",
     "StoryRepository",
 ]

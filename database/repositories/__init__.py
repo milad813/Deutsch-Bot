@@ -194,52 +194,6 @@ class UserRepository(BaseRepository):
         return int(xp / 100) + 1
 
 
-class GrammarRepository(BaseRepository):
-    """Repository for grammar point operations."""
-
-    def __init__(self, connection: DatabaseConnection):
-        super().__init__(connection)
-
-    def add(
-        self,
-        lesson_id: int,
-        topic_de: str,
-        topic_fa: str,
-        explanation_de: str,
-        explanation_fa: str,
-        examples: str = None,
-    ) -> int:
-        """Add a grammar point."""
-        query = """
-            INSERT INTO grammar_points
-            (lesson_id, topic_de, topic_fa, explanation_de, explanation_fa, examples)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """
-        return self.insert(
-            query,
-            (lesson_id, topic_de, topic_fa, explanation_de, explanation_fa, examples),
-        )
-
-    def get_by_lesson(self, lesson_id: int) -> list:
-        """Get all grammar points for a lesson."""
-        query = """
-            SELECT id, lesson_id, topic_de, topic_fa, explanation_de, 
-                   explanation_fa, examples, created_at
-            FROM grammar_points
-            WHERE lesson_id = ?
-        """
-        return self.fetch_all(query, (lesson_id,))
-
-    def get_by_id(self, gid: int) -> tuple:
-        """Get a grammar point by ID."""
-        query = """
-            SELECT id, lesson_id, topic_de, topic_fa, explanation_de,
-                   explanation_fa, examples, created_at
-            FROM grammar_points
-            WHERE id = ?
-        """
-        return self.fetch_one(query, (gid,))
-
 
 class StoryRepository(BaseRepository):
     """Repository for story operations."""
@@ -302,6 +256,5 @@ __all__ = [
     "UserRepository",
     "WordRepository",
     "ExtendedWordRepository",
-    "GrammarRepository",
     "StoryRepository",
 ]

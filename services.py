@@ -64,6 +64,7 @@ SESSION_KEYS = {
     # Story
     "current_story_id",
     "story_quiz",
+    "ltr_user_id",
 }
 
 

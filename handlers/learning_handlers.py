@@ -1,5 +1,5 @@
 """Learning handlers - wrapper for modularized learning module."""
-
+import logging
 from handlers.learning import (
     FlashcardSessionManager,
     start_flashcard_session,
@@ -8,8 +8,16 @@ from handlers.learning import (
     handle_rate_card,
     handle_skip_flashcard,
 )
-from handlers.learning.ltr_session import LTRSessionManager
+from handlers.learning.ltr_session import (
+    LTRSessionManager,
+    _ltr_answer_keyboard,
+    _ltr_wrong_display_german_options,
+    _make_ltr_options,
+)
+from services import db
+from ui import back_inline_keyboard, esc, render
 
+logger = logging.getLogger(__name__)
 # Wrapper functions for backward compatibility
 async def handle_ltr_start(query, context):
     """Start LTR session - placeholder, actual start is via study_lesson callback."""
@@ -18,43 +26,44 @@ async def handle_ltr_start(query, context):
         await _show_ltr_intro_for_lesson(query, context, lesson_id)
 
 async def _show_ltr_intro_for_lesson(query, context, lesson_id: int):
-    """Helper to show LTR intro for a lesson (used by handle_ltr_start)."""
     user_id = query.from_user.id
-    
-    # Get weak and new words for this lesson
-    weak_words = db.get_weak_word_objects(user_id, lesson_id=lesson_id, limit=20)
-    new_words = db.get_new_word_objects(lesson_id=lesson_id, limit=20)
-    
+    weak_words = db.get_weak_words_by_lesson(user_id, lesson_id, limit=20)
+    new_words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=20)
+
     if not weak_words and not new_words:
-        await render(
-            query,
-            "🎉 هیچ کلمه‌ی جدید یا ضعیفی در این درس ندارید!",
-            reply_markup=back_inline_keyboard()
-        )
+        await render(query, "🎉 هیچ کلمه‌ی جدید یا ضعیفی در این درس ندارید!",
+                     reply_markup=back_inline_keyboard())
         return
-    
-    # Initialize LTR session
+
     ltr_manager = LTRSessionManager(context)
     if not ltr_manager.initialize(user_id, lesson_id, weak_words, new_words):
-        await render(
-            query,
-            "❌ خطا در شروع جلسه.",
-            reply_markup=back_inline_keyboard()
-        )
+        await render(query, "❌ خطا در شروع جلسه.", reply_markup=back_inline_keyboard())
         return
-    
-    # Show intro
+
     word = ltr_manager.get_current_word()
-    if word:
-        await _show_ltr_intro(query, context, word, lesson_id)
+    if not word:
+        await render(query, "❌ کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
+        return
+
+    from handlers.learning.ltr_session import _ltr_intro_keyboard
+    msg = (
+        f"🧠 <b>تمرین عمیق (LTR)</b>\n"
+        f"🇩🇪 <b>{esc(word.display_german)}</b>\n"
+        f"🇮🇷 {esc(word.persian)}\n\n"
+        "در این حالت، کلمات را با روش یادگیری فعال تمرین می‌کنیم.\n"
+        "برای هر کلمه، چند سوال مختلف پرسیده می‌شود."
+    )
+    await render(query, msg, reply_markup=_ltr_intro_keyboard())
 
 async def handle_ltr_ready(query, context):
-    """Handle LTR ready button - show first question."""
     ltr_manager = LTRSessionManager(context)
     word = ltr_manager.get_current_word()
     if word:
         await _show_ltr_question(query, context, word)
-
+    else:
+        await render(query, "❌ کلمه‌ای در صف نیست.",
+                     reply_markup=back_inline_keyboard())
+        
 async def _show_ltr_question(query, context, word):
     """Show LTR question for a word."""
     from handlers.learning.ltr_session import (
@@ -72,7 +81,9 @@ async def _show_ltr_question(query, context, word):
     # Generate wrong options
     wrong_options = _ltr_wrong_display_german_options(word, count=3)
     options = _make_ltr_options(correct_answer, wrong_options, total=4, min_options=2)
-    
+    # ذخیره options برای validate در handle_ltr_answer
+    context.user_data["ltr_current_options"] = options
+    context.user_data["ltr_current_correct_index"] = options.index(correct_answer)
     if not options:
         await render(
             query,
@@ -131,45 +142,32 @@ async def handle_ltr_exit(query, context):
     await render(query, "❌ جلسه تمرین عمیق لغو شد.", reply_markup=keyboard)
 
 async def handle_ltr_answer(query, context, suffix):
-    """Handle LTR answer selection."""
     try:
-        option_index = int(suffix)  # suffix is the option index (0,1,2,3), not word_id!
-        
-        ltr_manager = LTRSessionManager(context)
-        word = ltr_manager.get_current_word()
-        
-        if not word:
-            await render(
-                query,
-                "❌ کلمه‌ای پیدا نشد.",
-                reply_markup=back_inline_keyboard()
-            )
-            return
-        
-        # Get options from user_data or regenerate
-        # For now, we'll just check against the correct answer
-        correct_answer = word.german
-        if word.article:
-            correct_answer = f"{word.article} {word.german}"
-        
-        # Get the selected option text from callback data
-        # We need to extract it from the keyboard - for simplicity, compare index
-        wrong_options = _ltr_wrong_display_german_options(word, count=3)
-        options = _make_ltr_options(correct_answer, wrong_options, total=4, min_options=2)
-        
-        if options and option_index < len(options):
-            selected_option = options[option_index]
-            is_correct = (selected_option == correct_answer)
-            
-            # Record result
-            ltr_manager.record_word_result(word.id, is_correct)
-            
-            # Show result and move to next
-            await _show_ltr_result_and_continue(query, context, word, is_correct)
-        
-    except (ValueError, TypeError) as e:
-        logger.warning(f"Error in handle_ltr_answer: {e}")
-        pass
+        option_index = int(suffix)
+    except (ValueError, TypeError):
+        return
+
+    ltr_manager = LTRSessionManager(context)
+    word = ltr_manager.get_current_word()
+    if not word:
+        await render(query, "❌ کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
+        return
+
+    # ✅ استفاده از options ذخیره‌شده به جای تولید مجدد
+    options = context.user_data.get("ltr_current_options", [])
+    correct_index = context.user_data.get("ltr_current_correct_index", -1)
+
+    if option_index < 0 or option_index >= len(options):
+        return
+
+    is_correct = option_index == correct_index
+    ltr_manager.record_word_result(word.id, is_correct)
+
+    # پاک کردن state سوال فعلی
+    context.user_data.pop("ltr_current_options", None)
+    context.user_data.pop("ltr_current_correct_index", None)
+
+    await _show_ltr_result_and_continue(query, context, word, is_correct)
 
 async def _show_ltr_result_and_continue(query, context, word, is_correct):
     """Show result and continue to next word or question."""
