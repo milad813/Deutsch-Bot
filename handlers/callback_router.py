@@ -134,11 +134,57 @@ async def _handle_flashcard_lesson(query, context, suffix: str):
 
 
 async def _handle_study_lesson(query, context, suffix: str):
+    """Handle study lesson button - start LTR session."""
     try:
         lesson_id = int(suffix)
     except ValueError:
         return
-    await learning_handlers.start_study_session(query, context, lesson_id=lesson_id)
+    
+    user_id = query.from_user.id
+    
+    # Get weak and new words for this lesson
+    weak_words = db.get_weak_word_objects(user_id, lesson_id=lesson_id, limit=20)
+    new_words = db.get_new_word_objects(lesson_id=lesson_id, limit=20)
+    
+    if not weak_words and not new_words:
+        await render(
+            query,
+            "🎉 هیچ کلمه‌ی جدید یا ضعیفی در این درس ندارید!",
+            reply_markup=back_inline_keyboard()
+        )
+        return
+    
+    # Initialize LTR session
+    ltr_manager = LTRSessionManager(context)
+    if not ltr_manager.initialize(user_id, lesson_id, weak_words, new_words):
+        await render(
+            query,
+            "❌ خطا در شروع جلسه.",
+            reply_markup=back_inline_keyboard()
+        )
+        return
+    
+    # Show intro
+    word = ltr_manager.get_current_word()
+    if word:
+        await _show_ltr_intro(query, context, word, lesson_id)
+
+
+async def _show_ltr_intro(query, context, word, lesson_id: int):
+    """Show LTR intro screen for a word."""
+    from handlers.learning.ltr_session import _ltr_intro_keyboard
+    from ui import esc
+    
+    msg = (
+        f"🧠 <b>تمرین عمیق (LTR)</b>\\n"
+        f"📚 درس: {lesson_id}\\n\\n"
+        f"🇩🇪 <b>{esc(word.display_german)}</b>\\n"
+        f"🇮🇷 {esc(word.persian)}\\n\\n"
+        "در این حالت، کلمات را با روش یادگیری فعال تمرین می‌کنیم.\\n"
+        "برای هر کلمه، چند سوال مختلف پرسیده می‌شود."
+    )
+    
+    await render(query, msg, reply_markup=_ltr_intro_keyboard())
 
 
 async def _handle_quiz_source(query, context, suffix: str):
