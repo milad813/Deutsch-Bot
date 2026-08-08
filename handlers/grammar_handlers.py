@@ -1,9 +1,11 @@
 import json
-import random
 import logging
+import random
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from services import db
-from ui import esc, render, back_inline_keyboard, _short_label
+from ui import _short_label, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +14,20 @@ def _grammar_quiz_keyboard(options, point_id):
     kb = []
     for i, opt in enumerate(options):
         label = f"{chr(65 + i)}) {opt}"
-        kb.append([InlineKeyboardButton(_short_label(label, 64), callback_data=f"grammar_ans:{i}")])
-    kb.append([InlineKeyboardButton("🔙 بازگشت به نکته", callback_data=f"grammar_point:{point_id}")])
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    _short_label(label, 64), callback_data=f"grammar_ans:{i}"
+                )
+            ]
+        )
+    kb.append(
+        [
+            InlineKeyboardButton(
+                "🔙 بازگشت به نکته", callback_data=f"grammar_point:{point_id}"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(kb)
 
 
@@ -28,9 +42,19 @@ async def show_grammar_menu(query, context, lesson_id: int):
         return
     kb = []
     for p in points:
-        kb.append([InlineKeyboardButton(f"📘 {esc(p['title_fa'])}", callback_data=f"grammar_point:{p['id']}")])
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    f"📘 {esc(p['title_fa'])}", callback_data=f"grammar_point:{p['id']}"
+                )
+            ]
+        )
     kb.append([InlineKeyboardButton("🔙 بازگشت", callback_data=f"lesson_{lesson_id}")])
-    await render(query, "📐 <b>گرامر این درس</b>\nیک نکته را انتخاب کن:", reply_markup=InlineKeyboardMarkup(kb))
+    await render(
+        query,
+        "📐 <b>گرامر این درس</b>\nیک نکته را انتخاب کن:",
+        reply_markup=InlineKeyboardMarkup(kb),
+    )
 
 
 async def show_grammar_point(query, context, point_id: int):
@@ -50,8 +74,20 @@ async def show_grammar_point(query, context, point_id: int):
         msg += "\n<b>مثال:</b>\n"
         for ex in examples[:3]:
             msg += f"🇩 {esc(ex.get('de', ''))}\n🇮🇷 <i>{esc(ex.get('fa', ''))}</i>\n"
-    kb = [[InlineKeyboardButton("✍️ تمرین این نکته", callback_data=f"grammar_quiz:{p['id']}")]]
-    kb.append([InlineKeyboardButton("🔙 بازگشت", callback_data=f"grammar_lesson:{p['lesson_id']}")])
+    kb = [
+        [
+            InlineKeyboardButton(
+                "✍️ تمرین این نکته", callback_data=f"grammar_quiz:{p['id']}"
+            )
+        ]
+    ]
+    kb.append(
+        [
+            InlineKeyboardButton(
+                "🔙 بازگشت", callback_data=f"grammar_lesson:{p['lesson_id']}"
+            )
+        ]
+    )
     await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))
 
 
@@ -82,7 +118,9 @@ async def start_grammar_quiz(query, context, point_id: int):
         )
         return
 
-    distractors = [str(d).strip() for d in (ex.get("distractors") or []) if str(d).strip()]
+    distractors = [
+        str(d).strip() for d in (ex.get("distractors") or []) if str(d).strip()
+    ]
     distractors = [d for d in distractors if d != correct]
     distractors = list(dict.fromkeys(distractors))
     random.shuffle(distractors)
@@ -117,7 +155,7 @@ async def handle_grammar_answer(query, context, suffix: str):
     options = cur["options"]
     if chosen < 0 or chosen >= len(options):
         return
-    is_correct = (chosen == cur["correct_index"])
+    is_correct = chosen == cur["correct_index"]
     if is_correct:
         try:
             await query.answer("✅ درست!", show_alert=False)
@@ -132,6 +170,18 @@ async def handle_grammar_answer(query, context, suffix: str):
         msg = f"❌ اشتباه بود.\n✅ جواب درست: <b>{esc(cur['correct'])}</b>"
     if cur.get("explanation"):
         msg += f"\n💡 {esc(cur['explanation'])}"
-    kb = [[InlineKeyboardButton("✍️ تمرین دیگر", callback_data=f"grammar_quiz:{cur['point_id']}")]]
-    kb.append([InlineKeyboardButton("🔙 بازگشت به نکته", callback_data=f"grammar_point:{cur['point_id']}")])
+    kb = [
+        [
+            InlineKeyboardButton(
+                "✍️ تمرین دیگر", callback_data=f"grammar_quiz:{cur['point_id']}"
+            )
+        ]
+    ]
+    kb.append(
+        [
+            InlineKeyboardButton(
+                "🔙 بازگشت به نکته", callback_data=f"grammar_point:{cur['point_id']}"
+            )
+        ]
+    )
     await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))

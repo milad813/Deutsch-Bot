@@ -1,21 +1,14 @@
-import logging
 import datetime
+import logging
 
-from telegram import Update, BotCommand
+from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, Forbidden
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    PicklePersistence,
-    Defaults,
-)
+from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
+                          Defaults, MessageHandler, PicklePersistence, filters)
 
 import config
-from handlers import inline_handler, show_menu, start, handle_text_input
+from handlers import handle_text_input, inline_handler, show_menu, start
 from services import db
 
 config.setup_logging()
@@ -74,7 +67,9 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("menu", show_menu))
     application.add_handler(CallbackQueryHandler(inline_handler))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input)
+    )
     application.add_error_handler(on_error)
 
     job_queue = application.job_queue

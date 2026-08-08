@@ -1,15 +1,15 @@
-import random
 import logging
+import random
 import re
-from typing import Callable, Optional, Dict, List, Iterable
 from dataclasses import dataclass
+from typing import Callable, Dict, Iterable, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
-from services import db, llm, quiz_service, fsrs
 from models import Word
-from ui import esc, quiz_answer_keyboard, back_inline_keyboard, render
+from services import db, fsrs, llm, quiz_service
+from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,9 @@ async def _get_word_for_quiz(
         return random.choice(words) if words else None
 
     if source_filter == "due":
-        words = db.get_due_word_objects(user_id, limit=30, lesson_id=lesson_id, exclude_ids=exclude_ids)
+        words = db.get_due_word_objects(
+            user_id, limit=30, lesson_id=lesson_id, exclude_ids=exclude_ids
+        )
         return random.choice(words) if words else None
 
     return db.get_random_word_object(lesson_id=lesson_id, exclude_ids=exclude_ids)
@@ -42,17 +44,28 @@ async def _get_noun_with_article(
     exclude_ids = set(exclude_ids or [])
 
     if source_filter == "weak":
-        words = [w for w in db.get_weak_word_objects(user_id, limit=100, exclude_ids=exclude_ids) if w.article]
-        return random.choice(words) if words else None
-
-    if source_filter == "due":
         words = [
-            w for w in db.get_due_word_objects(user_id, limit=100, lesson_id=lesson_id, exclude_ids=exclude_ids)
+            w
+            for w in db.get_weak_word_objects(
+                user_id, limit=100, exclude_ids=exclude_ids
+            )
             if w.article
         ]
         return random.choice(words) if words else None
 
-    nouns = db.get_nouns_with_article_objects(lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids)
+    if source_filter == "due":
+        words = [
+            w
+            for w in db.get_due_word_objects(
+                user_id, limit=100, lesson_id=lesson_id, exclude_ids=exclude_ids
+            )
+            if w.article
+        ]
+        return random.choice(words) if words else None
+
+    nouns = db.get_nouns_with_article_objects(
+        lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids
+    )
     return random.choice(nouns) if nouns else None
 
 
@@ -69,10 +82,14 @@ async def _get_word_with_example(
         return random.choice(words) if words else None
 
     if source_filter == "due":
-        words = db.get_due_word_objects(user_id, limit=100, lesson_id=lesson_id, exclude_ids=exclude_ids)
+        words = db.get_due_word_objects(
+            user_id, limit=100, lesson_id=lesson_id, exclude_ids=exclude_ids
+        )
         return random.choice(words) if words else None
 
-    words = db.get_words_with_example_objects(lesson_id=lesson_id, exclude_ids=exclude_ids)
+    words = db.get_words_with_example_objects(
+        lesson_id=lesson_id, exclude_ids=exclude_ids
+    )
     if words:
         return random.choice(words)
 
@@ -95,12 +112,19 @@ def _sample_unique(primary: List[str], secondary: List[str], count: int) -> List
 
 
 def _get_smart_wrong_persian_options(word: Word, count: int = 3) -> List[str]:
-    same_type_words = db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50) if word.word_type else []
+    same_type_words = (
+        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
+        if word.word_type
+        else []
+    )
     other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
 
-    same_type = [w.persian for w in same_type_words if w.persian and w.persian != word.persian]
+    same_type = [
+        w.persian for w in same_type_words if w.persian and w.persian != word.persian
+    ]
     other = [
-        w.persian for w in other_words
+        w.persian
+        for w in other_words
         if w.persian
         and w.persian != word.persian
         and (not word.word_type or w.word_type != word.word_type)
@@ -110,12 +134,19 @@ def _get_smart_wrong_persian_options(word: Word, count: int = 3) -> List[str]:
 
 
 def _get_smart_wrong_german_options(word: Word, count: int = 3) -> List[str]:
-    same_type_words = db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50) if word.word_type else []
+    same_type_words = (
+        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
+        if word.word_type
+        else []
+    )
     other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
 
-    same_type = [w.german for w in same_type_words if w.german and w.german != word.german]
+    same_type = [
+        w.german for w in same_type_words if w.german and w.german != word.german
+    ]
     other = [
-        w.german for w in other_words
+        w.german
+        for w in other_words
         if w.german
         and w.german != word.german
         and (not word.word_type or w.word_type != word.word_type)
@@ -125,15 +156,21 @@ def _get_smart_wrong_german_options(word: Word, count: int = 3) -> List[str]:
 
 
 def _get_smart_wrong_display_german_options(word: Word, count: int = 3) -> List[str]:
-    same_type_words = db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50) if word.word_type else []
+    same_type_words = (
+        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
+        if word.word_type
+        else []
+    )
     other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
 
     same_type = [
-        w.display_german for w in same_type_words
+        w.display_german
+        for w in same_type_words
         if w.display_german and w.display_german != word.display_german
     ]
     other = [
-        w.display_german for w in other_words
+        w.display_german
+        for w in other_words
         if w.display_german
         and w.display_german != word.display_german
         and (not word.word_type or w.word_type != word.word_type)
@@ -164,7 +201,11 @@ async def _gen_meaning(word: Word, user_id: int, level: str) -> Optional[Dict]:
 
 
 async def _gen_reverse(word: Word, user_id: int, level: str) -> Optional[Dict]:
-    correct_german = word.display_german if (word.word_type == "Noun" and word.article) else word.german
+    correct_german = (
+        word.display_german
+        if (word.word_type == "Noun" and word.article)
+        else word.german
+    )
 
     if llm.is_available():
         quiz = await llm.generate_reverse_quiz(
@@ -203,7 +244,9 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if len(wrong) < 3:
         wrong += _get_smart_wrong_german_options(word, count=3 - len(wrong))
 
-    return quiz_service.create_cloze_with_options(word.german, word.persian, ex_de, wrong)
+    return quiz_service.create_cloze_with_options(
+        word.german, word.persian, ex_de, wrong
+    )
 
 
 @dataclass
@@ -229,7 +272,7 @@ def _safe_truncate_html(text: str, max_len: int) -> str:
     plain = re.sub(r"<[^>]+>", "", str(text or ""))
     plain = plain.strip()
     if len(plain) > max_len - 10:
-        plain = plain[:max_len - 10] + "\n..."
+        plain = plain[: max_len - 10] + "\n..."
     return esc(plain)
 
 
@@ -275,9 +318,15 @@ async def _start_generic_quiz(
 
         if not word or not quiz:
             if session and session.get("current", 0) > 0:
-                await _show_quiz_summary(query, context, header="⚠️ کلمه‌ی مناسب دیگری پیدا نشد.")
+                await _show_quiz_summary(
+                    query, context, header="⚠️ کلمه‌ی مناسب دیگری پیدا نشد."
+                )
             else:
-                await render(query, "📭 کلمه‌ای برای این کوییز پیدا نشد.", reply_markup=back_inline_keyboard())
+                await render(
+                    query,
+                    "📭 کلمه‌ای برای این کوییز پیدا نشد.",
+                    reply_markup=back_inline_keyboard(),
+                )
             return
 
         context.user_data["current_quiz"] = {
@@ -300,11 +349,17 @@ async def _start_generic_quiz(
 
         msg = "\n".join(parts)
 
-        await render(query, msg, reply_markup=quiz_answer_keyboard(quiz.get("options", [])))
+        await render(
+            query, msg, reply_markup=quiz_answer_keyboard(quiz.get("options", []))
+        )
 
     except Exception as e:
         logger.error("خطای غیرمنتظره در _start_generic_quiz: %s", e, exc_info=True)
-        await render(query, "❌ خطای غیرمنتظره در شروع کوییز.", reply_markup=back_inline_keyboard())
+        await render(
+            query,
+            "❌ خطای غیرمنتظره در شروع کوییز.",
+            reply_markup=back_inline_keyboard(),
+        )
 
 
 async def start_quiz_by_type(
@@ -369,16 +424,20 @@ def _update_quiz_session(
 
     session["current"] += 1
     session["correct" if is_correct else "wrong"] += 1
-    session["results"].append({
-        "word": word,
-        "word_id": word_id,
-        "user_answer": user_answer,
-        "correct_answer": correct_answer,
-        "is_correct": is_correct,
-    })
+    session["results"].append(
+        {
+            "word": word,
+            "word_id": word_id,
+            "user_answer": user_answer,
+            "correct_answer": correct_answer,
+            "is_correct": is_correct,
+        }
+    )
+
 
 def _get_session_progress(context) -> str:
     from ui import progress_bar
+
     session = context.user_data.get("quiz_session")
     if not session:
         return ""
@@ -389,6 +448,7 @@ def _get_session_progress(context) -> str:
         f"[{bar}] سوال {cur} از {tot} | "
         f"✅ {session['correct']} | ❌ {session['wrong']}"
     )
+
 
 def _is_session_finished(context) -> bool:
     session = context.user_data.get("quiz_session")
@@ -406,17 +466,24 @@ async def _show_quiz_summary(query, context, header: str = ""):
         await render(query, "🏁 کوییز تمام شد.", reply_markup=back_inline_keyboard())
         return
 
-    wrong_ids = list(dict.fromkeys([
-        r["word_id"] for r in session["results"]
-        if not r["is_correct"] and r.get("word_id")
-    ]))
+    wrong_ids = list(
+        dict.fromkeys(
+            [
+                r["word_id"]
+                for r in session["results"]
+                if not r["is_correct"] and r.get("word_id")
+            ]
+        )
+    )
 
     if wrong_ids:
         context.user_data["quiz_wrong_word_ids"] = wrong_ids
     else:
         context.user_data.pop("quiz_wrong_word_ids", None)
 
-    accuracy = (session["correct"] / session["total"] * 100) if session["total"] > 0 else 0
+    accuracy = (
+        (session["correct"] / session["total"] * 100) if session["total"] > 0 else 0
+    )
 
     lines = []
     if header:
@@ -448,10 +515,16 @@ async def _show_quiz_summary(query, context, header: str = ""):
 
     keyboard = []
     if wrong_ids:
-        keyboard.append([InlineKeyboardButton("🔁 فقط اشتباه‌ها", callback_data="quiz_retry_wrong")])
+        keyboard.append(
+            [InlineKeyboardButton("🔁 فقط اشتباه‌ها", callback_data="quiz_retry_wrong")]
+        )
 
-    keyboard.append([InlineKeyboardButton("🔄 کوییز جدید", callback_data="show_quiz_menu")])
-    keyboard.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")])
+    keyboard.append(
+        [InlineKeyboardButton("🔄 کوییز جدید", callback_data="show_quiz_menu")]
+    )
+    keyboard.append(
+        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
+    )
 
     await render(query, text, reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -480,7 +553,9 @@ async def handle_quiz_answer(query, context):
     user_id = query.from_user.id
     is_correct = chosen_index == quiz_info["correct_index"]
     user_answer_text = options[chosen_index]
-    correct_answer = quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
+    correct_answer = (
+        quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
+    )
 
     db.update_quiz_stats(user_id, is_correct)
 
@@ -542,10 +617,16 @@ async def handle_quiz_answer(query, context):
         if progress:
             text += f"\n{esc(progress)}"
 
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⏭️ سوال بعدی", callback_data="quiz_next")],
-            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-        ])
+        kb = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("⏭️ سوال بعدی", callback_data="quiz_next")],
+                [
+                    InlineKeyboardButton(
+                        "🔙 منوی اصلی", callback_data="back_to_main_menu"
+                    )
+                ],
+            ]
+        )
 
         await render(query, text, reply_markup=kb)
 
@@ -572,12 +653,18 @@ async def start_wrong_quiz(query, context):
     wrong_ids = list(dict.fromkeys(context.user_data.get("quiz_wrong_word_ids", [])))
 
     if not wrong_ids:
-        await render(query, "📭 لیست اشتباه‌ها موجود نیست.", reply_markup=back_inline_keyboard())
+        await render(
+            query, "📭 لیست اشتباه‌ها موجود نیست.", reply_markup=back_inline_keyboard()
+        )
         return
 
     words = db.get_word_objects_by_ids(wrong_ids)
     if not words:
-        await render(query, "📭 کلمه‌ای برای مرور اشتباه‌ها پیدا نشد.", reply_markup=back_inline_keyboard())
+        await render(
+            query,
+            "📭 کلمه‌ای برای مرور اشتباه‌ها پیدا نشد.",
+            reply_markup=back_inline_keyboard(),
+        )
         return
 
     random.shuffle(words)
@@ -612,7 +699,9 @@ async def start_quiz_session_with_words(query, context, word_ids):
 
 async def _send_next_quiz(query, context):
     if "quiz_session" not in context.user_data:
-        await render(query, "⚠️ کوییزی فعال نیست. /menu", reply_markup=back_inline_keyboard())
+        await render(
+            query, "⚠️ کوییزی فعال نیست. /menu", reply_markup=back_inline_keyboard()
+        )
         return
 
     quiz_type = context.user_data.get("quiz_type", "meaning")

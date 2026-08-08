@@ -1,8 +1,8 @@
 import asyncio
 import json
 import logging
-import re
 import random
+import re
 from typing import Dict, List, Optional
 
 import config
@@ -22,6 +22,7 @@ class LLMService:
         if config.is_llm_available():
             try:
                 from groq import Groq
+
                 for key in config.GROQ_API_KEYS:
                     try:
                         self.clients.append(Groq(api_key=key))
@@ -50,7 +51,9 @@ class LLMService:
         if not content:
             return ""
 
-        content = re.sub(r"^\s*```(?:json)?\s*", "", content, flags=re.IGNORECASE | re.MULTILINE)
+        content = re.sub(
+            r"^\s*```(?:json)?\s*", "", content, flags=re.IGNORECASE | re.MULTILINE
+        )
         content = re.sub(r"\s*```\s*$", "", content, flags=re.MULTILINE)
         content = re.sub(r"[\uFEFF\u200B]", "", content)
 
@@ -65,7 +68,9 @@ class LLMService:
         return "\n".join(lines).strip()
 
     @staticmethod
-    def _normalize_quiz(result: dict, fallback_question: str, fallback_correct: str) -> Optional[Dict]:
+    def _normalize_quiz(
+        result: dict, fallback_question: str, fallback_correct: str
+    ) -> Optional[Dict]:
         if not isinstance(result, dict):
             return None
 
@@ -125,7 +130,7 @@ class LLMService:
                         temperature=temp,
                         max_tokens=tokens,
                     ),
-                    timeout=15.0
+                    timeout=15.0,
                 )
                 return response.choices[0].message.content
             except asyncio.TimeoutError:
@@ -136,7 +141,7 @@ class LLMService:
                 continue
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
-        
+
     async def generate_quiz_question(
         self,
         word: str,
@@ -250,7 +255,9 @@ Return ONLY a JSON array: ["word1", "word2", "word3"]"""
             logger.warning("خطا در تولید گزینه‌های cloze: %s", e)
             return []
 
-    async def generate_example_sentence(self, word: str, level: str = "A1") -> Optional[str]:
+    async def generate_example_sentence(
+        self, word: str, level: str = "A1"
+    ) -> Optional[str]:
         if not self.is_available():
             return None
 
@@ -270,6 +277,7 @@ Return ONLY the German sentence."""
         except Exception as e:
             logger.warning("خطا در تولید جمله مثال: %s", e)
             return None
+
     async def generate_contextual_example(
         self,
         word: str,
@@ -284,7 +292,9 @@ Return ONLY the German sentence."""
         interests = config.USER_INTERESTS.strip()
         interest_hint = ""
         if interests:
-            interest_hint = f"\n- Try to relate the sentence to these topics: {interests}"
+            interest_hint = (
+                f"\n- Try to relate the sentence to these topics: {interests}"
+            )
 
         prompt = f"""Create ONE simple German sentence at level {level} using the word "{word_display}" (meaning: {meaning}).
 Requirements:
@@ -314,7 +324,7 @@ Return ONLY JSON:
         except Exception as e:
             logger.warning("خطا در تولید مثال بافت‌مند: %s", e)
             return None
-        
+
     async def explain_mistake(
         self,
         word: str,
@@ -374,7 +384,9 @@ VERBS:
         try:
             content = await self._chat(
                 "You output only valid JSON arrays.",
-                prompt, temperature=0.1, max_tokens=800,
+                prompt,
+                temperature=0.1,
+                max_tokens=800,
             )
             data = json.loads(self._clean_json(content))
             if not isinstance(data, list):
@@ -384,12 +396,16 @@ VERBS:
             for item in data:
                 if isinstance(item, dict) and item.get("id") is not None:
                     try:
-                        by_id[int(item["id"])] = str(item.get("verb_forms") or "").strip()
+                        by_id[int(item["id"])] = str(
+                            item.get("verb_forms") or ""
+                        ).strip()
                     except (ValueError, TypeError):
                         continue
             for v in verbs:
                 forms = by_id.get(v["id"], "")
-                result.append({"id": v["id"], "german": v["german"], "verb_forms": forms})
+                result.append(
+                    {"id": v["id"], "german": v["german"], "verb_forms": forms}
+                )
             return result
         except Exception as e:
             logger.warning("خطا در تولید verb_forms: %s", e)

@@ -4,12 +4,9 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
-from handlers import menus
-from handlers import quiz_handlers
-from handlers import learning_handlers
-from handlers import grammar_handlers
-from handlers import story_handlers
-from services import db, get_main_menu_keyboard, tts, reset_session
+from handlers import (grammar_handlers, learning_handlers, menus,
+                      quiz_handlers, story_handlers)
+from services import db, get_main_menu_keyboard, reset_session, tts
 from ui import back_inline_keyboard, render
 
 logger = logging.getLogger(__name__)
@@ -183,11 +180,17 @@ async def _handle_quiz_count(query, context, suffix: str):
         count = max(1, min(count, config.MAX_QUIZ_ALL_COUNT))
 
     if count <= 0:
-        await render(query, "📭 کلمه‌ای در این منبع وجود ندارد!", reply_markup=back_inline_keyboard())
+        await render(
+            query,
+            "📭 کلمه‌ای در این منبع وجود ندارد!",
+            reply_markup=back_inline_keyboard(),
+        )
         return
 
     quiz_type = context.user_data.get("quiz_type", "meaning")
-    await quiz_handlers.start_quiz_session(query, context, quiz_type, count, source_filter)
+    await quiz_handlers.start_quiz_session(
+        query, context, quiz_type, count, source_filter
+    )
 
 
 async def _handle_quiz_book(query, context, suffix: str):
@@ -269,8 +272,12 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "ltr_ready": lambda q, c: learning_handlers.handle_ltr_ready(q, c),
     "ltr_summary": lambda q, c: learning_handlers.handle_ltr_summary(q, c),
     "ltr_exit": lambda q, c: learning_handlers.handle_ltr_exit(q, c),
-    "flashcard_due": lambda q, c: learning_handlers.start_flashcard_session(q, c, only_due=True),
-    "flashcard_hard": lambda q, c: learning_handlers.start_flashcard_session(q, c, hard_only=True),
+    "flashcard_due": lambda q, c: learning_handlers.start_flashcard_session(
+        q, c, only_due=True
+    ),
+    "flashcard_hard": lambda q, c: learning_handlers.start_flashcard_session(
+        q, c, hard_only=True
+    ),
 }
 
 PREFIX_ROUTES: List[Tuple[str, Callable]] = [
@@ -284,16 +291,28 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     ("flashcard_lesson:", _handle_flashcard_lesson),
     ("study_lesson:", _handle_study_lesson),
     ("flip_card:", lambda q, c, s: learning_handlers.handle_flip_card(q, c, s)),
-    ("skip_flashcard:", lambda q, c, s: learning_handlers.handle_skip_flashcard(q, c, s)),
+    (
+        "skip_flashcard:",
+        lambda q, c, s: learning_handlers.handle_skip_flashcard(q, c, s),
+    ),
     ("rate_card:", lambda q, c, s: learning_handlers.handle_rate_card(q, c, s)),
     ("speak_current:", _handle_speak_current),
     ("lesson_words_", _handle_lesson_words),
     ("book_", _handle_book),
     ("lesson_", lambda q, c, s: menus.show_lesson_options(q, c, int(s))),
     ("ltr_ans:", lambda q, c, s: learning_handlers.handle_ltr_answer(q, c, s)),
-    ("grammar_lesson:", lambda q, c, s: grammar_handlers.show_grammar_menu(q, c, int(s))),
-    ("grammar_point:", lambda q, c, s: grammar_handlers.show_grammar_point(q, c, int(s))),
-    ("grammar_quiz:", lambda q, c, s: grammar_handlers.start_grammar_quiz(q, c, int(s))),
+    (
+        "grammar_lesson:",
+        lambda q, c, s: grammar_handlers.show_grammar_menu(q, c, int(s)),
+    ),
+    (
+        "grammar_point:",
+        lambda q, c, s: grammar_handlers.show_grammar_point(q, c, int(s)),
+    ),
+    (
+        "grammar_quiz:",
+        lambda q, c, s: grammar_handlers.start_grammar_quiz(q, c, int(s)),
+    ),
     ("grammar_ans:", lambda q, c, s: grammar_handlers.handle_grammar_answer(q, c, s)),
     ("story_lesson:", lambda q, c, s: story_handlers.show_story_menu(q, c, int(s))),
     ("story_view:", lambda q, c, s: story_handlers.show_story(q, c, int(s))),
@@ -342,7 +361,7 @@ async def inline_handler(update, context):
 
     for prefix, handler in PREFIX_ROUTES:
         if data.startswith(prefix):
-            suffix = data[len(prefix):]
+            suffix = data[len(prefix) :]
             await handler(query, context, suffix)
             return
 
@@ -351,4 +370,6 @@ async def inline_handler(update, context):
         await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
     except BadRequest:
         if query.message:
-            await query.message.reply_text("⚠️ گزینه نامعتبر.", reply_markup=get_main_menu_keyboard())
+            await query.message.reply_text(
+                "⚠️ گزینه نامعتبر.", reply_markup=get_main_menu_keyboard()
+            )

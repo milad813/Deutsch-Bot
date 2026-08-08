@@ -1,9 +1,9 @@
-import sqlite3
-import os
 import logging
+import os
+import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Tuple, Iterable
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from models import Word
 
@@ -171,8 +171,6 @@ class Database:
                 FOREIGN KEY (lesson_id) REFERENCES lessons(id)
             )
             """)
-            
-
 
     def _migrate(self):
         migrations = [
@@ -202,7 +200,9 @@ class Database:
     def _migrate_pending_to_phase(self):
         """مهاجرت یک‌باره: کلمات pending_reviews → phase='learning' در word_stats."""
         with self._cursor() as c:
-            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='pending_reviews'")
+            c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='pending_reviews'"
+            )
             if not c.fetchone():
                 return
             c.execute("SELECT COUNT(*) FROM pending_reviews")
@@ -216,14 +216,22 @@ class Database:
             """)
             c.execute("DELETE FROM pending_reviews")
         logger.info("مهاجرت pending_reviews → phase='learning': %d کلمه", count)
-        
+
     def _create_indexes(self):
         with self._cursor(commit=True) as c:
             try:
-                c.execute("CREATE INDEX IF NOT EXISTS idx_words_lesson ON words(lesson_id)")
-                c.execute("CREATE INDEX IF NOT EXISTS idx_words_word_type ON words(word_type)")
-                c.execute("CREATE INDEX IF NOT EXISTS idx_word_stats_user ON word_stats(user_id, word_id)")
-                c.execute("CREATE INDEX IF NOT EXISTS idx_word_stats_next_review ON word_stats(user_id, next_review)")
+                c.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_words_lesson ON words(lesson_id)"
+                )
+                c.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_words_word_type ON words(word_type)"
+                )
+                c.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_word_stats_user ON word_stats(user_id, word_id)"
+                )
+                c.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_word_stats_next_review ON word_stats(user_id, next_review)"
+                )
                 c.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS ux_words_german_book_lesson "
                     "ON words(german, COALESCE(book_id, -1), COALESCE(lesson_id, -1))"
@@ -239,7 +247,6 @@ class Database:
             f"{prefix}plural_form, {prefix}verb_forms, {prefix}comparative, "
             f"{prefix}collocation_de, {prefix}collocation_fa"
         )
-
 
     def _row_to_word(self, row: Tuple) -> Word:
         return Word(
@@ -257,8 +264,10 @@ class Database:
             collocation_de=row[11] if len(row) > 11 else None,
             collocation_fa=row[12] if len(row) > 12 else None,
         )
-    
-    def _not_in_clause(self, exclude_ids: Optional[Iterable[int]], column: str = "id") -> Tuple[str, List[int]]:
+
+    def _not_in_clause(
+        self, exclude_ids: Optional[Iterable[int]], column: str = "id"
+    ) -> Tuple[str, List[int]]:
         ids = list(set(exclude_ids or []))
         if not ids:
             return "", []
@@ -271,7 +280,9 @@ class Database:
     def add_book(self, name: str, level: str = "A1") -> int:
         try:
             with self._cursor(commit=True) as c:
-                c.execute("INSERT INTO books (name, level) VALUES (?, ?)", (name, level))
+                c.execute(
+                    "INSERT INTO books (name, level) VALUES (?, ?)", (name, level)
+                )
                 return c.lastrowid
         except sqlite3.IntegrityError:
             with self._cursor() as c:
@@ -311,7 +322,9 @@ class Database:
 
     def get_lesson(self, lesson_id: int) -> Optional[Tuple]:
         with self._cursor() as c:
-            c.execute("SELECT lesson_number, title FROM lessons WHERE id = ?", (lesson_id,))
+            c.execute(
+                "SELECT lesson_number, title FROM lessons WHERE id = ?", (lesson_id,)
+            )
             return c.fetchone()
 
     def get_book_id_by_lesson(self, lesson_id: int) -> Optional[int]:
@@ -389,9 +402,21 @@ class Database:
                     WHERE id = ?
                     """,
                     (
-                        book_id, lesson_id, article, german_word, persian_meaning,
-                        english_meaning, word_type, plural_form, verb_forms, comparative,
-                        example_de, example_fa, collocation_de, collocation_fa, word_id
+                        book_id,
+                        lesson_id,
+                        article,
+                        german_word,
+                        persian_meaning,
+                        english_meaning,
+                        word_type,
+                        plural_form,
+                        verb_forms,
+                        comparative,
+                        example_de,
+                        example_fa,
+                        collocation_de,
+                        collocation_fa,
+                        word_id,
                     ),
                 )
                 return word_id
@@ -406,26 +431,38 @@ class Database:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        _DEFAULT_OWNER_ID, book_id, lesson_id, article, german_word, persian_meaning,
-                        english_meaning, word_type, plural_form, verb_forms, comparative,
-                        example_de, example_fa, collocation_de, collocation_fa
+                        _DEFAULT_OWNER_ID,
+                        book_id,
+                        lesson_id,
+                        article,
+                        german_word,
+                        persian_meaning,
+                        english_meaning,
+                        word_type,
+                        plural_form,
+                        verb_forms,
+                        comparative,
+                        example_de,
+                        example_fa,
+                        collocation_de,
+                        collocation_fa,
                     ),
                 )
                 return c.lastrowid
             except sqlite3.IntegrityError:
                 c.execute(
-                """
+                    """
                 SELECT id FROM words
                 WHERE german = ?
                   AND COALESCE(book_id, -1) = ?
                   AND COALESCE(lesson_id, -1) = ?
                 """,
-                (
-                    german_word,
-                    book_id if book_id is not None else -1,
-                    lesson_id if lesson_id is not None else -1,
-                ),
-            )
+                    (
+                        german_word,
+                        book_id if book_id is not None else -1,
+                        lesson_id if lesson_id is not None else -1,
+                    ),
+                )
                 row2 = c.fetchone()
                 if not row2:
                     raise
@@ -439,16 +476,30 @@ class Database:
                     WHERE id = ?
                     """,
                     (
-                        book_id, lesson_id, article, german_word, persian_meaning,
-                        english_meaning, word_type, plural_form, verb_forms, comparative,
-                        example_de, example_fa, collocation_de, collocation_fa, word_id
+                        book_id,
+                        lesson_id,
+                        article,
+                        german_word,
+                        persian_meaning,
+                        english_meaning,
+                        word_type,
+                        plural_form,
+                        verb_forms,
+                        comparative,
+                        example_de,
+                        example_fa,
+                        collocation_de,
+                        collocation_fa,
+                        word_id,
                     ),
                 )
                 return word_id
 
     def get_word_by_id(self, word_id: int) -> Optional[Word]:
         with self._cursor() as c:
-            c.execute(f"SELECT {self._word_columns()} FROM words WHERE id = ?", (word_id,))
+            c.execute(
+                f"SELECT {self._word_columns()} FROM words WHERE id = ?", (word_id,)
+            )
             row = c.fetchone()
             return self._row_to_word(row) if row else None
 
@@ -512,22 +563,25 @@ class Database:
             rows = c.fetchall()
             result = []
             for r in rows:
-                result.append({
-                    "id": r[0],
-                    "article": r[1],
-                    "german": r[2],
-                    "persian": r[3],
-                    "word_type": r[4],
-                    "plural": r[5],
-                    "verb_forms": r[6],
-                    "comparative": r[7],
-                    "example_de": r[8],
-                    "example_fa": r[9],
-                    "english_meaning": r[10],
-                    "collocation_de": r[11],
-                    "collocation_fa": r[12],
-                })
+                result.append(
+                    {
+                        "id": r[0],
+                        "article": r[1],
+                        "german": r[2],
+                        "persian": r[3],
+                        "word_type": r[4],
+                        "plural": r[5],
+                        "verb_forms": r[6],
+                        "comparative": r[7],
+                        "example_de": r[8],
+                        "example_fa": r[9],
+                        "english_meaning": r[10],
+                        "collocation_de": r[11],
+                        "collocation_fa": r[12],
+                    }
+                )
             return result
+
     def get_words_without_collocation(self, limit: int = 200) -> List[Dict]:
         with self._cursor() as c:
             c.execute(
@@ -537,12 +591,19 @@ class Database:
                 (limit,),
             )
             return [
-                {"id": r[0], "german": r[1], "persian": r[2],
-                 "article": r[3], "word_type": r[4]}
+                {
+                    "id": r[0],
+                    "german": r[1],
+                    "persian": r[2],
+                    "article": r[3],
+                    "word_type": r[4],
+                }
                 for r in c.fetchall()
             ]
 
-    def update_collocation(self, word_id: int, collocation_de: str, collocation_fa: str):
+    def update_collocation(
+        self, word_id: int, collocation_de: str, collocation_fa: str
+    ):
         with self._cursor(commit=True) as c:
             c.execute(
                 "UPDATE words SET collocation_de = ?, collocation_fa = ? WHERE id = ?",
@@ -719,7 +780,6 @@ class Database:
             c.execute(query, tuple(params))
             return [self._row_to_word(row) for row in c.fetchall()]
 
-
     def get_weak_words_by_lesson(
         self,
         user_id: int,
@@ -747,6 +807,7 @@ class Database:
         with self._cursor() as c:
             c.execute(query, tuple(params))
             return [self._row_to_word(row) for row in c.fetchall()]
+
     def get_flashcard_words(
         self,
         user_id: int,
@@ -875,9 +936,18 @@ class Database:
                     WHERE user_id = ? AND word_id = ?
                     """,
                     (
-                        new_correct, new_wrong, ease_factor, interval_days, srs_level,
-                        last_review, next_review, phase, stability, difficulty,
-                        user_id, word_id
+                        new_correct,
+                        new_wrong,
+                        ease_factor,
+                        interval_days,
+                        srs_level,
+                        last_review,
+                        next_review,
+                        phase,
+                        stability,
+                        difficulty,
+                        user_id,
+                        word_id,
                     ),
                 )
             else:
@@ -891,11 +961,20 @@ class Database:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        user_id, word_id, correct, wrong, ease_factor, interval_days,
-                        srs_level, last_review, next_review, phase, stability, difficulty
+                        user_id,
+                        word_id,
+                        correct,
+                        wrong,
+                        ease_factor,
+                        interval_days,
+                        srs_level,
+                        last_review,
+                        next_review,
+                        phase,
+                        stability,
+                        difficulty,
                     ),
                 )
-
 
     # ─── کلمات سخت معوق (جایگزین pending_reviews) ───
 
@@ -920,14 +999,17 @@ class Database:
 
     def count_hard_due_words(self, user_id):
         with self._cursor() as c:
-            c.execute("""
+            c.execute(
+                """
             SELECT COUNT(*)
             FROM words w
             JOIN word_stats ws ON w.id = ws.word_id
             WHERE ws.user_id = ?
             AND ws.phase = 'learning'
             AND ws.next_review <= datetime('now')
-            """, (user_id,))
+            """,
+                (user_id,),
+            )
             return c.fetchone()[0]
 
     # ─── تنظیمات کاربر ───
@@ -940,7 +1022,6 @@ class Database:
                 ON CONFLICT(user_id) DO UPDATE SET preferred_level = ?""",
                 (user_id, preferred_level, preferred_level),
             )
-
 
     def get_word_stats_full(self, user_id: int, word_id: int) -> Optional[Dict]:
         with self._cursor() as c:
@@ -1067,8 +1148,17 @@ class Database:
         return level, xp % 100, 100
 
     def add_grammar_point(
-        self, lesson_id, topic_key, title_fa, level, explanation_fa,
-        rule_de, examples_json, exercises_json, certainty, note,
+        self,
+        lesson_id,
+        topic_key,
+        title_fa,
+        level,
+        explanation_fa,
+        rule_de,
+        examples_json,
+        exercises_json,
+        certainty,
+        note,
     ):
         with self._cursor(commit=True) as c:
             c.execute(
@@ -1082,8 +1172,17 @@ class Database:
                     """UPDATE grammar_points SET title_fa=?, level=?, explanation_fa=?,
                        rule_de=?, examples_json=?, exercises_json=?, certainty=?, note=?
                        WHERE id=?""",
-                    (title_fa, level, explanation_fa, rule_de, examples_json,
-                     exercises_json, certainty, note, gid),
+                    (
+                        title_fa,
+                        level,
+                        explanation_fa,
+                        rule_de,
+                        examples_json,
+                        exercises_json,
+                        certainty,
+                        note,
+                        gid,
+                    ),
                 )
                 return gid
             c.execute(
@@ -1091,8 +1190,18 @@ class Database:
                    (lesson_id, topic_key, title_fa, level, explanation_fa, rule_de,
                     examples_json, exercises_json, certainty, note)
                    VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (lesson_id, topic_key, title_fa, level, explanation_fa, rule_de,
-                 examples_json, exercises_json, certainty, note),
+                (
+                    lesson_id,
+                    topic_key,
+                    title_fa,
+                    level,
+                    explanation_fa,
+                    rule_de,
+                    examples_json,
+                    exercises_json,
+                    certainty,
+                    note,
+                ),
             )
             return c.lastrowid
 
@@ -1103,7 +1212,9 @@ class Database:
                 "WHERE lesson_id=? ORDER BY id",
                 (lesson_id,),
             )
-            return [{"id": r[0], "topic_key": r[1], "title_fa": r[2]} for r in c.fetchall()]
+            return [
+                {"id": r[0], "topic_key": r[1], "title_fa": r[2]} for r in c.fetchall()
+            ]
 
     def get_grammar_point(self, gid):
         with self._cursor() as c:
@@ -1117,22 +1228,47 @@ class Database:
             if not r:
                 return None
             return {
-                "id": r[0], "lesson_id": r[1], "topic_key": r[2], "title_fa": r[3],
-                "level": r[4], "explanation_fa": r[5], "rule_de": r[6],
-                "examples_json": r[7], "exercises_json": r[8], "certainty": r[9], "note": r[10],
+                "id": r[0],
+                "lesson_id": r[1],
+                "topic_key": r[2],
+                "title_fa": r[3],
+                "level": r[4],
+                "explanation_fa": r[5],
+                "rule_de": r[6],
+                "examples_json": r[7],
+                "exercises_json": r[8],
+                "certainty": r[9],
+                "note": r[10],
             }
 
     # ---------- Stories ----------
-    def add_story(self, lesson_id, title_de, title_fa, text_de, text_fa,
-                  target_word_ids, questions_json, level):
+    def add_story(
+        self,
+        lesson_id,
+        title_de,
+        title_fa,
+        text_de,
+        text_fa,
+        target_word_ids,
+        questions_json,
+        level,
+    ):
         with self._cursor(commit=True) as c:
             c.execute(
                 """INSERT INTO stories
                    (lesson_id, title_de, title_fa, text_de, text_fa,
                     target_word_ids, questions_json, level)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (lesson_id, title_de, title_fa, text_de, text_fa,
-                 target_word_ids, questions_json, level),
+                (
+                    lesson_id,
+                    title_de,
+                    title_fa,
+                    text_de,
+                    text_fa,
+                    target_word_ids,
+                    questions_json,
+                    level,
+                ),
             )
             return c.lastrowid
 
@@ -1145,9 +1281,16 @@ class Database:
                 (lesson_id,),
             )
             return [
-                {"id": r[0], "title_de": r[1], "title_fa": r[2],
-                 "text_de": r[3], "text_fa": r[4], "target_word_ids": r[5],
-                 "questions_json": r[6], "level": r[7]}
+                {
+                    "id": r[0],
+                    "title_de": r[1],
+                    "title_fa": r[2],
+                    "text_de": r[3],
+                    "text_fa": r[4],
+                    "target_word_ids": r[5],
+                    "questions_json": r[6],
+                    "level": r[7],
+                }
                 for r in c.fetchall()
             ]
 
@@ -1162,10 +1305,17 @@ class Database:
             r = c.fetchone()
             if not r:
                 return None
-            return {"id": r[0], "lesson_id": r[1], "title_de": r[2],
-                    "title_fa": r[3], "text_de": r[4], "text_fa": r[5],
-                    "target_word_ids": r[6], "questions_json": r[7],
-                    "level": r[8]}
+            return {
+                "id": r[0],
+                "lesson_id": r[1],
+                "title_de": r[2],
+                "title_fa": r[3],
+                "text_de": r[4],
+                "text_fa": r[5],
+                "target_word_ids": r[6],
+                "questions_json": r[7],
+                "level": r[8],
+            }
 
     def get_story_count_by_lesson(self, lesson_id):
         with self._cursor() as c:

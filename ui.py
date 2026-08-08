@@ -2,7 +2,8 @@ import re
 from html import escape
 from typing import List
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      ReplyKeyboardMarkup)
 from telegram.error import BadRequest
 
 
@@ -54,7 +55,7 @@ def _chunk_plain_text(text: str, max_len: int = 3900) -> List[str]:
         if not part:
             part = current[:1]
         chunks.append(part)
-        current = current[len(part):]
+        current = current[len(part) :]
     if current:
         chunks.append(current)
     return chunks
@@ -76,9 +77,9 @@ def _bold_word_in_sentence(sentence: str, word: str) -> str:
     match = pattern.search(sentence)
     if not match:
         return esc(sentence)
-    before = sentence[:match.start()]
-    matched = sentence[match.start():match.end()]
-    after = sentence[match.end():]
+    before = sentence[: match.start()]
+    matched = sentence[match.start() : match.end()]
+    after = sentence[match.end() :]
     return f"{esc(before)}<b>{esc(matched)}</b>{esc(after)}"
 
 
@@ -97,21 +98,24 @@ def main_menu_keyboard(
 
 
 def back_inline_keyboard(
-    text: str = "🔙 منوی اصلی",
-    callback_data: str = "back_to_main_menu"
+    text: str = "🔙 منوی اصلی", callback_data: str = "back_to_main_menu"
 ) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(text, callback_data=callback_data)]
-    ])
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton(text, callback_data=callback_data)]]
+    )
 
 
 def quiz_answer_keyboard(options: List[str]) -> InlineKeyboardMarkup:
     keyboard = []
     for i, opt in enumerate(options or []):
         label = f"{chr(65 + i)}) {opt}"
-        keyboard.append([
-            InlineKeyboardButton(_short_label(label, 64), callback_data=f"quiz_ans:{i}")
-        ])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    _short_label(label, 64), callback_data=f"quiz_ans:{i}"
+                )
+            ]
+        )
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -163,9 +167,8 @@ async def render(update, text: str, reply_markup=None):
                 raise
         return
 
-    message = (
-        getattr(update, "effective_message", None)
-        or getattr(update, "message", None)
+    message = getattr(update, "effective_message", None) or getattr(
+        update, "message", None
     )
     if message is None and hasattr(update, "reply_text"):
         message = update

@@ -2,10 +2,11 @@
 """تولید verb_forms برای فعل‌ها با Groq + تأیید چشمی.
 استفاده: python import/generate_verb_forms.py
 """
-import os
-import sys
+
 import asyncio
 import logging
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -50,7 +51,7 @@ async def main():
     rejected = 0
 
     for i in range(0, len(verbs), BATCH):
-        batch = verbs[i:i + BATCH]
+        batch = verbs[i : i + BATCH]
         results = await llm.generate_verb_forms_batch(batch)
 
         if not results:

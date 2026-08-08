@@ -1,7 +1,7 @@
 """Extended WordRepository methods for complex queries."""
 
-from typing import Dict, Iterable, List, Optional, Tuple
 from datetime import datetime, timezone
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from database.connection import DatabaseConnection
 from database.repositories.base import BaseRepository
@@ -10,10 +10,10 @@ from models import Word
 
 class ExtendedWordRepository(BaseRepository):
     """Extended repository for word operations with SRS/FSRS support."""
-    
+
     def __init__(self, connection: DatabaseConnection):
         super().__init__(connection)
-        
+
     def _word_columns(self, alias: Optional[str] = None) -> str:
         """Get SQL column list for words table."""
         prefix = f"{alias}." if alias else ""
@@ -25,7 +25,7 @@ class ExtendedWordRepository(BaseRepository):
             f"{prefix}example_fa, {prefix}created_at, {prefix}collocation_de, "
             f"{prefix}collocation_fa"
         )
-    
+
     def _row_to_word(self, row: Tuple) -> Word:
         """Convert database row to Word object."""
         return Word(
@@ -47,23 +47,21 @@ class ExtendedWordRepository(BaseRepository):
             collocation_de=row[15],
             collocation_fa=row[16],
         )
-    
+
     def _not_in_clause(
-        self, 
-        exclude_ids: Optional[Iterable[int]], 
-        column: str = "id"
+        self, exclude_ids: Optional[Iterable[int]], column: str = "id"
     ) -> Tuple[str, List[int]]:
         """Generate SQL NOT IN clause for excluded IDs."""
         if not exclude_ids:
             return "", []
-        
+
         exclude_list = list(exclude_ids)
         if not exclude_list:
             return "", []
-        
+
         placeholders = ",".join("?" for _ in exclude_list)
         return f" AND {column} NOT IN ({placeholders})", exclude_list
-    
+
     def get_by_lesson_full(self, lesson_id: int) -> List[Dict]:
         """Get all words for a lesson with full details."""
         query = """
@@ -77,23 +75,25 @@ class ExtendedWordRepository(BaseRepository):
         rows = self.fetch_all(query, (lesson_id,))
         result = []
         for r in rows:
-            result.append({
-                "id": r[0],
-                "article": r[1],
-                "german": r[2],
-                "persian": r[3],
-                "word_type": r[4],
-                "plural": r[5],
-                "verb_forms": r[6],
-                "comparative": r[7],
-                "example_de": r[8],
-                "example_fa": r[9],
-                "english_meaning": r[10],
-                "collocation_de": r[11],
-                "collocation_fa": r[12],
-            })
+            result.append(
+                {
+                    "id": r[0],
+                    "article": r[1],
+                    "german": r[2],
+                    "persian": r[3],
+                    "word_type": r[4],
+                    "plural": r[5],
+                    "verb_forms": r[6],
+                    "comparative": r[7],
+                    "example_de": r[8],
+                    "example_fa": r[9],
+                    "english_meaning": r[10],
+                    "collocation_de": r[11],
+                    "collocation_fa": r[12],
+                }
+            )
         return result
-    
+
     def get_without_collocation(self, limit: int = 200) -> List[Dict]:
         """Get words missing collocations."""
         query = """
@@ -105,16 +105,18 @@ class ExtendedWordRepository(BaseRepository):
         """
         rows = self.fetch_all(query, (limit,))
         return [
-            {"id": r[0], "german": r[1], "persian": r[2],
-             "article": r[3], "word_type": r[4]}
+            {
+                "id": r[0],
+                "german": r[1],
+                "persian": r[2],
+                "article": r[3],
+                "word_type": r[4],
+            }
             for r in rows
         ]
-    
+
     def update_collocation(
-        self, 
-        word_id: int, 
-        collocation_de: str, 
-        collocation_fa: str
+        self, word_id: int, collocation_de: str, collocation_fa: str
     ) -> None:
         """Update collocation for a word."""
         query = """
@@ -123,19 +125,19 @@ class ExtendedWordRepository(BaseRepository):
             WHERE id = ?
         """
         self.execute(query, (collocation_de, collocation_fa, word_id), commit=True)
-    
+
     def get_count(self) -> int:
         """Get total word count."""
         query = "SELECT COUNT(*) FROM words"
         row = self.fetch_one(query)
         return row[0] if row else 0
-    
+
     def get_count_by_lesson(self, lesson_id: int) -> int:
         """Get word count for a specific lesson."""
         query = "SELECT COUNT(*) FROM words WHERE lesson_id = ?"
         row = self.fetch_one(query, (lesson_id,))
         return row[0] if row else 0
-    
+
     def get_random(
         self,
         lesson_id: int = None,
@@ -144,19 +146,19 @@ class ExtendedWordRepository(BaseRepository):
         """Get a random word, optionally filtered by lesson."""
         query = f"SELECT {self._word_columns()} FROM words WHERE 1=1"
         params = []
-        
+
         if lesson_id:
             query += " AND lesson_id = ?"
             params.append(lesson_id)
-        
+
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "id")
         query += exclude_sql
         query += " ORDER BY RANDOM() LIMIT 1"
         params.extend(exclude_params)
-        
+
         row = self.fetch_one(query, tuple(params))
         return self._row_to_word(row) if row else None
-    
+
     def get_nouns_with_article(
         self,
         lesson_id: int = None,
@@ -170,20 +172,20 @@ class ExtendedWordRepository(BaseRepository):
             WHERE article IS NOT NULL AND article != ''
         """
         params = []
-        
+
         if lesson_id:
             query += " AND lesson_id = ?"
             params.append(lesson_id)
-        
+
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "id")
         query += exclude_sql
         query += " ORDER BY RANDOM() LIMIT ?"
         params.extend(exclude_params)
         params.append(limit)
-        
+
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
-    
+
     def get_with_examples(
         self,
         lesson_id: int = None,
@@ -196,19 +198,19 @@ class ExtendedWordRepository(BaseRepository):
             WHERE example_de IS NOT NULL AND example_de != ''
         """
         params = []
-        
+
         if lesson_id:
             query += " AND lesson_id = ?"
             params.append(lesson_id)
-        
+
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "id")
         query += exclude_sql
         query += " ORDER BY RANDOM()"
         params.extend(exclude_params)
-        
+
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
-    
+
     def get_new(
         self,
         user_id: int,
@@ -224,20 +226,20 @@ class ExtendedWordRepository(BaseRepository):
             WHERE ws.word_id IS NULL
         """
         params: List = [user_id]
-        
+
         if lesson_id:
             query += " AND w.lesson_id = ?"
             params.append(lesson_id)
-        
+
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
         query += exclude_sql
         query += " ORDER BY w.id ASC LIMIT ?"
         params.extend(exclude_params)
         params.append(limit)
-        
+
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
-    
+
     def get_due(
         self,
         user_id: int,
@@ -254,20 +256,20 @@ class ExtendedWordRepository(BaseRepository):
               AND ws.next_review <= datetime('now')
         """
         params = [user_id]
-        
+
         if lesson_id:
             query += " AND w.lesson_id = ?"
             params.append(lesson_id)
-        
+
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
         query += exclude_sql
         query += " ORDER BY ws.next_review ASC LIMIT ?"
         params.extend(exclude_params)
         params.append(limit)
-        
+
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
-    
+
     def get_weak(
         self,
         user_id: int,
@@ -283,16 +285,16 @@ class ExtendedWordRepository(BaseRepository):
               AND ws.wrong_count > ws.correct_count
         """
         params = [user_id]
-        
+
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
         query += exclude_sql
         query += " ORDER BY ws.wrong_count DESC LIMIT ?"
         params.extend(exclude_params)
         params.append(limit)
-        
+
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
-    
+
     def get_weak_by_lesson(
         self,
         user_id: int,
@@ -310,16 +312,16 @@ class ExtendedWordRepository(BaseRepository):
               AND ws.wrong_count > ws.correct_count
         """
         params: List = [user_id, lesson_id]
-        
+
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
         query += exclude_sql
         query += " ORDER BY ws.wrong_count DESC LIMIT ?"
         params.extend(exclude_params)
         params.append(limit)
-        
+
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
-    
+
     def get_for_flashcard(
         self,
         user_id: int,
@@ -331,7 +333,7 @@ class ExtendedWordRepository(BaseRepository):
     ) -> List[Word]:
         """Get words for flashcard session (due + new)."""
         exclude_ids = set(exclude_ids or [])
-        
+
         # Get due words first
         due_words = self.get_due(
             user_id=user_id,
@@ -339,10 +341,10 @@ class ExtendedWordRepository(BaseRepository):
             lesson_id=lesson_id,
             exclude_ids=exclude_ids,
         )
-        
+
         result = list(due_words)
         exclude_ids.update(w.id for w in result)
-        
+
         # Add new words if needed
         if include_new and len(result) < limit:
             remaining_new = min(new_limit, limit - len(result))
@@ -354,9 +356,9 @@ class ExtendedWordRepository(BaseRepository):
                     exclude_ids=exclude_ids,
                 )
                 result.extend(new_words)
-        
+
         return result
-    
+
     def get_due_today(self, user_id: int) -> List[Tuple]:
         """Get words due today (simple format)."""
         query = """
@@ -368,7 +370,7 @@ class ExtendedWordRepository(BaseRepository):
             ORDER BY ws.next_review ASC
         """
         return self.fetch_all(query, (user_id,))
-    
+
     def get_due_count(self, user_id: int) -> int:
         """Get count of words due for review."""
         query = """
@@ -380,7 +382,7 @@ class ExtendedWordRepository(BaseRepository):
         """
         row = self.fetch_one(query, (user_id,))
         return row[0] if row else 0
-    
+
     def get_weak_count(self, user_id: int) -> int:
         """Get count of weak words."""
         query = """
@@ -392,12 +394,9 @@ class ExtendedWordRepository(BaseRepository):
         """
         row = self.fetch_one(query, (user_id,))
         return row[0] if row else 0
-    
+
     def get_hard_due(
-        self, 
-        user_id: int, 
-        limit: int = 20, 
-        exclude_ids: Optional[Iterable[int]] = None
+        self, user_id: int, limit: int = 20, exclude_ids: Optional[Iterable[int]] = None
     ) -> List[Word]:
         """Get hard due words (in learning phase)."""
         query = f"""
@@ -414,10 +413,10 @@ class ExtendedWordRepository(BaseRepository):
         query += " ORDER BY ws.next_review ASC LIMIT ?"
         params.extend(exclude_params)
         params.append(limit)
-        
+
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
-    
+
     def count_hard_due(self, user_id: int) -> int:
         """Count hard due words."""
         query = """
@@ -430,7 +429,7 @@ class ExtendedWordRepository(BaseRepository):
         """
         row = self.fetch_one(query, (user_id,))
         return row[0] if row else 0
-    
+
     def update_stats_fsrs(
         self,
         user_id: int,
@@ -454,12 +453,12 @@ class ExtendedWordRepository(BaseRepository):
             WHERE user_id = ? AND word_id = ?
         """
         result = self.fetch_one(check_query, (user_id, word_id))
-        
+
         if result:
             old_correct, old_wrong = result
             new_correct = old_correct + correct
             new_wrong = old_wrong + wrong
-            
+
             update_query = """
                 UPDATE word_stats SET
                     correct_count = ?, wrong_count = ?,
@@ -471,9 +470,18 @@ class ExtendedWordRepository(BaseRepository):
             self.execute(
                 update_query,
                 (
-                    new_correct, new_wrong, ease_factor, interval_days, srs_level,
-                    last_review, next_review, phase, stability, difficulty,
-                    user_id, word_id
+                    new_correct,
+                    new_wrong,
+                    ease_factor,
+                    interval_days,
+                    srs_level,
+                    last_review,
+                    next_review,
+                    phase,
+                    stability,
+                    difficulty,
+                    user_id,
+                    word_id,
                 ),
                 commit=True,
             )
@@ -489,17 +497,23 @@ class ExtendedWordRepository(BaseRepository):
             self.execute(
                 insert_query,
                 (
-                    user_id, word_id, correct, wrong, ease_factor, interval_days,
-                    srs_level, last_review, next_review, phase, stability, difficulty
+                    user_id,
+                    word_id,
+                    correct,
+                    wrong,
+                    ease_factor,
+                    interval_days,
+                    srs_level,
+                    last_review,
+                    next_review,
+                    phase,
+                    stability,
+                    difficulty,
                 ),
                 commit=True,
             )
-    
-    def get_stats_full(
-        self, 
-        user_id: int, 
-        word_id: int
-    ) -> Optional[Dict]:
+
+    def get_stats_full(self, user_id: int, word_id: int) -> Optional[Dict]:
         """Get full stats for a word."""
         query = """
             SELECT correct_count, wrong_count, ease_factor, interval_days,
@@ -508,7 +522,7 @@ class ExtendedWordRepository(BaseRepository):
             WHERE user_id = ? AND word_id = ?
         """
         row = self.fetch_one(query, (user_id, word_id))
-        
+
         if row:
             return {
                 "correct": row[0],
@@ -521,7 +535,7 @@ class ExtendedWordRepository(BaseRepository):
                 "difficulty": row[7] or 0.0,
                 "srs_level": row[8] or 0,
             }
-        
+
         return None
 
 

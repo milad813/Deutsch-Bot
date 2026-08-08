@@ -1,6 +1,6 @@
-import os
-import logging
 import hashlib
+import logging
+import os
 import tempfile
 
 import config
@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import edge_tts
+
     EDGE_TTS_AVAILABLE = True
 except ImportError:
     EDGE_TTS_AVAILABLE = False

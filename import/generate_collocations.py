@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """تولید collocation برای کلماتی که هنوز ندارند. قابل resume.
 استفاده: python import/generate_collocations.py"""
+
+import asyncio
+import json
+import logging
 import os
 import sys
-import json
-import asyncio
-import logging
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
@@ -22,7 +23,9 @@ def build_prompt(words, level):
     for w in words:
         art = (w.get("article") or "").strip()
         disp = f"{art} {w['german']}".strip() if art else w["german"]
-        lines.append(f"{w['id']} | {disp} | {w['persian']} | {w.get('word_type') or ''}")
+        lines.append(
+            f"{w['id']} | {disp} | {w['persian']} | {w.get('word_type') or ''}"
+        )
     body = "\n".join(lines)
     return f"""You are a German language expert. For EACH German word below, give ONE common natural collocation or typical phrase a learner should memorize as a chunk.
 Examples: "Entscheidung" -> "eine Entscheidung treffen"; "warten" -> "auf etwas warten"; "Angst" -> "Angst vor etwas haben"; "Interesse" -> "Interesse an etwas haben"; "Hunger" -> "Hunger haben".
@@ -40,7 +43,9 @@ async def process_batch(llm, words, level):
     try:
         content = await llm._chat(
             "You output only valid JSON arrays, nothing else.",
-            prompt, temperature=0.3, max_tokens=700,
+            prompt,
+            temperature=0.3,
+            max_tokens=700,
         )
         data = json.loads(llm._clean_json(content))
         if not isinstance(data, list):
@@ -95,7 +100,7 @@ async def main():
 
         progress_in_round = 0
         for i in range(0, len(words), BATCH):
-            chunk = words[i:i + BATCH]
+            chunk = words[i : i + BATCH]
             result, empty_ids, ok = await process_batch(llm, chunk, level)
             if not ok:
                 continue
@@ -112,17 +117,23 @@ async def main():
                 skipped_empty += 1
                 progress_in_round += 1
 
-            print(f"  این دور: {min(i + BATCH, len(words))}/{len(words)} | مجموع نوشته‌شده: {total} | بدون collocation ثبت‌شده: {skipped_empty}")
+            print(
+                f"  این دور: {min(i + BATCH, len(words))}/{len(words)} | مجموع نوشته‌شده: {total} | بدون collocation ثبت‌شده: {skipped_empty}"
+            )
 
         if progress_in_round == 0:
             no_progress_rounds += 1
             if no_progress_rounds >= 3:
-                print("⚠️ سه دور متوالی پیشرفتی نبود؛ برای جلوگیری از حلقه بی‌پایان متوقف شد.")
+                print(
+                    "⚠️ سه دور متوالی پیشرفتی نبود؛ برای جلوگیری از حلقه بی‌پایان متوقف شد."
+                )
                 break
         else:
             no_progress_rounds = 0
 
-    print(f"✅ تمام. {total} collocation نوشته شد. {skipped_empty} کلمه بدون collocation معتبر علامت‌گذاری شد.")
+    print(
+        f"✅ تمام. {total} collocation نوشته شد. {skipped_empty} کلمه بدون collocation معتبر علامت‌گذاری شد."
+    )
     db.close()
 
 
