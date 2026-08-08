@@ -103,17 +103,15 @@ class Database:
 
     @staticmethod
     def level_from_xp(xp: int) -> tuple:
-        """Calculate level from XP (backward compatibility)."""
-        if xp < 100:
-            return "A1", "مبتدی", 100 - xp
-        elif xp < 300:
-            return "A2", "پایه‌ای", 300 - xp
-        elif xp < 600:
-            return "B1", "متوسط", 600 - xp
-        elif xp < 900:
-            return "B2", "بالای متوسط", 900 - xp
-        else:
-            return "C1", "پیشرفته", 0
+        """Calculate level from XP (backward compatibility).
+        
+        Returns: (level_number, current_xp_in_level, xp_needed_for_next_level)
+        All values are integers for progress_bar compatibility.
+        """
+        level = (xp // 100) + 1
+        current = xp % 100
+        needed = 100
+        return level, current, needed
 
 
 __all__ = [

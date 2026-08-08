@@ -22,12 +22,12 @@ class BookRepository(BaseRepository):
 
     def get_all(self) -> list:
         """Get all books."""
-        query = "SELECT id, name, level, created_at FROM books ORDER BY name"
+        query = "SELECT id, name, level FROM books ORDER BY name"
         return self.fetch_all(query)
 
     def get_by_id(self, book_id: int) -> tuple:
         """Get a book by ID."""
-        query = "SELECT id, name, level, created_at FROM books WHERE id = ?"
+        query = "SELECT id, name, level FROM books WHERE id = ?"
         return self.fetch_one(query, (book_id,))
 
     def get_level_by_lesson(self, lesson_id: int) -> str:
