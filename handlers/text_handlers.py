@@ -1,7 +1,8 @@
 import config
 from services import get_main_menu_keyboard
 
-from . import learning_handlers, menus
+from . import menus
+from .learning.flashcard_session import start_flashcard_session
 
 
 async def handle_text_input(update, context):
