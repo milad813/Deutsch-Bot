@@ -93,6 +93,20 @@ class Database:
         """Get words for a lesson with full details (backward compatibility)."""
         return self.words.get_by_lesson_full(lesson_id)
 
+    def get_flashcard_words(
+        self, user_id: int, lesson_id: int = None, limit: int = 20,
+        include_new: bool = False, new_limit: int = 5, exclude_ids: list = None
+    ):
+        """Get words for flashcard review (backward compatibility)."""
+        return self.words.get_flashcard_words(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            limit=limit,
+            include_new=include_new,
+            new_limit=new_limit,
+            exclude_ids=exclude_ids,
+        )
+
     def update_user_setting(self, user_id: int, preferred_level: str) -> None:
         """Update user setting (backward compatibility)."""
         self.users.update_setting(user_id, preferred_level)

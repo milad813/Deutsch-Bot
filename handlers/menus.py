@@ -227,8 +227,9 @@ async def show_lessons(query, context, book_id: int):
 
 async def show_lesson_options(query, context, lesson_id: int):
     lesson = db.get_lesson(lesson_id)
+    # lesson tuple is (id, lesson_number, title)
     lesson_name = (
-        _format_lesson_name(lesson[0], lesson[1] or "") if lesson else "این درس"
+        _format_lesson_name(lesson[1], lesson[2] or "") if lesson else "این درس"
     )
     book_id = db.get_book_id_by_lesson(lesson_id)
     back_cb = f"book_{book_id}" if book_id else "show_books_inline"
