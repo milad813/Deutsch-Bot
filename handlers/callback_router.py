@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
-from handlers import grammar_handlers, menus, quiz_handlers, story_handlers
+from handlers import grammar_handlers, learning_handlers, menus, quiz_handlers, story_handlers
 from handlers.learning import (FlashcardSessionManager, handle_flip_card,
                                handle_next_flashcard, handle_rate_card,
                                handle_skip_flashcard, start_flashcard_session)

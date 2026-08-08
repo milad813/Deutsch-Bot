@@ -6,6 +6,12 @@ from database.repositories import (BaseRepository, BookRepository,
                                    LessonRepository, StoryRepository,
                                    UserRepository, WordRepository)
 
+# Import legacy database for fallback methods
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from database import db_legacy
+
 
 class Database:
     """Legacy Database class for backward compatibility.
@@ -22,6 +28,9 @@ class Database:
         self.users = UserRepository(self._conn)
         self.grammar = GrammarRepository(self._conn)
         self.stories = StoryRepository(self._conn)
+        
+        # Create legacy db instance for fallback methods
+        self._legacy = db_legacy.Database(db_name)
 
     @property
     def conn(self):
@@ -31,6 +40,10 @@ class Database:
     def close(self):
         """Close database connection."""
         self._conn.close()
+
+    def __getattr__(self, name):
+        """Fallback to legacy database for missing methods."""
+        return getattr(self._legacy, name)
 
     # Backward compatibility methods - delegate to repositories
     def get_all_books(self) -> list:

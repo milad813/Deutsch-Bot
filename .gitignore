@@ -1,1 +1,29 @@
-Nothing should be ignored in this case. The added file `handlers/learning_handlers.py` is a source code file (.py extension) which should not be added to .gitignore according to rule #7, and there are no build artifacts, dependencies, or temporary files in the changes list.
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.venv/
+venv/
+.env
+.env.local
+*.env.*
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Editors
+.vscode/
+.idea/
+```
