@@ -159,40 +159,6 @@ class UserRepository(BaseRepository):
         """
         self.execute(query, (user_id, preferred_level), commit=True)
 
-    def record_activity(self, user_id: int, xp_gain: int) -> dict:
-        """Record user activity and return updated stats."""
-        from datetime import datetime, timezone
-
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-        query = """
-            INSERT INTO user_activity (user_id, date, xp_gain)
-            VALUES (?, ?, ?)
-            ON CONFLICT(user_id, date) DO UPDATE SET
-            xp_gain = xp_gain + ?
-        """
-        self.execute(query, (user_id, today, xp_gain, xp_gain), commit=True)
-
-        # Get updated stats
-        stats_query = """
-            SELECT SUM(xp_gain) as daily_xp, COUNT(*) as streak
-            FROM user_activity
-            WHERE user_id = ?
-            GROUP BY user_id
-        """
-        row = self.fetch_one(stats_query, (user_id,))
-
-        return {
-            "daily_xp": row[0] if row else 0,
-            "level": self._level_from_xp(row[0] if row else 0),
-        }
-
-    @staticmethod
-    def _level_from_xp(xp: int) -> int:
-        """Calculate level from XP."""
-        return int(xp / 100) + 1
-
-
 
 class StoryRepository(BaseRepository):
     """Repository for story operations."""

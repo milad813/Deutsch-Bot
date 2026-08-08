@@ -1,16 +1,34 @@
-```gitignore
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Database cache
-database/__pycache__/
-database/repositories/__pycache__/
-
-# Handlers cache
-handlers/__pycache__/
-handlers/learning/__pycache__/
 ```
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Dependencies
+.venv/
+venv/
 .env
+.env.local
+*.env.*
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Editors
+.vscode/
+.idea/
+
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+```

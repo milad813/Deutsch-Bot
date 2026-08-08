@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes
 
 import config
 from services import db, get_main_menu_keyboard, reset_session
-from ui import back_inline_keyboard, esc, render
+from ui import _short_label, back_inline_keyboard, esc, render
 
 ITEMS_PER_PAGE = 5
 
@@ -122,7 +122,8 @@ async def show_books_for_quiz(query, context):
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    f"📖 {name} ({level})", callback_data=f"quiz_book:{book_id}"
+                    _short_label(f"📖 {name} ({level})"),
+                    callback_data=f"quiz_book:{book_id}",
                 )
             ]
         )
@@ -150,7 +151,7 @@ async def show_lessons_for_quiz(query, context, book_id):
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    f"📝 {_format_lesson_name(num, title or '')}",
+                    _short_label(f"📝 {_format_lesson_name(num, title or '')}"),
                     callback_data=f"quiz_lesson:{lesson_id}",
                 )
             ]
@@ -192,7 +193,8 @@ async def show_books(update_or_query, context, is_message: bool = False):
         kb = [
             [
                 InlineKeyboardButton(
-                    f"📖 {name} ({level})", callback_data=f"book_{book_id}"
+                    _short_label(f"📖 {name} ({level})"),
+                    callback_data=f"book_{book_id}",
                 )
             ]
             for book_id, name, level in books
@@ -215,7 +217,7 @@ async def show_lessons(query, context, book_id: int):
     kb = [
         [
             InlineKeyboardButton(
-                f"📝 {_format_lesson_name(num, title or '')}",
+                _short_label(f"📝 {_format_lesson_name(num, title or '')}"),
                 callback_data=f"lesson_{lesson_id}",
             )
         ]

@@ -114,8 +114,8 @@ def validate_config() -> None:
         missing.append(
             "ADMIN_USER_ID (یا اگر واقعاً می‌خواهی ربات عمومی باشد: ALLOW_PUBLIC_ACCESS=1)"
         )
-    if BOT_MODE == BotMode.ONLINE and not GROQ_API_KEY:
-        missing.append("GROQ_API_KEY")
+    if BOT_MODE == BotMode.ONLINE and not GROQ_API_KEYS:
+        missing.append("GROQ_API_KEY یا GROQ_API_KEYS")
 
     if missing:
         raise RuntimeError("این متغیرها تنظیم نشده‌اند: " + ", ".join(missing))

@@ -42,10 +42,12 @@ async def show_grammar_menu(query, context, lesson_id: int):
         return
     kb = []
     for p in points:
+        title = p.get("title_fa") or p.get("topic_key") or "نکته"
         kb.append(
             [
                 InlineKeyboardButton(
-                    f"📘 {esc(p['title_fa'])}", callback_data=f"grammar_point:{p['id']}"
+                    _short_label(f"📘 {title}"),
+                    callback_data=f"grammar_point:{p['id']}",
                 )
             ]
         )

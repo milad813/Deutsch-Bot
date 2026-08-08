@@ -45,6 +45,8 @@ async def _show_ltr_intro_for_lesson(query, context, lesson_id: int):
         await render(query, "❌ کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
+    context.user_data["current_tts_text"] = word.display_german
+
     from handlers.learning.ltr_session import _ltr_intro_keyboard
     msg = (
         f"🧠 <b>تمرین عمیق (LTR)</b>\n"
@@ -64,7 +66,7 @@ async def handle_ltr_ready(query, context):
         await render(query, "❌ کلمه‌ای در صف نیست.",
                      reply_markup=back_inline_keyboard())
         
-async def _show_ltr_question(query, context, word):
+async def _show_ltr_question(query, context, word, notice: str = ""):
     """Show LTR question for a word."""
     from handlers.learning.ltr_session import (
         _ltr_answer_keyboard,
@@ -72,36 +74,47 @@ async def _show_ltr_question(query, context, word):
         _make_ltr_options,
     )
     from ui import esc
-    
+
     # Create question: show Persian, ask for German
     correct_answer = word.german
     if word.article:
         correct_answer = f"{word.article} {word.german}"
-    
+
+    # برای تلفظ احتمالی
+    context.user_data["current_tts_text"] = word.display_german
+
     # Generate wrong options
     wrong_options = _ltr_wrong_display_german_options(word, count=3)
     options = _make_ltr_options(correct_answer, wrong_options, total=4, min_options=2)
-    # ذخیره options برای validate در handle_ltr_answer
-    context.user_data["ltr_current_options"] = options
-    context.user_data["ltr_current_correct_index"] = options.index(correct_answer)
-    if not options:
+
+    # اول چک کن options معتبر است، بعد index بگیر
+    if not options or len(options) < 2 or correct_answer not in options:
         await render(
             query,
             "❌ خطا در تولید گزینه‌ها.",
             reply_markup=back_inline_keyboard()
         )
         return
-    
+
+    # ذخیره options برای validate در handle_ltr_answer
+    context.user_data["ltr_current_options"] = options
+    context.user_data["ltr_current_correct_index"] = options.index(correct_answer)
+    context.user_data["ltr_current_correct_text"] = correct_answer
+
     progress = LTRSessionManager(context).get_progress_info()
-    
-    msg = (
-        f"🧠 <b>سوال {progress['position']} از {progress['total']}</b>\n"
-        f"{progress['progress_bar']} ({progress['percentage']}%)\n\n"
-        f"🇮🇷 {esc(word.persian)}\n\n"
-        "کدام گزینه آلمانی صحیح است؟"
-    )
-    
+
+    parts = []
+    if notice:
+        parts.append(notice)
+
+    parts.append(f"🧠 <b>سوال {progress['position']} از {progress['total']}</b>")
+    parts.append(f"{progress['progress_bar']} ({progress['percentage']}%)")
+    parts.append(f"🇮🇷 {esc(word.persian)}")
+    parts.append("کدام گزینه آلمانی صحیح است؟")
+
+    msg = "\n".join(parts)
     keyboard = _ltr_answer_keyboard(options, with_tts=False)
+
     await render(query, msg, reply_markup=keyboard)
 
 async def handle_ltr_summary(query, context):
@@ -147,45 +160,62 @@ async def handle_ltr_answer(query, context, suffix):
 
     ltr_manager = LTRSessionManager(context)
     word = ltr_manager.get_current_word()
+
     if not word:
         await render(query, "❌ کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    # ✅ استفاده از options ذخیره‌شده به جای تولید مجدد
+    # استفاده از options ذخیره‌شده
     options = context.user_data.get("ltr_current_options", [])
     correct_index = context.user_data.get("ltr_current_correct_index", -1)
+    correct_text = context.user_data.get("ltr_current_correct_text", "")
+
+    if not correct_text:
+        correct_text = word.display_german
 
     if option_index < 0 or option_index >= len(options):
         return
 
     is_correct = option_index == correct_index
+
     ltr_manager.record_word_result(word.id, is_correct)
+
+    if is_correct:
+        try:
+            await query.answer("✅ درست بود!", show_alert=False)
+        except Exception:
+            pass
+        feedback = "✅ درست بود!"
+    else:
+        try:
+            await query.answer(f"❌ جواب درست: {correct_text}", show_alert=True)
+        except Exception:
+            pass
+        feedback = f"❌ اشتباه بود. جواب درست: <b>{esc(correct_text)}</b>"
 
     # پاک کردن state سوال فعلی
     context.user_data.pop("ltr_current_options", None)
     context.user_data.pop("ltr_current_correct_index", None)
+    context.user_data.pop("ltr_current_correct_text", None)
 
-    await _show_ltr_result_and_continue(query, context, word, is_correct)
+    await _show_ltr_result_and_continue(query, context, word, is_correct, feedback)
 
-async def _show_ltr_result_and_continue(query, context, word, is_correct):
-    """Show result and continue to next word or question."""
-    from handlers.learning.ltr_session import _ltr_answer_keyboard, _make_ltr_options, _ltr_wrong_display_german_options
-    from ui import esc
-    
+async def _show_ltr_result_and_continue(query, context, word, is_correct, feedback: str = ""):
+    """Show result and continue to next word or summary."""
     ltr_manager = LTRSessionManager(context)
-    
+
     # Finalize this word
-    stats = ltr_manager.finalize_word(word.id)
-    
+    ltr_manager.finalize_word(word.id)
+
     # Move to next word
     has_more = ltr_manager.advance_to_next_word()
-    
+
     if has_more:
         next_word = ltr_manager.get_current_word()
         if next_word:
-            await _show_ltr_question(query, context, next_word)
+            await _show_ltr_question(query, context, next_word, notice=feedback)
             return
-    
+
     # Session complete - show summary
     await handle_ltr_summary(query, context)
 
