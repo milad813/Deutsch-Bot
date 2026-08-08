@@ -63,9 +63,7 @@ async def _get_noun_with_article(
         ]
         return random.choice(words) if words else None
 
-    nouns = db.get_nouns_with_article_objects(
-        lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids
-    )
+    nouns = db.words.get_nouns_with_article(limit=100, exclude_ids=exclude_ids)
     return random.choice(nouns) if nouns else None
 
 
