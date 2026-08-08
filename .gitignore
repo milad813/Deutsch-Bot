@@ -4,19 +4,21 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Database
-*.db
-
-# Dependencies
-.venv/
-venv/
+.Python
 env/
-
-# Logs
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
 *.log
-
-# OS generated files
+*.sqlite3
 .DS_Store
 Thumbs.db
-```.env
+```
