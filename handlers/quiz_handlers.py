@@ -7,6 +7,7 @@ from typing import Callable, Dict, Iterable, List, Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
+from learning_engine import record_quiz_answer
 from models import Word
 from services import db, fsrs, llm, quiz_service
 from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
@@ -557,13 +558,18 @@ async def handle_quiz_answer(query, context):
         quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
     )
 
-    db.update_quiz_stats(user_id, is_correct)
-
-    if quiz_info.get("word_id"):
-        grade = fsrs.grade_from_correctness(is_correct)
-        fsrs.review(user_id, quiz_info["word_id"], grade)
-
-    db.record_activity(user_id, 10 if is_correct else 0)
+    record_quiz_answer(
+        user_id=user_id,
+        word_id=quiz_info.get("word_id"),
+        skill_type=quiz_info.get("type", "meaning"),
+        is_correct=is_correct,
+        user_answer=user_answer_text,
+        correct_answer=correct_answer,
+        update_srs=True,
+        update_quiz_stats=True,
+        xp=10 if is_correct else 0,
+        quiz_type=quiz_info.get("type", "meaning"),
+    )
 
     _update_quiz_session(
         context,

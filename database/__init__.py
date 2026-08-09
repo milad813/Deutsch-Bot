@@ -2,7 +2,7 @@
 
 from database.connection import DEFAULT_OWNER_ID, DatabaseConnection, _utc_now
 from database.repositories import (BaseRepository, BookRepository,
-                                   ExtendedWordRepository,
+                                   ExtendedWordRepository, LearningRepository,
                                    LessonRepository, StoryRepository,
                                    UserRepository)
 
@@ -31,6 +31,10 @@ class Database:
         # Create legacy db instance for fallback methods
         self._legacy = db_legacy.Database(db_name)
 
+        # New unified learning repository
+        self.learning = LearningRepository(self._conn)
+        self._ensure_learning_schema()
+
     @property
     def conn(self):
         """Expose connection for backward compatibility."""
@@ -43,6 +47,103 @@ class Database:
         finally:
             if hasattr(self, "_legacy"):
                 self._legacy.close()
+
+    def _ensure_learning_schema(self):
+        """Create phase-2 learning tables if they do not exist."""
+        with self._conn.cursor(commit=True) as c:
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS word_skills (
+                user_id INTEGER NOT NULL,
+                word_id INTEGER NOT NULL,
+                skill_type TEXT NOT NULL,
+                correct_count INTEGER DEFAULT 0,
+                wrong_count INTEGER DEFAULT 0,
+                last_reviewed TIMESTAMP,
+                PRIMARY KEY (user_id, word_id, skill_type)
+            )
+            """)
+
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS mistakes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                word_id INTEGER,
+                grammar_point_id INTEGER,
+                story_id INTEGER,
+                skill_type TEXT,
+                quiz_type TEXT,
+                user_answer TEXT,
+                correct_answer TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS mistake_stats (
+                user_id INTEGER NOT NULL,
+                word_id INTEGER NOT NULL,
+                skill_type TEXT NOT NULL,
+                wrong_count INTEGER DEFAULT 0,
+                last_wrong_at TIMESTAMP,
+                resolved_at TIMESTAMP,
+                PRIMARY KEY (user_id, word_id, skill_type)
+            )
+            """)
+
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS grammar_progress (
+                user_id INTEGER NOT NULL,
+                grammar_point_id INTEGER NOT NULL,
+                correct_count INTEGER DEFAULT 0,
+                wrong_count INTEGER DEFAULT 0,
+                last_reviewed TIMESTAMP,
+                next_review TIMESTAMP,
+                PRIMARY KEY (user_id, grammar_point_id)
+            )
+            """)
+
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS story_progress (
+                user_id INTEGER NOT NULL,
+                story_id INTEGER NOT NULL,
+                correct_count INTEGER DEFAULT 0,
+                wrong_count INTEGER DEFAULT 0,
+                last_reviewed TIMESTAMP,
+                PRIMARY KEY (user_id, story_id)
+            )
+            """)
+
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS llm_examples (
+                word_id INTEGER NOT NULL,
+                level TEXT NOT NULL,
+                example_de TEXT,
+                example_fa TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(word_id, level)
+            )
+            """)
+
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_word_skills_user_word "
+                "ON word_skills(user_id, word_id)"
+            )
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_mistakes_user "
+                "ON mistakes(user_id, created_at)"
+            )
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_mistake_stats_user "
+                "ON mistake_stats(user_id, last_wrong_at)"
+            )
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_grammar_progress_user "
+                "ON grammar_progress(user_id, next_review)"
+            )
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_story_progress_user "
+                "ON story_progress(user_id, story_id)"
+            )
 
     def __getattr__(self, name):
         """Fallback to legacy database for missing methods."""
@@ -163,4 +264,6 @@ __all__ = [
     "LessonRepository",
     "UserRepository",
     "StoryRepository",
+    "ExtendedWordRepository",
+    "LearningRepository",
 ]

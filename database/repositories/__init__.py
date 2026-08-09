@@ -3,6 +3,7 @@
 from database.connection import DatabaseConnection
 from database.repositories.base import BaseRepository
 from database.repositories.word_extended import ExtendedWordRepository
+from database.repositories.learning import LearningRepository
 
 
 class BookRepository(BaseRepository):
@@ -221,4 +222,5 @@ __all__ = [
     "UserRepository",
     "ExtendedWordRepository",
     "StoryRepository",
+    "LearningRepository",
 ]

@@ -37,7 +37,7 @@ def _build_story_prompt(words, level, lesson_title):
     for w in words:
         art = (w.get("article") or "").strip()
         disp = f"{art} {w['german']}".strip() if art else w["german"]
-        word_lines.append(f'- "{disp}" = {w["persian"]}')
+        word_lines.append(f'- id={w["id"]} | "{disp}" = {w["persian"]}')
     word_list = "\n".join(word_lines)
 
     return f"""You are a creative German short-story writer for {level} language learners.
@@ -59,6 +59,7 @@ CRITICAL RULES:
 
 Also create 3 reading-comprehension questions in GERMAN about the story.
 Each question must have exactly 4 options (one correct). Questions should test understanding of the story, not just vocabulary.
+8. If a question is directly about one specific target word, set "word_id" to that word's id. Otherwise set "word_id": null.
 
 Return ONLY valid JSON in this exact format:
 {{
@@ -70,7 +71,8 @@ Return ONLY valid JSON in this exact format:
     {{
       "question": "German question?",
       "options": ["A", "B", "C", "D"],
-      "correct_answer": "the correct option text"
+      "correct_answer": "the correct option text",
+      "word_id": 123
     }}
   ]
 }}"""
@@ -129,16 +131,35 @@ async def _generate_story_for_lesson(lesson_id: int):
 
             # اعتبارسنجی سوالات
             questions = result.get("questions") or []
-            valid_q = [
-                q
-                for q in questions
-                if isinstance(q, dict)
-                and q.get("question")
-                and len(q.get("options") or []) >= 2
-                and q.get("correct_answer")
-            ]
-
             target_ids = [w["id"] for w in selected]
+            target_id_set = set(target_ids)
+            
+            valid_q = []
+            for q in questions:
+                if not isinstance(q, dict):
+                    continue
+
+                if not q.get("question"):
+                    continue
+
+                options = q.get("options") or []
+                correct_answer = q.get("correct_answer")
+
+                if len(options) < 2 or not correct_answer:
+                    continue
+
+                # Validate optional word_id
+                try:
+                    word_id = int(q.get("word_id"))
+                except Exception:
+                    word_id = None
+
+                if word_id not in target_id_set:
+                    word_id = None
+
+                q["word_id"] = word_id
+                valid_q.append(q)
+
             story_id = db.add_story(
                 lesson_id=lesson_id,
                 title_de=str(result.get("title_de") or "").strip(),
@@ -453,9 +474,38 @@ async def handle_story_answer(query, context, suffix: str):
     if chosen < 0 or chosen >= len(options):
         return
 
+    # Get current question
+    q = quiz["questions"][quiz["current"]]
+
     correct_idx = quiz.get("current_correct_index", -1)
     is_correct = chosen == correct_idx
     correct_answer = options[correct_idx] if 0 <= correct_idx < len(options) else "?"
+
+    user_id = query.from_user.id
+    story_id = quiz["story_id"]
+
+    # 1) Update global quiz accuracy
+    db.update_quiz_stats(user_id, is_correct)
+
+    # 2) Update story-specific progress
+    db.learning.record_story_answer(user_id, story_id, is_correct)
+
+    # 3) If question is linked to a specific target word, update word skill
+    word_id = q.get("word_id")
+    if word_id:
+        db.learning.record_skill(user_id, word_id, "reading", is_correct)
+
+    # 4) Record mistake if wrong
+    if not is_correct:
+        db.learning.record_mistake(
+            user_id=user_id,
+            word_id=word_id,
+            story_id=story_id,
+            skill_type="reading" if word_id else "story",
+            quiz_type="story",
+            user_answer=options[chosen],
+            correct_answer=correct_answer,
+        )
 
     if is_correct:
         quiz["correct"] += 1
