@@ -12,6 +12,7 @@ from handlers.learning.ltr_session import LTRSessionManager
 from middleware.rate_limiter import rate_limiter
 from services import db, get_main_menu_keyboard, reset_session, tts
 from ui import back_inline_keyboard, render
+from handlers import writing_handlers, listening_handlers
 
 logger = logging.getLogger(__name__)
 
@@ -334,6 +335,7 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "show_quiz_menu": lambda q, c: menus.show_quiz_menu(q, c),
     "show_settings": lambda q, c: menus.show_settings_menu(q, c),
     "show_level_select": lambda q, c: menus.show_level_select(q, c),
+    "show_goal_select": lambda q, c: menus.show_goal_select(q, c),
     "quiz_retry_wrong": lambda q, c: quiz_handlers.start_wrong_quiz(q, c),
     "next_flashcard": lambda q, c: learning_handlers.handle_next_flashcard(q, c),
     "ltr_start": lambda q, c: learning_handlers.handle_ltr_start(q, c),
@@ -390,6 +392,15 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     ("story_quiz:", lambda q, c, s: story_handlers.start_story_quiz(q, c, int(s))),
     ("story_ans:", lambda q, c, s: story_handlers.handle_story_answer(q, c, s)),
     ("set_level:", lambda q, c, s: menus.handle_set_level(q, c, s)),
+    ("set_goal:", lambda q, c, s: menus.handle_set_goal(q, c, s)),
+    ("writing_start:", lambda q, c, s: writing_handlers.handle_writing_start(q, c)),
+    ("writing_skip:", lambda q, c, s: writing_handlers.handle_writing_skip(q, c)),
+    ("writing_exit:", lambda q, c, s: writing_handlers.handle_writing_exit(q, c)),
+    ("listening_start:", lambda q, c, s: listening_handlers.handle_listening_start(q, c)),
+    ("listening_ans:", lambda q, c, s: listening_handlers.handle_listening_answer(q, c, s)),
+    ("listening_skip:", lambda q, c, s: listening_handlers.handle_listening_skip(q, c)),
+    ("listening_exit:", lambda q, c, s: listening_handlers.handle_listening_exit(q, c)),
+    ("listening_replay:", lambda q, c, s: listening_handlers.handle_listening_replay(q, c, s)),
 ]
 
 

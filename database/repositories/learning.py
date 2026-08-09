@@ -411,3 +411,75 @@ class LearningRepository(BaseRepository):
             (word_id, level, example_de, example_fa),
             commit=True,
         )
+
+    # ─────────────────────────────
+    # Daily goal
+    # ─────────────────────────────
+    def set_daily_goal(self, user_id: int, goal: int) -> None:
+        """تنظیم هدف روزانه (تعداد کلمه)."""
+        self.execute(
+            """
+            INSERT INTO user_settings (user_id, preferred_level, daily_goal)
+            VALUES (?, 'A1', ?)
+            ON CONFLICT(user_id) DO UPDATE SET daily_goal = excluded.daily_goal
+            """,
+            (user_id, goal),
+            commit=True,
+        )
+
+    def get_daily_goal(self, user_id: int) -> int:
+        row = self.fetch_one(
+            "SELECT daily_goal FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        )
+        return row[0] if row and row[0] else 10
+
+    def get_today_activity_count(self, user_id: int) -> int:
+        """تعداد فعالیت‌های امروز."""
+        row = self.fetch_one(
+            """
+            SELECT SUM(correct_count + wrong_count)
+            FROM word_skills
+            WHERE user_id = ? AND last_reviewed >= date('now')
+            """,
+            (user_id,),
+        )
+        return row[0] if row and row[0] else 0
+
+    def get_weekly_stats(self, user_id: int) -> Dict:
+        """آمار ۷ روز اخیر."""
+        row = self.fetch_one(
+            """
+            SELECT 
+                SUM(correct_count) as correct,
+                SUM(wrong_count) as wrong,
+                COUNT(DISTINCT date(last_reviewed)) as active_days
+            FROM word_skills
+            WHERE user_id = ? AND last_reviewed >= datetime('now', '-7 days')
+            """,
+            (user_id,),
+        )
+        if not row:
+            return {"total_answers": 0, "correct": 0, "wrong": 0, "accuracy": 0, "active_days": 0}
+        correct = row[0] or 0
+        wrong = row[1] or 0
+        total = correct + wrong
+        return {
+            "total_answers": total,
+            "correct": correct,
+            "wrong": wrong,
+            "accuracy": int(correct / total * 100) if total else 0,
+            "active_days": row[2] or 0,
+        }
+
+    def get_mistake_word_count(self, user_id: int) -> int:
+        """تعداد کلمات با اشتباه حل‌نشده."""
+        row = self.fetch_one(
+            """
+            SELECT COUNT(DISTINCT word_id)
+            FROM mistake_stats
+            WHERE user_id = ? AND resolved_at IS NULL AND wrong_count > 0
+            """,
+            (user_id,),
+        )
+        return row[0] if row else 0

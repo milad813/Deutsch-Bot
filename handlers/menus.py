@@ -421,15 +421,17 @@ async def show_settings_menu(update, context):
     )
     settings = db.get_user_settings(user_id)
     current_level = settings.get("preferred_level", "A1")
+    daily_goal = settings.get("daily_goal", 10)
 
     keyboard = [
         [InlineKeyboardButton(f"📐 سطح فعلی: {current_level}", callback_data="noop")],
         [InlineKeyboardButton("🔄 تغییر سطح", callback_data="show_level_select")],
+        [InlineKeyboardButton(f"🎯 هدف روزانه: {daily_goal}", callback_data="show_goal_select")],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ]
     await render(
         update,
-        f"⚙️ <b>تنظیمات</b>\nسطح فعلی شما: <b>{current_level}</b>",
+        f"⚙️ <b>تنظیمات</b>\nسطح فعلی شما: <b>{current_level}</b>\nهدف روزانه: <b>{daily_goal}</b> کلمه",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
@@ -465,6 +467,58 @@ async def handle_set_level(query, context, suffix: str):
         query,
         f"✅ سطح شما به <b>{level}</b> تغییر کرد!\n"
         "از الان مثال‌ها و داستان‌ها با این سطح ساخته می‌شوند.",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("⚙️ تنظیمات", callback_data="show_settings")],
+                [
+                    InlineKeyboardButton(
+                        "🔙 منوی اصلی", callback_data="back_to_main_menu"
+                    )
+                ],
+            ]
+        ),
+    )
+
+
+# ─── تنظیم هدف روزانه ───────────────────────────────────────────────
+
+GOALS = [5, 10, 15, 20, 30, 50]
+
+
+async def show_goal_select(query, context):
+    user_id = query.from_user.id
+    settings = db.get_user_settings(user_id)
+    current_goal = settings.get("daily_goal", 10)
+
+    keyboard = []
+    for goal in GOALS:
+        marker = "✅ " if goal == current_goal else ""
+        keyboard.append(
+            [InlineKeyboardButton(f"{marker}{goal} کلمه", callback_data=f"set_goal:{goal}")]
+        )
+    keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="show_settings")])
+    await render(
+        query,
+        "🎯 <b>هدف روزانه خود را انتخاب کنید:</b>\n"
+        "تعداد کلماتی که هر روز تمرین می‌کنید.",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+async def handle_set_goal(query, context, suffix: str):
+    try:
+        goal = int(suffix.strip())
+        if goal not in GOALS:
+            raise ValueError()
+    except (ValueError, TypeError):
+        await render(query, "⚠️ هدف نامعتبر.", reply_markup=back_inline_keyboard())
+        return
+    user_id = query.from_user.id
+    db.learning.set_daily_goal(user_id, goal)
+    await render(
+        query,
+        f"✅ هدف روزانه شما به <b>{goal}</b> کلمه تغییر کرد!\n"
+        "هر روز این تعداد کلمه را تمرین کن تا پیشرفت کنی.",
         reply_markup=InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("⚙️ تنظیمات", callback_data="show_settings")],
