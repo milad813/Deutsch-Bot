@@ -119,7 +119,7 @@ class Database:
             c.execute("""
                 CREATE TABLE IF NOT EXISTS user_settings (
                     user_id INTEGER PRIMARY KEY,
-                    preferred_level TEXT DEFAULT 'A1'
+                    preferred_level TEXT DEFAULT 'A1', daily_goal INTEGER DEFAULT 10
                 )
             """)
 
@@ -202,6 +202,7 @@ class Database:
             "ALTER TABLE stories ADD COLUMN title_de TEXT",
             "ALTER TABLE stories ADD COLUMN questions_json TEXT",
             "ALTER TABLE stories ADD COLUMN level TEXT",
+            "ALTER TABLE user_settings ADD COLUMN daily_goal INTEGER DEFAULT 10",
         ]
         with self._cursor(commit=True) as c:
             for sql in migrations:
@@ -1111,7 +1112,8 @@ class Database:
 
     # ---------- Gamification + Same-day review ----------
     def _today_local(self) -> str:
-        tz = timezone(timedelta(hours=3, minutes=30))
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+        tz = timezone(timedelta(hours=USER_TIMEZONE_OFFSET_HOURS, minutes=USER_TIMEZONE_OFFSET_MINUTES))
         return datetime.now(tz).strftime("%Y-%m-%d")
 
     def get_user_progress(self, user_id: int) -> Dict:
@@ -1409,13 +1411,13 @@ class Database:
             )
 
     def get_mistake_word_count(self, user_id: int) -> int:
-        """تعداد کلماتی که کاربر حداقل یک اشتباه داشته است."""
+        """تعداد کلمات با اشتباه حل‌نشده."""
         with self._cursor() as c:
             c.execute(
                 """
                 SELECT COUNT(DISTINCT word_id)
-                FROM word_skills
-                WHERE user_id = ? AND wrong_count > 0
+                FROM mistake_stats
+                WHERE user_id = ? AND resolved_at IS NULL AND wrong_count > 0
                 """,
                 (user_id,),
             )
@@ -1542,3 +1544,69 @@ class Database:
             )
             row = c.fetchone()
             return row[0] if row else 0
+
+    # ---------- Daily Goal & Weekly Stats ----------
+    def set_daily_goal(self, user_id: int, goal: int) -> None:
+        """تنظیم هدف روزانه (تعداد کلمه)."""
+        with self._cursor(commit=True) as c:
+            c.execute(
+                """
+                INSERT INTO user_settings (user_id, preferred_level, daily_goal)
+                VALUES (?, 'A1', ?)
+                ON CONFLICT(user_id) DO UPDATE SET daily_goal = excluded.daily_goal
+                """,
+                (user_id, goal),
+            )
+
+    def get_daily_goal(self, user_id: int) -> int:
+        """دریافت هدف روزانه کاربر."""
+        with self._cursor() as c:
+            c.execute(
+                "SELECT daily_goal FROM user_settings WHERE user_id = ?",
+                (user_id,),
+            )
+            row = c.fetchone()
+            return row[0] if row and row[0] else 10  # default 10
+
+    def get_today_activity_count(self, user_id: int) -> int:
+        """تعداد فعالیت‌های امروز (تعداد پاسخ‌ها)."""
+        today = self._today_local()
+        with self._cursor() as c:
+            c.execute(
+                """
+                SELECT SUM(correct_count + wrong_count)
+                FROM word_skills
+                WHERE user_id = ? AND last_reviewed >= ?
+                """,
+                (user_id, today),
+            )
+            row = c.fetchone()
+            return row[0] if row and row[0] else 0
+
+    def get_weekly_stats(self, user_id: int) -> Dict:
+        """آمار ۷ روز اخیر."""
+        with self._cursor() as c:
+            c.execute(
+                """
+                SELECT 
+                    SUM(correct_count) as correct,
+                    SUM(wrong_count) as wrong,
+                    COUNT(DISTINCT date(last_reviewed)) as active_days
+                FROM word_skills
+                WHERE user_id = ? AND last_reviewed >= datetime('now', '-7 days')
+                """,
+                (user_id,),
+            )
+            row = c.fetchone()
+            if not row:
+                return {"total_answers": 0, "correct": 0, "wrong": 0, "accuracy": 0, "active_days": 0}
+            correct = row[0] or 0
+            wrong = row[1] or 0
+            total = correct + wrong
+            return {
+                "total_answers": total,
+                "correct": correct,
+                "wrong": wrong,
+                "accuracy": int(correct / total * 100) if total else 0,
+                "active_days": row[2] or 0,
+            }

@@ -62,6 +62,10 @@ ALLOW_PUBLIC_ACCESS = _get_bool("ALLOW_PUBLIC_ACCESS", False)
 DB_PATH = get_env("DB_PATH", "words.db")
 AUDIO_CACHE_DIR = get_env("AUDIO_CACHE_DIR", "audio_cache")
 
+# Timezone configuration (default: Iran timezone +3:30)
+USER_TIMEZONE_OFFSET_HOURS = _get_int("USER_TIMEZONE_OFFSET_HOURS", 3)
+USER_TIMEZONE_OFFSET_MINUTES = _get_int("USER_TIMEZONE_OFFSET_MINUTES", 30)
+
 GROQ_API_KEY = get_env("GROQ_API_KEY")
 
 

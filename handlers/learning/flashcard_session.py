@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from collections import deque
 from typing import Optional, Set
 
@@ -14,7 +15,7 @@ from ui import _bold_word_in_sentence, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
 
-_pending_examples = set()
+_pending_examples: dict = {}  # key -> timestamp
 
 
 class FlashcardSessionManager:
@@ -256,9 +257,13 @@ async def _render_flashcard_front(
 
         if not example and user_id and llm.is_available():
             pending_key = (word.id, level)
-
+            now = time.time()
+            
+            # حذف entry های قدیمی (بیشتر از ۵ دقیقه)
+            _pending_examples = {k: v for k, v in _pending_examples.items() if now - v < 300}
+            
             if pending_key not in _pending_examples:
-                _pending_examples.add(pending_key)
+                _pending_examples[pending_key] = now
                 asyncio.create_task(
                     _generate_and_cache_example(
                         word_id=word.id,
@@ -570,4 +575,4 @@ async def _generate_and_cache_example(
         logger.warning("خطا در تولید مثال پس‌زمینه: %s", e)
 
     finally:
-        _pending_examples.discard(pending_key)
+        _pending_examples.pop(pending_key, None)

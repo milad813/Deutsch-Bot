@@ -163,27 +163,28 @@ class LTRSessionManager:
         )
         results.append(is_correct)
 
-    def finalize_word(self, word_id: int) -> Dict[str, Any]:
+    def finalize_word(self, word_id: int, user_id: int = None) -> Dict[str, Any]:
         """Finalize word processing and return stats."""
-        # Get user_id from context.user_data (set by caller with query.from_user.id)
-        user_id = self.user_data.get("ltr_user_id")
+        # اولویت با پارامتر، بعد user_data
+        uid = user_id or self.user_data.get("ltr_user_id")
+        if not uid:
+            logger.warning("finalize_word: user_id موجود نیست برای word_id=%s", word_id)
+            return {"correct_count": 0, "total_attempts": 0, "all_correct": False}
 
         results = self.user_data.get("ltr_word_results", {}).get(word_id, [])
 
         # Update SRS
-        if user_id:
-            fsrs.review_ltr(user_id, word_id, results)
+        fsrs.review_ltr(uid, word_id, results)
 
         # Calculate stats
         correct_count = sum(1 for r in results if r) if results else 0
         all_correct = all(results) if results else False
 
         # Record activity
-        if user_id:
-            if results and all_correct:
-                db.record_activity(user_id, 20)
-            elif results:
-                db.record_activity(user_id, 5 * correct_count)
+        if results and all_correct:
+            db.record_activity(uid, 20)
+        elif results:
+            db.record_activity(uid, 5 * correct_count)
 
         # Track wrong answers
         if any(not r for r in results):

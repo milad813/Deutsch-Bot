@@ -218,8 +218,8 @@ async def _show_ltr_result_and_continue(query, context, word, is_correct, feedba
     """Show result and continue to next word or summary."""
     ltr_manager = LTRSessionManager(context)
 
-    # Finalize this word
-    ltr_manager.finalize_word(word.id)
+    # Finalize this word with explicit user_id
+    ltr_manager.finalize_word(word.id, user_id=query.from_user.id)
 
     # Move to next word
     has_more = ltr_manager.advance_to_next_word()

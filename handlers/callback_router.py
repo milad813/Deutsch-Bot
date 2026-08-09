@@ -9,6 +9,7 @@ from handlers.learning import (FlashcardSessionManager, handle_flip_card,
                                handle_next_flashcard, handle_rate_card,
                                handle_skip_flashcard, start_flashcard_session)
 from handlers.learning.ltr_session import LTRSessionManager
+from middleware.rate_limiter import rate_limiter
 from services import db, get_main_menu_keyboard, reset_session, tts
 from ui import back_inline_keyboard, render
 
@@ -403,6 +404,14 @@ async def inline_handler(update, context):
             pass
         return
 
+    # Rate limiting
+    if not rate_limiter.is_allowed(query.from_user.id):
+        try:
+            await query.answer("⏳ لطفاً کمی صبر کنید.", show_alert=True)
+        except Exception:
+            pass
+        return
+
     if data == "back_to_main_menu":
         return await _handle_back_to_main_menu(query, context)
 
@@ -414,11 +423,12 @@ async def inline_handler(update, context):
         return
 
     # ─── باگ‌فیکس: story_ans هم باید فیدبک toast داشته باشه ───
-    if not data.startswith(("quiz_ans:", "ltr_ans:", "grammar_ans:", "story_ans:")):
+    if not data.startswith(("quiz_ans:", "ltr_ans:", "grammar_ans:")):
         try:
             await query.answer()
         except Exception:
             pass
+    # story_ans فیدبک را در handler خودش می‌دهد
 
     if data in EXACT_ROUTES:
         handler = EXACT_ROUTES[data]
