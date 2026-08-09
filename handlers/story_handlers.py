@@ -522,34 +522,32 @@ async def _generate_story_for_lesson(
 
             # ─── تغییر ۴: Coherence validation با LLM ───
             async def _validate_story_coherence(text_de: str, words: List[Dict]) -> bool:
-                """از LLM بپرس آیا داستان منسجم است."""
+                """از LLM بپرس آیا داستان منسجم است (نسخه‌ی منعطف)."""
                 word_list = ", ".join(w["german"] for w in words)
-                coherence_prompt = f"""Is this German story COHERENT and NATURAL? Check for:
-1. Random facts that don't connect (e.g., "Die Hausnummer ist 12" in a school story)
-2. Words used incorrectly (e.g., "das Abitur bringen")
-3. Unnecessary repetition of the same fact
-4. Sentences that don't follow logically from the previous one
+                prompt = f"""Is this German story COHERENT and NATURAL for a learner?
+            Story:
+            {text_de}
 
-Story:
-{text_de}
+            Target words: {word_list}
 
-Target words: {word_list}
-
-Answer ONLY "OK" or "BAD: <reason>".
-"""
+            Answer ONLY "1" if acceptable, or "0" if completely broken/illogical.
+            """
                 try:
                     result = await llm._chat(
-                        "You are a strict German teacher. Output only OK or BAD.",
-                        coherence_prompt,
+                        "You are a strict German teacher. Output only 1 or 0.",
+                        prompt,
                         temperature=0.1,
-                        max_tokens=50,
+                        max_tokens=5,
                     )
                     if not result:
-                        return True  # اگر LLM جواب نداد، قبول کن
-                    return result.strip().startswith("OK")
-                except Exception:
-                    return True
-
+                        return True  # اگر LLM جواب نداد، hard-fail نکن
+                        
+                    # اگر عدد 0 در جواب بود یعنی داستان افتضاح است، در غیر این صورت قبول کن
+                    return "0" not in result.strip()
+                except Exception as e:
+                    logger.warning("خطا در اعتبارسنجی coherence: %s", e)
+                    return True  # در صورت خطای API، داستان را قبول کن تا کاربر بدون داستان نماند
+                
             if not await _validate_story_coherence(text_de, words):
                 logger.warning("داستان coherence ندارد - تلاش %d", attempt + 1)
                 continue
