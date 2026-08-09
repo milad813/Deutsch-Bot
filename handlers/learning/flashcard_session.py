@@ -1,5 +1,6 @@
 """Flashcard session management and rendering."""
 
+import asyncio
 import logging
 from collections import deque
 from typing import Optional, Set
@@ -12,6 +13,8 @@ from services import db, fsrs, llm
 from ui import _bold_word_in_sentence, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
+
+_pending_examples = set()
 
 
 class FlashcardSessionManager:
@@ -236,19 +239,36 @@ async def _render_flashcard_front(
     session = FlashcardSessionManager(context)
     session.set_current_word(word.id)
 
-    # Generate example if available
+    # Example priority:
+    # 1. Saved example from words table
+    # 2. Cached LLM example from llm_examples table
+    # 3. Background generation, no blocking
     example = None
-    if user_id and llm.is_available():
-        try:
-            level = _get_level_for_context(context, user_id)
-            example = await llm.generate_contextual_example(
-                word.german,
-                article=word.article,
-                meaning=word.persian,
-                level=level,
-            )
-        except Exception as e:
-            logger.warning("خطا در تولید مثال: %s", e)
+
+    if word.example_de:
+        example = {
+            "de": word.example_de,
+            "fa": word.example_fa,
+        }
+    else:
+        level = _get_level_for_context(context, user_id) if user_id else "A1"
+        example = db.learning.get_llm_example(word.id, level)
+
+        if not example and user_id and llm.is_available():
+            pending_key = (word.id, level)
+
+            if pending_key not in _pending_examples:
+                _pending_examples.add(pending_key)
+                asyncio.create_task(
+                    _generate_and_cache_example(
+                        word_id=word.id,
+                        german=word.german,
+                        article=word.article,
+                        meaning=word.persian,
+                        level=level,
+                        pending_key=pending_key,
+                    )
+                )
 
     context.user_data["current_flashcard"]["example"] = example
 
@@ -390,6 +410,10 @@ async def handle_rate_card(query, context, suffix: str = None):
 
     # Process rating
     _, interval_days = fsrs.review_flashcard(user_id, word_id, grade)
+    
+    # ثبت مهارت فلش‌کارت
+    db.learning.record_skill(user_id, word_id, "flashcard", grade >= 2)
+    
     db.record_activity(user_id, 5)
 
     grade_names = {1: "😵 Again", 2: "😬 Hard", 3: "🙂 Good", 4: "😎 Easy"}
@@ -494,4 +518,38 @@ __all__ = [
     "handle_next_flashcard",
     "handle_skip_flashcard",
     "_render_flashcard_front",
+    "_generate_and_cache_example",
 ]
+
+
+async def _generate_and_cache_example(
+    word_id: int,
+    german: str,
+    article: Optional[str],
+    meaning: str,
+    level: str,
+    pending_key: tuple,
+):
+    """Generate LLM example in background and cache it."""
+    try:
+        example = await llm.generate_contextual_example(
+            german,
+            article=article,
+            meaning=meaning,
+            level=level,
+        )
+
+        if example and example.get("de"):
+            db.learning.save_llm_example(
+                word_id=word_id,
+                level=level,
+                example_de=example["de"],
+                example_fa=example.get("fa"),
+            )
+            logger.info("مثال LLM برای word_id=%s ذخیره شد", word_id)
+
+    except Exception as e:
+        logger.warning("خطا در تولید مثال پس‌زمینه: %s", e)
+
+    finally:
+        _pending_examples.discard(pending_key)
