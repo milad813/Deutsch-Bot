@@ -1,7 +1,9 @@
+"""TTS service using edge-tts."""
 import hashlib
 import logging
 import os
 import tempfile
+import time
 
 import config
 
@@ -17,6 +19,11 @@ except ImportError:
 
 
 class TTSService:
+    """Text-to-speech service with caching and cleanup."""
+
+    MAX_CACHE_SIZE_MB = 100
+    MAX_CACHE_AGE_DAYS = 7
+
     def __init__(self):
         self.cache_dir = config.AUDIO_CACHE_DIR
         os.makedirs(self.cache_dir, exist_ok=True)
@@ -66,3 +73,41 @@ class TTSService:
                     pass
 
         return filepath
+
+    def cleanup_cache(self):
+        """Remove old or oversized cache files."""
+        if not os.path.exists(self.cache_dir):
+            return
+
+        files = []
+        for f in os.listdir(self.cache_dir):
+            path = os.path.join(self.cache_dir, f)
+            if os.path.isfile(path) and f.endswith(".mp3"):
+                files.append((path, os.path.getmtime(path), os.path.getsize(path)))
+
+        # Remove old files
+        cutoff = time.time() - (self.MAX_CACHE_AGE_DAYS * 86400)
+        for path, mtime, size in files:
+            if mtime < cutoff:
+                try:
+                    os.unlink(path)
+                    logger.info("TTS cache cleanup: %s", path)
+                except Exception as e:
+                    logger.warning("Failed to delete %s: %s", path, e)
+
+        # If still too large, remove oldest first
+        files = [(p, m, s) for p, m, s in files if os.path.exists(p)]
+        total_size = sum(s for _, _, s in files)
+        max_bytes = self.MAX_CACHE_SIZE_MB * 1024 * 1024
+
+        if total_size > max_bytes:
+            files.sort(key=lambda x: x[1])  # Oldest first
+            while total_size > max_bytes and files:
+                path, _, size = files.pop(0)
+                if os.path.exists(path):
+                    try:
+                        os.unlink(path)
+                        total_size -= size
+                        logger.info("TTS cache size cleanup: %s", path)
+                    except Exception as e:
+                        logger.warning("Failed to delete %s: %s", path, e)

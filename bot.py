@@ -9,7 +9,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
 
 import config
 from handlers import handle_text_input, inline_handler, show_menu, start
-from services import db
+from services import db, tts
 
 config.setup_logging()
 logger = logging.getLogger(__name__)
@@ -48,6 +48,36 @@ async def daily_backup(context):
     logger.info("بکاپ گرفته شد: %s", backup_path)
 
 
+async def daily_tts_cleanup(context):
+    tts.cleanup_cache()
+    logger.info("TTS cache cleanup completed")
+
+
+async def daily_reminder(context):
+    """Send reminder to users with due words."""
+    user_ids = [config.ADMIN_USER_ID] if config.ADMIN_USER_ID else []
+    
+    for uid in user_ids:
+        try:
+            due_count = db.get_due_word_count(uid)
+            hard_count = db.count_hard_due_words(uid)
+            if due_count > 0 or hard_count > 0:
+                msg = f"🔔 <b>یادآور مرور</b>\n"
+                if hard_count:
+                    msg += f"🔥 {hard_count} کلمه سخت معوق\n"
+                if due_count:
+                    msg += f"📅 {due_count} کلمه برای مرور\n"
+                msg += "\nبیا تمرین کن! 💪"
+                from services import get_main_menu_keyboard
+                await context.bot.send_message(
+                    chat_id=uid,
+                    text=msg,
+                    reply_markup=get_main_menu_keyboard(due_count, hard_count=hard_count),
+                )
+        except Exception as e:
+            logger.warning("خطا در ارسال یادآور به %s: %s", uid, e)
+
+
 def main():
     config.validate_config()
 
@@ -81,6 +111,20 @@ def main():
             name="daily_backup",
         )
         logger.info("بکاپ روزانه فعال شد.")
+        
+        job_queue.run_daily(
+            daily_tts_cleanup,
+            time=datetime.time(hour=4, minute=0, tzinfo=datetime.timezone.utc),
+            name="tts_cache_cleanup",
+        )
+        logger.info("TTS cache cleanup job scheduled.")
+        
+        job_queue.run_daily(
+            daily_reminder,
+            time=datetime.time(hour=9, minute=0, tzinfo=datetime.timezone.utc),
+            name="daily_reminder",
+        )
+        logger.info("Daily reminder job scheduled.")
 
     logger.info("ربات در حال اجرا است...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)

@@ -9,6 +9,7 @@ from handlers.learning import (FlashcardSessionManager, handle_flip_card,
                                handle_next_flashcard, handle_rate_card,
                                handle_skip_flashcard, start_flashcard_session)
 from handlers.learning.ltr_session import LTRSessionManager
+from middleware.rate_limiter import rate_limiter
 from services import db, get_main_menu_keyboard, reset_session, tts
 from ui import back_inline_keyboard, render
 
@@ -399,6 +400,14 @@ async def inline_handler(update, context):
     if not query.from_user or not config.is_authorized_user(query.from_user.id):
         try:
             await query.answer("⛔️ دسترسی ندارید.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    # Rate limiting
+    if not rate_limiter.is_allowed(query.from_user.id):
+        try:
+            await query.answer("⏳ لطفاً کمی صبر کنید.", show_alert=True)
         except Exception:
             pass
         return
