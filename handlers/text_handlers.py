@@ -19,7 +19,11 @@ async def handle_text_input(update, context):
     if text.startswith("📅 مرور امروز"):
         await start_flashcard_session(update, context, only_due=True)
         return
-
+    if text.startswith("🛡️ پنل مدیریت"):
+        if config.ADMIN_USER_ID and user.id == config.ADMIN_USER_ID:
+            from handlers.admin_handlers import show_admin_panel
+            await show_admin_panel(update, context)
+        return
     menu_actions = {
         "📚 کتاب و درس‌ها": lambda: menus.show_books(update, context, is_message=True),
         "🎴 فلش‌کارت": lambda: start_flashcard_session(update, context),

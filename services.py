@@ -93,6 +93,6 @@ def reset_session(context):
 
 
 def get_main_menu_keyboard(
-    due_count: int = 0, streak: int = 0, hard_count: int = 0
+    due_count: int = 0, streak: int = 0, hard_count: int = 0, is_admin: bool = False
 ) -> ReplyKeyboardMarkup:
-    return main_menu_keyboard(due_count, streak, hard_count)
+    return main_menu_keyboard(due_count, streak, hard_count, is_admin=is_admin)

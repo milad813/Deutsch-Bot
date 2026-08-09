@@ -26,9 +26,20 @@ def _menu_stats(user_id: int):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if not user:
+        return
     if not config.is_authorized_user(user.id):
         await render(update, "⛔️ شما دسترسی ندارید.")
         return
+
+    # ─── ثبت کاربر ───
+    db.register_user(
+        user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+    )
+
     reset_session(context)
     due, streak, hard = _menu_stats(user.id)
     welcome = (
@@ -42,15 +53,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif due > 0:
         welcome += f"📅 {due} کلمه برای مرور داری!\n"
     welcome += "از منوی زیر شروع کن! 🚀"
+    is_admin = bool(config.ADMIN_USER_ID and user.id == config.ADMIN_USER_ID)
     await render(
-        update, welcome, reply_markup=get_main_menu_keyboard(due, streak, hard)
+        update, welcome, reply_markup=get_main_menu_keyboard(due, streak, hard, is_admin=is_admin)
     )
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if not user:
+        return
     if not config.is_authorized_user(user.id):
         return
+
+    # ─── ثبت کاربر ───
+    db.register_user(
+        user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+    )
+
     reset_session(context)
     due, streak, hard = _menu_stats(user.id)
     msg = "🏠 <b>منوی اصلی</b>\n"
@@ -62,8 +85,8 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"📅 {due} کلمه برای مرور داری!\n"
     else:
         msg += "🎉 همه مرورها انجام شده!\n"
-    await render(update, msg, reply_markup=get_main_menu_keyboard(due, streak, hard))
-
+    is_admin = bool(config.ADMIN_USER_ID and user.id == config.ADMIN_USER_ID)
+    await render(update, msg, reply_markup=get_main_menu_keyboard(due, streak, hard, is_admin=is_admin))
 
 async def show_quiz_menu(update, context):
     keyboard = [
@@ -412,11 +435,10 @@ async def show_dashboard_simple(update, context):
 
 LEVELS = ["A1", "A2", "B1", "B2"]
 
-
 async def show_settings_menu(update, context):
     user_id = (
         update.effective_user.id
-        if hasattr(update, "effective_user")
+        if hasattr(update, "effective_user") and update.effective_user
         else update.from_user.id
     )
     settings = db.get_user_settings(user_id)
@@ -427,14 +449,30 @@ async def show_settings_menu(update, context):
         [InlineKeyboardButton(f"📐 سطح فعلی: {current_level}", callback_data="noop")],
         [InlineKeyboardButton("🔄 تغییر سطح", callback_data="show_level_select")],
         [InlineKeyboardButton(f"🎯 هدف روزانه: {daily_goal}", callback_data="show_goal_select")],
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ]
-    await render(
-        update,
-        f"⚙️ <b>تنظیمات</b>\nسطح فعلی شما: <b>{current_level}</b>\nهدف روزانه: <b>{daily_goal}</b> کلمه",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+
+    # ─── فقط برای ادمین ───
+    if config.ADMIN_USER_ID and user_id == config.ADMIN_USER_ID:
+        keyboard.append(
+            [InlineKeyboardButton("🛡️ پنل مدیریت", callback_data="admin_panel")]
+        )
+
+    # ─── ریست پیشرفت ───
+    keyboard.append(
+        [InlineKeyboardButton("🗑️ ریست پیشرفت", callback_data="reset_progress")]
     )
 
+    keyboard.append(
+        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
+    )
+
+    await render(
+        update,
+        f"⚙️ <b>تنظیمات</b>\n"
+        f"سطح فعلی شما: <b>{current_level}</b>\n"
+        f"هدف روزانه: <b>{daily_goal}</b> کلمه",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
 
 async def show_level_select(query, context):
     user_id = query.from_user.id

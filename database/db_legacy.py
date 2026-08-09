@@ -185,6 +185,18 @@ class Database:
                 PRIMARY KEY (user_id, word_id, skill_type)
             )
             """)
+                    # جدول کاربران
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_active_at TIMESTAMP,
+                is_active INTEGER DEFAULT 1
+            )
+            """)
 
     def _migrate(self):
         migrations = [
@@ -1610,3 +1622,72 @@ class Database:
                 "accuracy": int(correct / total * 100) if total else 0,
                 "active_days": row[2] or 0,
             }
+
+    # ─────────────────────────────
+    # User Management
+    # ─────────────────────────────
+
+    def register_user(
+        self,
+        user_id: int,
+        username: str = None,
+        first_name: str = None,
+        last_name: str = None,
+    ):
+        """ثبت یا آپدیت کاربر در جدول users."""
+        with self._cursor(commit=True) as c:
+            c.execute(
+                """
+                INSERT INTO users (user_id, username, first_name, last_name, last_active_at)
+                VALUES (?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(user_id) DO UPDATE SET
+                    username = excluded.username,
+                    first_name = excluded.first_name,
+                    last_name = excluded.last_name,
+                    last_active_at = datetime('now')
+                """,
+                (user_id, username, first_name, last_name),
+            )
+
+    def get_all_users(self) -> List[Tuple]:
+        """لیست تمام کاربران به ترتیب آخرین فعالیت."""
+        with self._cursor() as c:
+            c.execute(
+                """
+                SELECT user_id, username, first_name, last_name,
+                       joined_at, last_active_at
+                FROM users
+                ORDER BY last_active_at DESC
+                """
+            )
+            return c.fetchall()
+
+    def get_user_count(self) -> int:
+        """تعداد کل کاربران."""
+        with self._cursor() as c:
+            c.execute("SELECT COUNT(*) FROM users")
+            row = c.fetchone()
+            return row[0] if row else 0
+
+    def get_active_user_count(self, days: int = 7) -> int:
+        """تعداد کاربران فعال در N روز اخیر."""
+        with self._cursor() as c:
+            c.execute(
+                "SELECT COUNT(*) FROM users WHERE last_active_at >= datetime('now', ?)",
+                (f"-{days} days",),
+            )
+            row = c.fetchone()
+            return row[0] if row else 0
+
+    def reset_user_progress(self, user_id: int):
+        """پاک کردن کامل پیشرفت کاربر (بدون حذف تنظیمات)."""
+        with self._cursor(commit=True) as c:
+            c.execute("DELETE FROM word_stats WHERE user_id = ?", (user_id,))
+            c.execute("DELETE FROM word_skills WHERE user_id = ?", (user_id,))
+            c.execute("DELETE FROM mistakes WHERE user_id = ?", (user_id,))
+            c.execute("DELETE FROM mistake_stats WHERE user_id = ?", (user_id,))
+            c.execute("DELETE FROM story_progress WHERE user_id = ?", (user_id,))
+            c.execute("DELETE FROM grammar_progress WHERE user_id = ?", (user_id,))
+            c.execute("DELETE FROM user_stats WHERE user_id = ?", (user_id,))
+            c.execute("DELETE FROM user_progress WHERE user_id = ?", (user_id,))
+            # user_settings (سطح و هدف روزانه) نگه داشته می‌شود

@@ -82,9 +82,8 @@ def _bold_word_in_sentence(sentence: str, word: str) -> str:
     after = sentence[match.end() :]
     return f"{esc(before)}<b>{esc(matched)}</b>{esc(after)}"
 
-
 def main_menu_keyboard(
-    due_count: int = 0, streak: int = 0, hard_count: int = 0
+    due_count: int = 0, streak: int = 0, hard_count: int = 0, is_admin: bool = False
 ) -> ReplyKeyboardMarkup:
     keyboard = []
     if hard_count > 0:
@@ -93,9 +92,10 @@ def main_menu_keyboard(
         keyboard.append([f"📅 مرور امروز ({due_count} کلمه)"])
     keyboard.append(["📚 کتاب و درس‌ها", "🎴 فلش‌کارت"])
     keyboard.append(["🤖 کوییز", "📊 داشبورد"])
+    if is_admin:
+        keyboard.append(["🛡️ پنل مدیریت"])
     keyboard.append(["⚙️ تنظیمات"])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
 
 def back_inline_keyboard(
     text: str = "🔙 منوی اصلی", callback_data: str = "back_to_main_menu"

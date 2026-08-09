@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
-from handlers import grammar_handlers, learning_handlers, menus, quiz_handlers, story_handlers
+from handlers import grammar_handlers, learning_handlers, menus, quiz_handlers, story_handlers, admin_handlers
 from handlers.learning import (FlashcardSessionManager, handle_flip_card,
                                handle_next_flashcard, handle_rate_card,
                                handle_skip_flashcard, start_flashcard_session)
@@ -313,18 +313,32 @@ async def _handle_back_to_main_menu(query, context):
     if query.message:
         due_count = db.get_due_word_count(query.from_user.id)
         hard_count = db.count_hard_due_words(query.from_user.id)
+
+        # ─── بررسی ادمین ───
+        is_admin = bool(
+            config.ADMIN_USER_ID and query.from_user.id == config.ADMIN_USER_ID
+        )
+
         if hard_count > 0:
             msg = f"🏠 <b>منوی اصلی</b>\n🔥 {hard_count} کلمه سخت معوق داری!"
         elif due_count > 0:
             msg = f"🏠 <b>منوی اصلی</b>\n📅 {due_count} کلمه برای مرور داری!"
         else:
             msg = "🏠 <b>منوی اصلی</b>\n🎉 همه مرورها انجام شده!"
+
         await query.message.reply_text(
-            msg, reply_markup=get_main_menu_keyboard(due_count, hard_count=hard_count)
+            msg,
+            reply_markup=get_main_menu_keyboard(
+                due_count, hard_count=hard_count, is_admin=is_admin
+            ),
         )
 
-
 EXACT_ROUTES: Dict[str, Callable] = {
+    "admin_panel": lambda q, c: admin_handlers.show_admin_panel(q, c),
+    "admin_users": lambda q, c: admin_handlers.show_admin_users(q, c),
+    "reset_progress": lambda q, c: admin_handlers.handle_reset_progress(q, c),
+    "reset_confirm": lambda q, c: admin_handlers.handle_reset_confirm(q, c),
+    "reset_cancel": lambda q, c: admin_handlers.handle_reset_cancel(q, c),
     "back_to_main_menu": None,
     "noop": None,
     "show_dashboard": lambda q, c: menus.show_dashboard_simple(q, c),
