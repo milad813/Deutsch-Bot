@@ -391,6 +391,7 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     ("story_audio:", lambda q, c, s: story_handlers.play_story_audio(q, c, int(s))),
     ("story_quiz:", lambda q, c, s: story_handlers.start_story_quiz(q, c, int(s))),
     ("story_ans:", lambda q, c, s: story_handlers.handle_story_answer(q, c, s)),
+    ("story_next:", lambda q, c, s: story_handlers.show_story_menu(q, c, int(s))),
     ("set_level:", lambda q, c, s: menus.handle_set_level(q, c, s)),
     ("set_goal:", lambda q, c, s: menus.handle_set_goal(q, c, s)),
     ("writing_start:", lambda q, c, s: writing_handlers.handle_writing_start(q, c)),

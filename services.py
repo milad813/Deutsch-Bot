@@ -65,6 +65,8 @@ SESSION_KEYS = {
     "current_story_id",
     "story_quiz",
     "ltr_user_id",
+    "story_session_word_ids",   # کلمات استفاده‌شده در داستان‌های این سشن
+    "story_genre_history",      # ژانرهای استفاده‌شده (اختیاری)
     # LTR current question data
     "ltr_current_options",
     "ltr_current_correct_index",
