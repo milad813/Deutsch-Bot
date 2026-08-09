@@ -400,6 +400,9 @@ async def show_dashboard_simple(update, context):
             [InlineKeyboardButton("🚀 شروع مرور", callback_data="flashcard_due")]
         )
     keyboard.append(
+        [InlineKeyboardButton("📒 اشتباهات من", callback_data="show_error_notebook")]
+    )
+    keyboard.append(
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
     )
     await render(update, msg, reply_markup=InlineKeyboardMarkup(keyboard))

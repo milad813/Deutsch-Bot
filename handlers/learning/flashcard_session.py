@@ -458,6 +458,24 @@ async def _go_next_flashcard(query, context, notice: Optional[str] = None):
 
     # Queue empty - check if hard-only mode
     if context.user_data.get("flashcard_hard_only", False):
+        user_id = query.from_user.id
+        last_word_id = session.get_current_word_id()
+        skipped = session.get_skipped_ids()
+
+        exclude_ids = {last_word_id} if last_word_id else set()
+        exclude_ids.update(skipped)
+
+        words = db.get_hard_due_word_objects(
+            user_id,
+            limit=config.FLASHCARD_QUEUE_LIMIT,
+            exclude_ids=exclude_ids,
+        )
+
+        if words:
+            session.set_queue(words)
+            await _render_flashcard_front(query, None, context, words[0], notice=notice)
+            return
+
         session.clear_session()
         await render(
             query,

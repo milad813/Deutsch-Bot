@@ -63,7 +63,7 @@ def record_quiz_answer(
     if word_id:
         db.learning.record_skill(user_id, word_id, skill_type, is_correct)
 
-        if update_srs:
+        if update_srs and word_id:
             grade = fsrs.grade_from_correctness(is_correct)
             fsrs.review(user_id, word_id, grade)
 

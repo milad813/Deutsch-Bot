@@ -106,7 +106,7 @@ async def _handle_speak_current(query, context, suffix: str):
 
 async def _handle_quiz_type(query, context, suffix: str):
     context.user_data["quiz_type"] = suffix
-    if context.user_data.pop("quiz_lesson_preset", False):
+    if context.user_data.get("quiz_lesson_preset"):
         await menus.show_quiz_count(query, context)
         return
     context.user_data.pop("quiz_lesson_id", None)
@@ -223,6 +223,8 @@ async def _handle_quiz_count(query, context, suffix: str):
             count = db.get_weak_word_count(user_id)
         elif source_filter == "due":
             count = db.get_due_word_count(user_id)
+        elif source_filter == "mistakes":
+            count = db.get_mistake_word_count(user_id)
         else:
             count = db.get_word_count()
         count = min(count, config.MAX_QUIZ_ALL_COUNT)
@@ -242,6 +244,10 @@ async def _handle_quiz_count(query, context, suffix: str):
         return
 
     quiz_type = context.user_data.get("quiz_type", "meaning")
+    
+    # پاک کردن quiz_lesson_preset قبل از شروع session
+    context.user_data.pop("quiz_lesson_preset", None)
+    
     await quiz_handlers.start_quiz_session(
         query, context, quiz_type, count, source_filter
     )
@@ -319,6 +325,8 @@ async def _handle_back_to_main_menu(query, context):
 EXACT_ROUTES: Dict[str, Callable] = {
     "back_to_main_menu": None,
     "noop": None,
+    "show_dashboard": lambda q, c: menus.show_dashboard_simple(q, c),
+    "show_error_notebook": lambda q, c: menus.show_error_notebook(q, c),
     "quiz_next": lambda q, c: quiz_handlers._send_next_quiz(q, c),
     "show_books_inline": lambda q, c: menus.show_books(q, c, is_message=False),
     "show_quiz_source": lambda q, c: menus.show_quiz_source(q, c),
