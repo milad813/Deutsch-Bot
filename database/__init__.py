@@ -59,6 +59,7 @@ class Database:
                 correct_count INTEGER DEFAULT 0,
                 wrong_count INTEGER DEFAULT 0,
                 last_reviewed TIMESTAMP,
+                last_wrong_at TIMESTAMP,
                 PRIMARY KEY (user_id, word_id, skill_type)
             )
             """)

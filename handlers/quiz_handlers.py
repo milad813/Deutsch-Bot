@@ -70,6 +70,16 @@ async def _get_noun_with_article(
         ]
         return random.choice(words) if words else None
 
+    if source_filter == "mistakes":
+        words = [
+            w
+            for w in db.get_mistake_word_objects(
+                user_id, limit=100, exclude_ids=exclude_ids
+            )
+            if w.article
+        ]
+        return random.choice(words) if words else None
+
     nouns = db.get_nouns_with_article_objects(
         lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids
     )
@@ -91,6 +101,12 @@ async def _get_word_with_example(
     if source_filter == "due":
         words = db.get_due_word_objects(
             user_id, limit=100, lesson_id=lesson_id, exclude_ids=exclude_ids
+        )
+        return random.choice(words) if words else None
+
+    if source_filter == "mistakes":
+        words = db.get_mistake_word_objects(
+            user_id, limit=100, exclude_ids=exclude_ids
         )
         return random.choice(words) if words else None
 

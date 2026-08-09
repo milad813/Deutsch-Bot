@@ -27,6 +27,9 @@ class LearningRepository(BaseRepository):
         if not word_id:
             return
 
+        now_str = _now_str()
+        wrong_at = now_str if not is_correct else None
+
         query = """
         INSERT INTO word_skills (
             user_id,
@@ -34,13 +37,18 @@ class LearningRepository(BaseRepository):
             skill_type,
             correct_count,
             wrong_count,
-            last_reviewed
+            last_reviewed,
+            last_wrong_at
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id, word_id, skill_type) DO UPDATE SET
             correct_count = correct_count + excluded.correct_count,
             wrong_count = wrong_count + excluded.wrong_count,
-            last_reviewed = excluded.last_reviewed
+            last_reviewed = excluded.last_reviewed,
+            last_wrong_at = CASE
+                WHEN excluded.wrong_count > 0 THEN excluded.last_wrong_at
+                ELSE word_skills.last_wrong_at
+            END
         """
 
         self.execute(
@@ -51,7 +59,8 @@ class LearningRepository(BaseRepository):
                 skill_type,
                 1 if is_correct else 0,
                 0 if is_correct else 1,
-                _now_str(),
+                now_str,
+                wrong_at,
             ),
             commit=True,
         )
