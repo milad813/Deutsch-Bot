@@ -128,34 +128,6 @@ def _check_word_coherence(words: List[Dict]) -> bool:
 
 
 # ─── اعتبارسنجی coherence داستان با LLM ──────────────────────────
-async def _validate_story_coherence(text_de: str, words: List[Dict]) -> bool:
-    """از LLM بپرس آیا داستان منسجم است."""
-    if not llm.is_available():
-        return True
-
-    word_list = ", ".join(w["german"] for w in words)
-    prompt = f"""Is this German story COHERENT and NATURAL for a learner?
-
-Story:
-{text_de}
-
-Target words: {word_list}
-
-Answer ONLY "1" if acceptable, or "0" if completely broken/illogical.
-"""
-    try:
-        result = await llm._chat(
-            "You are a strict German teacher. Output only 1 or 0.",
-            prompt,
-            temperature=0.1,
-            max_tokens=5,
-        )
-        if not result:
-            return True
-        return "0" not in result.strip()
-    except Exception as e:
-        logger.warning("خطا در اعتبارسنجی coherence: %s", e)
-        return True
 
 
 # ─── اعتبارسنجی گرامری A1 ────────────────────────────────────────
@@ -633,11 +605,6 @@ async def _generate_story_for_lesson(
                 text_de = re.sub(
                     r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", text_de
                 ).strip()
-
-            # ─── اعتبارسنجی coherence با LLM ───
-            if not await _validate_story_coherence(text_de, words):
-                logger.warning("داستان coherence ندارد - تلاش %d", attempt + 1)
-                continue
 
             # ─── اعتبارسنجی استفاده از کلمات ───
             text_lower = text_de.lower()
