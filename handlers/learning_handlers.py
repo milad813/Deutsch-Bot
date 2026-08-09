@@ -179,6 +179,20 @@ async def handle_ltr_answer(query, context, suffix):
     is_correct = option_index == correct_index
 
     ltr_manager.record_word_result(word.id, is_correct)
+    
+    # ثبت skill و mistake برای LTR
+    user_id = query.from_user.id
+    db.learning.record_skill(user_id, word.id, "ltr", is_correct)
+    
+    if not is_correct:
+        db.learning.record_mistake(
+            user_id=user_id,
+            word_id=word.id,
+            skill_type="ltr",
+            quiz_type="ltr",
+            user_answer=options[option_index] if option_index < len(options) else None,
+            correct_answer=correct_text,
+        )
 
     if is_correct:
         try:

@@ -158,6 +158,23 @@ async def handle_grammar_answer(query, context, suffix: str):
     if chosen < 0 or chosen >= len(options):
         return
     is_correct = chosen == cur["correct_index"]
+    
+    user_id = query.from_user.id
+    
+    # ثبت پیشرفت گرامر
+    db.learning.record_grammar_answer(user_id, cur["point_id"], is_correct)
+    
+    # ثبت اشتباه گرامری
+    if not is_correct:
+        db.learning.record_mistake(
+            user_id=user_id,
+            grammar_point_id=cur["point_id"],
+            skill_type="grammar",
+            quiz_type="grammar",
+            user_answer=options[chosen],
+            correct_answer=cur["correct"],
+        )
+    
     if is_correct:
         try:
             await query.answer("✅ درست!", show_alert=False)
