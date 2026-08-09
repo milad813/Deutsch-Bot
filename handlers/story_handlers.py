@@ -84,22 +84,37 @@ def _select_smart_words(user_id: int, lesson_id: int, exclude_ids: Set[int]) -> 
     selected.extend(new_words[:n_new])
     
     # 2. کلمات ضعیف (از درس فعلی + درس‌های قبل)
-    # ابتدا ضعیف‌های همین درس
     random.shuffle(weak_words)
     selected.extend(weak_words[:n_weak])
     
-    # اگر کم بود، از کلمات ضعیف درس‌های قبل اضافه کن
+    # اگر کلمات ضعیف کم بود، از ضعیف‌های درس‌های قبل اضافه کن
     if len(selected) < n_new + n_weak:
-        remaining_weak = n_weak - (len(selected) - len(new_words[:n_new]))
+        remaining_weak = (n_new + n_weak) - len(selected)
         if remaining_weak > 0:
-            global_weak = db.get_weak_word_objects(user_id, limit=remaining_weak * 2, exclude_ids=exclude_ids)
-            for w in global_weak:
-                wd = {"id": w.id, "german": w.german, "persian": w.persian, 
-                      "article": w.article, "word_type": w.word_type}
-                if wd not in selected and w.id not in exclude_ids:
-                    selected.append(wd)
-                    if len([x for x in selected if x not in new_words]) >= n_weak:
-                        break
+            try:
+                # تبدیل set به list و محدود کردن به 500 تا (محدودیت SQLite)
+                exclude_list = list(exclude_ids)[:500]
+                # استفاده از repository جدید که مطمئن‌تر است
+                global_weak_words = db.words.get_weak(
+                    user_id=user_id,
+                    limit=remaining_weak * 2,
+                    exclude_ids=exclude_list,
+                )
+                for w in global_weak_words:
+                    wd = {
+                        "id": w.id, 
+                        "german": w.german, 
+                        "persian": w.persian, 
+                        "article": w.article, 
+                        "word_type": w.word_type,
+                    }
+                    # چک کنیم قبلاً اضافه نشده باشه
+                    if not any(x["id"] == w.id for x in selected):
+                        selected.append(wd)
+                        if len(selected) >= n_new + n_weak:
+                            break
+            except Exception as e:
+                logger.warning("خطا در گرفتن کلمات ضعیف بین‌درسی: %s", e)
     
     # 3. کلمات تثبیت‌شده (برای اعتمادبه‌نفس)
     if len(selected) < total_needed:
@@ -117,7 +132,6 @@ def _select_smart_words(user_id: int, lesson_id: int, exclude_ids: Set[int]) -> 
                     break
     
     return selected[:MAX_STORY_WORDS]
-
 
 def _build_enhanced_prompt(words: List[Dict], level: str, lesson_title: str, genre: Dict) -> str:
     """ساخت پرامپت پیشرفته با ساختار داستانی واقعی."""
