@@ -33,6 +33,12 @@ async def _get_word_for_quiz(
         )
         return random.choice(words) if words else None
 
+    if source_filter == "mistakes":
+        words = db.get_mistake_word_objects(
+            user_id, limit=30, exclude_ids=exclude_ids
+        )
+        return random.choice(words) if words else None
+
     return db.get_random_word_object(lesson_id=lesson_id, exclude_ids=exclude_ids)
 
 

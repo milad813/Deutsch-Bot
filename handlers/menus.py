@@ -98,6 +98,7 @@ async def show_quiz_source(query, context):
         [InlineKeyboardButton("📖 از درس خاص", callback_data="quiz_source:lesson")],
         [InlineKeyboardButton("❌ کلمات ضعیف", callback_data="quiz_source:weak")],
         [InlineKeyboardButton("📅 موعد امروز", callback_data="quiz_source:due")],
+        [InlineKeyboardButton("📒 اشتباهات من", callback_data="quiz_source:mistakes")],
         [InlineKeyboardButton("🔙 مرحله قبل", callback_data="show_quiz_menu")],
     ]
     await render(
@@ -107,7 +108,8 @@ async def show_quiz_source(query, context):
         "📚 کل کتابخانه = همه کلمات\n"
         "📖 از درس خاص = فقط یک درس\n"
         "❌ کلمات ضعیف = بیشتر اشتباه زده‌ای\n"
-        "📅 موعد امروز = باید امروز مرور شوند",
+        "📅 موعد امروز = باید امروز مرور شوند\n"
+        "📒 اشتباهات من = کلماتی که قبلاً غلط زدی",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
@@ -471,3 +473,50 @@ async def handle_set_level(query, context, suffix: str):
             ]
         ),
     )
+
+
+# ─────────────────────────────
+# Error Notebook (مرحله ۳)
+# ─────────────────────────────
+async def show_error_notebook(query, context):
+    """نمایش دفترچه اشتباهات کاربر."""
+    user_id = query.from_user.id
+    items = db.get_weakest_words_by_skills(user_id, limit=10)
+
+    if not items:
+        await render(
+            query,
+            "📒 <b>دفترچه اشتباهات</b>\n\nهنوز اشتباهی ثبت نشده! 🎉\n"
+            "با انجام کوییز و فلش‌کارت، اشتباهاتت ذخیره می‌شوند.",
+            reply_markup=back_inline_keyboard(),
+        )
+        return
+
+    msg = "📒 <b>دفترچه اشتباهات</b>\n\n"
+
+    for item in items[:10]:
+        word = item["word"]
+        msg += (
+            f"🔸 <b>{esc(word.display_german)}</b> — {esc(word.persian)}\n"
+            f"❌ {item['wrong']} اشتباه | ✅ {item['correct']} درست | "
+            f"🎯 تسلط: {item['mastery']}%\n\n"
+        )
+
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎯 تمرین اشتباهات",
+                    callback_data="quiz_source:mistakes",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔙 داشبورد",
+                    callback_data="show_dashboard",
+                )
+            ],
+        ]
+    )
+
+    await render(query, msg, reply_markup=kb)
