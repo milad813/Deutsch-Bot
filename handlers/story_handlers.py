@@ -72,6 +72,48 @@ def _safe_id_list(raw):
     return result
 
 
+# ─── فیلتر کلمات مرتبط ────────────────────────────────────────────
+def _filter_coherent_words(words: List[Dict], lesson_title: str) -> List[Dict]:
+    """فقط کلماتی را نگه دار که به موضوع درس مرتبط هستند."""
+    # Topic keywords برای درس‌های مختلف
+    TOPIC_KEYWORDS = {
+        "schule": ["schule", "lehrer", "lernen", "buch", "heft", "klasse"],
+        "wohnen": ["haus", "wohnung", "zimmer", "möbel", "miete"],
+        "familie": ["mutter", "vater", "bruder", "schwester", "kind"],
+        "arbeit": ["büro", "chef", "kollege", "job", "arbeit"],
+        "einkaufen": ["supermarkt", "laden", "geld", "preis", "kaufen"],
+        "reisen": ["hotel", "bahnhof", "flugzeug", "koffer", "ticket"],
+    }
+
+    lesson_lower = (lesson_title or "").lower()
+    topic = None
+    for key in TOPIC_KEYWORDS:
+        if key in lesson_lower:
+            topic = key
+            break
+
+    if not topic:
+        return words[:8]  # اگر موضوع مشخص نیست، ۸ تا بردار
+
+    # امتیازدهی به هر کلمه
+    scored = []
+    for w in words:
+        word_lower = w["german"].lower()
+        # امتیاز بالا اگر در topic keywords باشد
+        score = 1
+        if any(kw in word_lower for kw in TOPIC_KEYWORDS[topic]):
+            score += 5
+        # امتیاز پایین برای کلمات بی‌ربط
+        if w["word_type"] == "Noun" and w.get("german") in [
+            "Hausnummer", "Geburtsdatum", "Abitur", "Kurier"
+        ]:
+            score -= 3
+        scored.append((score, w))
+
+    # مرتب‌سازی و انتخاب بهترین‌ها
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [w for _, w in scored[:8]]
+
 # ─── انتخاب هوشمند کلمات ─────────────────────────────────────────
 def _check_word_coherence(words: List[Dict]) -> bool:
     """چک کن کلمات هدف به یک موضوع مرتبط هستند."""
@@ -334,10 +376,9 @@ FORMATTING RULES:
 - Keep sentences natural and varied in structure.
 
 REPETITION RULES:
-- Weak words: appear 2-3 times in different contexts.
-- New words: appear 1-2 times.
-- Mastered words: appear exactly once.
-- Do NOT force repetition if it makes the story unnatural.
+- Each word must appear EXACTLY ONCE unless the story naturally requires more.
+- Do NOT force repetition. One natural use is enough.
+- If a word does not fit naturally, SKIP it and use a synonym or rephrase.
 
 QUESTIONS: Create 4 questions IN GERMAN:
 - 2 COMPREHENSION questions about the plot (set "question_type": "comprehension", "word_id": null)
@@ -379,6 +420,32 @@ NARRATIVE COHERENCE (CRITICAL):
   naturally connects them.
 - Every sentence must logically follow the previous one.
 - NO random topic jumps (e.g., from CV to favorite month).
+
+CRITICAL — AVOID THESE COMMON MISTAKES:
+
+❌ Do NOT add random personal info that has nothing to do with the story:
+   WRONG: "Ich bin ledig." (when the story is about school)
+   WRONG: "Die Hausnummer ist 12." (irrelevant detail)
+   WRONG: "Ich brauche das Geburtsdatum." (no context)
+
+❌ Do NOT use words in unnatural ways:
+   WRONG: "Ich bringe das Abitur." (Abitur is not something you "bring")
+   CORRECT: "Ich mache das Abitur."
+   WRONG: "Ich wohne im Hotel." (people don't live in hotels)
+   CORRECT: "Ich übernachte im Hotel."
+
+❌ Do NOT repeat the same fact twice:
+   WRONG: "Ich bin verheiratet. ... Ich bin verheiratet."
+
+❌ Do NOT create lists of unrelated facts:
+   WRONG: "Ich bin Lars. Ich bin verheiratet. Ich wohne im Hotel.
+           Der Mittag ist sonnig. Ich brauche das Geburtsdatum."
+   CORRECT: "Ich bin Lars und ich bin mit Anna verheiratet.
+           Wir übernachten heute in einem schönen Hotel.
+           Der Mittag ist sonnig und wir gehen spazieren."
+
+If a target word does not fit the story naturally, SKIP it.
+It is better to use 4 words well than 5 words badly.
 """
 
 
@@ -411,7 +478,7 @@ async def _generate_story_for_lesson(
 
     lesson = db.get_lesson(lesson_id)
     lesson_title = lesson[1] if lesson and len(lesson) > 1 else ""
-
+    words = _filter_coherent_words(words, lesson_title)
     # ─── Narrow Reading ───
     story_count = db.get_story_count_by_lesson(lesson_id)
     total_in_series = 3
@@ -453,6 +520,43 @@ async def _generate_story_for_lesson(
                     r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", text_de
                 ).strip()
 
+            # ─── تغییر ۴: Coherence validation با LLM ───
+            async def _validate_story_coherence(text_de: str, words: List[Dict]) -> bool:
+                """از LLM بپرس آیا داستان منسجم است."""
+                word_list = ", ".join(w["german"] for w in words)
+                coherence_prompt = f"""Is this German story COHERENT and NATURAL? Check for:
+1. Random facts that don't connect (e.g., "Die Hausnummer ist 12" in a school story)
+2. Words used incorrectly (e.g., "das Abitur bringen")
+3. Unnecessary repetition of the same fact
+4. Sentences that don't follow logically from the previous one
+
+Story:
+{text_de}
+
+Target words: {word_list}
+
+Answer ONLY "OK" or "BAD: <reason>".
+"""
+                try:
+                    result = await llm._chat(
+                        "You are a strict German teacher. Output only OK or BAD.",
+                        coherence_prompt,
+                        temperature=0.1,
+                        max_tokens=50,
+                    )
+                    if not result:
+                        return True  # اگر LLM جواب نداد، قبول کن
+                    return result.strip().startswith("OK")
+                except Exception:
+                    return True
+
+            if not await _validate_story_coherence(text_de, words):
+                logger.warning("داستان coherence ندارد - تلاش %d", attempt + 1)
+                continue
+
+            # ─── اعتبارسنجی استفاده از کلمات ───
+            text_lower = text_de.lower()
+            used = sum(1 for w in words if w["german"].lower() in text_lower)
             # ─── اعتبارسنجی استفاده از کلمات ───
             text_lower = text_de.lower()
             used = sum(1 for w in words if w["german"].lower() in text_lower)
