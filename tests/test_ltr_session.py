@@ -54,6 +54,7 @@ class TestLTRSessionManager:
         manager = LTRSessionManager(mock_context)
 
         result = manager.initialize(
+            user_id=123,
             lesson_id=1,
             weak_words=[],
             new_words=[],

@@ -1,5 +1,13 @@
 ```
-# Python
+# Database files
+*.db
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Python specific
 __pycache__/
 *.pyc
 *.pyo
@@ -8,16 +16,160 @@ __pycache__/
 env/
 venv/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
+.venv*/
+.ENV/
+.ENV*/
+.egg-info/
+.eggs/
+*.egg
+*.egg~
 .coverage
+htmlcov/
 .coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+.nosetests.xml
+.tox/
+.cover/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Logs
 *.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Icon?
+``~$*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Distribution / packaging
+dist/
+build/
+*.tar.gz
+*.whl
+*.egg-info/
+*.spec
+
+# Testing
+.pytest_cache/
+.noseids
+
+# Local configuration
+config/local_settings.py
+settings_local.py
+
+# Coverage reports
+coverage/
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*$pyc.class
+
+# C extensions
+*.so
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask
+instance/
+.webassets-cache
+
+# Scrapy
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.venv
+venv
+ENV
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# Local files
+.env.local
+.env.*
+
+# Database
+*.db
 ```
