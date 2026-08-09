@@ -20,7 +20,7 @@ from ui import back_inline_keyboard, esc, render
 logger = logging.getLogger(__name__)
 # Wrapper functions for backward compatibility
 async def handle_ltr_start(query, context):
-    """Start LTR session - placeholder, actual start is via study_lesson callback."""
+    """Start LTR session - delegates to callback_router study_lesson handler."""
     lesson_id = context.user_data.get('ltr_lesson_id')
     if lesson_id:
         await _show_ltr_intro_for_lesson(query, context, lesson_id)
@@ -234,7 +234,7 @@ async def _show_ltr_result_and_continue(query, context, word, is_correct, feedba
     await handle_ltr_summary(query, context)
 
 async def start_study_session(update, context, lesson_id=None):
-    """Start study session for a lesson - placeholder, actual logic in callback_router."""
+    """Start study session for a lesson - delegates to callback_router handler."""
     # This function is now handled directly in callback_router._handle_study_lesson
     pass
 
