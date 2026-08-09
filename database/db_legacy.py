@@ -172,6 +172,20 @@ class Database:
             )
             """)
 
+            # جدول word_skills برای Skill Tracking (مرحله ۳)
+            c.execute("""
+            CREATE TABLE IF NOT EXISTS word_skills (
+                user_id INTEGER NOT NULL,
+                word_id INTEGER NOT NULL,
+                skill_type TEXT NOT NULL,
+                correct_count INTEGER DEFAULT 0,
+                wrong_count INTEGER DEFAULT 0,
+                last_reviewed TIMESTAMP,
+                last_wrong_at TIMESTAMP,
+                PRIMARY KEY (user_id, word_id, skill_type)
+            )
+            """)
+
     def _migrate(self):
         migrations = [
             "ALTER TABLE words ADD COLUMN book_id INTEGER",
@@ -235,6 +249,15 @@ class Database:
                 c.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS ux_words_german_book_lesson "
                     "ON words(german, COALESCE(book_id, -1), COALESCE(lesson_id, -1))"
+                )
+                # ایندکس‌های جدید برای word_skills (مرحله ۳)
+                c.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_word_skills_user "
+                    "ON word_skills(user_id)"
+                )
+                c.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_word_skills_user_word "
+                    "ON word_skills(user_id, word_id)"
                 )
             except sqlite3.OperationalError as e:
                 logger.warning("خطا در ایجاد ایندکس: %s", e)
@@ -1344,3 +1367,178 @@ class Database:
             logger.info("Database connection closed")
         except Exception as e:
             logger.error("Error closing database: %s", e)
+
+    # ─────────────────────────────
+    # Skill Tracking (مرحله ۳)
+    # ─────────────────────────────
+    def record_word_skill(
+        self, user_id: int, word_id: int, skill_type: str, is_correct: bool
+    ):
+        """ثبت تلاش مهارت برای یک کلمه."""
+        now = _utc_now().strftime("%Y-%m-%d %H:%M:%S")
+        correct = 1 if is_correct else 0
+        wrong = 0 if is_correct else 1
+
+        with self._cursor(commit=True) as c:
+            c.execute(
+                """
+                INSERT INTO word_skills (
+                    user_id, word_id, skill_type,
+                    correct_count, wrong_count,
+                    last_reviewed, last_wrong_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, word_id, skill_type) DO UPDATE SET
+                    correct_count = correct_count + excluded.correct_count,
+                    wrong_count = wrong_count + excluded.wrong_count,
+                    last_reviewed = excluded.last_reviewed,
+                    last_wrong_at = CASE
+                        WHEN excluded.wrong_count > 0 THEN excluded.last_wrong_at
+                        ELSE word_skills.last_wrong_at
+                    END
+                """,
+                (
+                    user_id,
+                    word_id,
+                    skill_type,
+                    correct,
+                    wrong,
+                    now,
+                    now if not is_correct else None,
+                ),
+            )
+
+    def get_mistake_word_count(self, user_id: int) -> int:
+        """تعداد کلماتی که کاربر حداقل یک اشتباه داشته است."""
+        with self._cursor() as c:
+            c.execute(
+                """
+                SELECT COUNT(DISTINCT word_id)
+                FROM word_skills
+                WHERE user_id = ? AND wrong_count > 0
+                """,
+                (user_id,),
+            )
+            row = c.fetchone()
+            return row[0] if row else 0
+
+    def get_mistake_word_objects(
+        self,
+        user_id: int,
+        limit: int = 30,
+        exclude_ids=None,
+    ):
+        """گرفتن کلمات اشتباه برای تمرین."""
+        exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
+
+        query = f"""
+            SELECT {self._word_columns('w')}
+            FROM words w
+            WHERE w.id IN (
+                SELECT ws.word_id
+                FROM word_skills ws
+                WHERE ws.user_id = ?
+                  AND ws.wrong_count > 0
+                GROUP BY ws.word_id
+                ORDER BY SUM(ws.wrong_count) DESC, MAX(ws.last_wrong_at) DESC
+                LIMIT ?
+            )
+            {exclude_sql}
+            ORDER BY RANDOM()
+            LIMIT ?
+        """
+
+        params = [user_id, limit] + exclude_params + [limit]
+
+        with self._cursor() as c:
+            c.execute(query, tuple(params))
+            return [self._row_to_word(row) for row in c.fetchall()]
+
+    def get_weakest_words_by_skills(self, user_id: int, limit: int = 10):
+        """گرفتن ضعیف‌ترین کلمات برای Dashboard."""
+        with self._cursor() as c:
+            c.execute(
+                """
+                SELECT
+                    ws.word_id,
+                    SUM(ws.correct_count) AS c,
+                    SUM(ws.wrong_count) AS w,
+                    MAX(ws.last_wrong_at) AS last_wrong
+                FROM word_skills ws
+                WHERE ws.user_id = ?
+                GROUP BY ws.word_id
+                HAVING SUM(ws.wrong_count) > 0
+                ORDER BY
+                    CAST(SUM(ws.correct_count) AS REAL) /
+                    (SUM(ws.correct_count) + SUM(ws.wrong_count)) ASC,
+                    SUM(ws.wrong_count) DESC,
+                    MAX(ws.last_wrong_at) DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            )
+            rows = c.fetchall()
+
+        if not rows:
+            return []
+
+        word_ids = [row[0] for row in rows]
+        words = self.get_word_objects_by_ids(word_ids)
+        words_by_id = {w.id: w for w in words}
+
+        result = []
+        for word_id, correct_count, wrong_count, last_wrong in rows:
+            word = words_by_id.get(word_id)
+            if not word:
+                continue
+
+            correct_count = correct_count or 0
+            wrong_count = wrong_count or 0
+            total = correct_count + wrong_count
+            mastery = int(correct_count / total * 100) if total > 0 else 0
+
+            result.append(
+                {
+                    "word": word,
+                    "correct": correct_count,
+                    "wrong": wrong_count,
+                    "mastery": mastery,
+                    "last_wrong": last_wrong,
+                }
+            )
+
+        return result
+
+    def get_skill_summary(self, user_id: int):
+        """خلاصه مهارت‌های کاربر به تفکیک نوع مهارت."""
+        with self._cursor() as c:
+            c.execute(
+                """
+                SELECT
+                    skill_type,
+                    SUM(correct_count) AS correct,
+                    SUM(wrong_count) AS wrong
+                FROM word_skills
+                WHERE user_id = ?
+                GROUP BY skill_type
+                """,
+                (user_id,),
+            )
+            return c.fetchall()
+
+    def get_new_word_count(self, user_id: int) -> int:
+        """تعداد کلمات جدیدی که کاربر هنوز ندیده است."""
+        with self._cursor() as c:
+            c.execute(
+                """
+                SELECT COUNT(*)
+                FROM words w
+                LEFT JOIN word_stats ws
+                    ON ws.word_id = w.id
+                   AND ws.user_id = ?
+                WHERE ws.word_id IS NULL
+                """,
+                (user_id,),
+            )
+            row = c.fetchone()
+            return row[0] if row else 0

@@ -205,6 +205,10 @@ async def _handle_quiz_source(query, context, suffix: str):
         context.user_data.pop("quiz_lesson_id", None)
         context.user_data["quiz_source_filter"] = "due"
         await menus.show_quiz_count(query, context)
+    elif suffix == "mistakes":
+        context.user_data.pop("quiz_lesson_id", None)
+        context.user_data["quiz_source_filter"] = "mistakes"
+        await menus.show_quiz_count(query, context)
 
 
 async def _handle_quiz_count(query, context, suffix: str):
