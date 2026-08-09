@@ -3,9 +3,7 @@ import logging
 import random
 import re
 from typing import List, Dict, Optional, Set
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
 from services import db, llm, tts
 from ui import _short_label, back_inline_keyboard, esc, render
 
@@ -13,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 # ─── تنظیمات داستان هوشمند ───────────────────────────────────────
 STORY_WORD_TYPES = ("Noun", "Verb", "Adjective")
-MAX_STORY_WORDS = 12
-MIN_STORY_WORDS = 5
+MAX_STORY_WORDS = 8   # کاهش از 12 به 8 برای داستان‌های متمرکزتر
+MIN_STORY_WORDS = 4   # حداقل کلمات برای یک داستان معنادار
 
 # ─── ژانرها ───────────────────────────────────────────────────────
 GENRES = [
@@ -38,22 +36,11 @@ GENRE_BY_LEVEL = {
 def _get_word_ratios(level: str) -> tuple:
     """نسبت (new, review, mastered) بر اساس سطح."""
     if level == "A1":
-        return 0.3, 0.5, 0.2
+        return 0.3, 0.5, 0.2   # 30% new, 50% review, 20% mastered
     elif level == "A2":
         return 0.4, 0.4, 0.2
     else:  # B1, B2
         return 0.5, 0.3, 0.2
-
-
-# ─── تنظیمات تکرار کلمات ─────────────────────────────────────────
-def _get_repetition_rule(word_status: str) -> str:
-    """قانون تکرار بر اساس وضعیت کلمه."""
-    if word_status == "weak":
-        return "2-3 times"
-    elif word_status == "new":
-        return "1-2 times"
-    else:  # mastered
-        return "exactly once"
 
 
 def _safe_json_list(raw):
@@ -72,122 +59,6 @@ def _safe_id_list(raw):
         except Exception:
             continue
     return result
-
-
-# ─── فیلتر کلمات مرتبط ────────────────────────────────────────────
-def _filter_coherent_words(words: List[Dict], lesson_title: str) -> List[Dict]:
-    """فقط کلماتی را نگه دار که به موضوع درس مرتبط هستند."""
-    TOPIC_KEYWORDS = {
-        "schule": ["schule", "lehrer", "lernen", "buch", "heft", "klasse"],
-        "wohnen": ["haus", "wohnung", "zimmer", "möbel", "miete"],
-        "familie": ["mutter", "vater", "bruder", "schwester", "kind"],
-        "arbeit": ["büro", "chef", "kollege", "job", "arbeit"],
-        "einkaufen": ["supermarkt", "laden", "geld", "preis", "kaufen"],
-        "reisen": ["hotel", "bahnhof", "flugzeug", "koffer", "ticket"],
-    }
-
-    lesson_lower = (lesson_title or "").lower()
-    topic = None
-    for key in TOPIC_KEYWORDS:
-        if key in lesson_lower:
-            topic = key
-            break
-
-    if not topic:
-        return words[:8]
-
-    scored = []
-    for w in words:
-        word_lower = w["german"].lower()
-        score = 1
-        if any(kw in word_lower for kw in TOPIC_KEYWORDS[topic]):
-            score += 5
-        if w.get("word_type") == "Noun" and w.get("german") in [
-            "Hausnummer", "Geburtsdatum", "Abitur", "Kurier"
-        ]:
-            score -= 3
-        scored.append((score, w))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [w for _, w in scored[:8]]
-
-
-# ─── چک coherence کلمات ──────────────────────────────────────────
-def _check_word_coherence(words: List[Dict]) -> bool:
-    """چک کن کلمات هدف به یک موضوع مرتبط هستند."""
-    if len(words) < 3:
-        return True
-
-    types = [w.get("word_type") for w in words]
-    from collections import Counter
-    type_counts = Counter(types)
-    if max(type_counts.values()) < 2:
-        return False
-
-    return True
-
-
-# ─── اعتبارسنجی coherence داستان با LLM ──────────────────────────
-
-
-# ─── اعتبارسنجی گرامری A1 ────────────────────────────────────────
-def _validate_a1_grammar(text_de: str) -> tuple:
-    """
-    اعتبارسنجی گرامر A1.
-    Returns: (is_valid: bool, reason: str)
-    """
-    # ─── چک Perfekt (haben/sein + Partizip II) ───
-    if re.search(
-        r"\b(habe|hat|haben|bin|ist|sind)\s+\w+\s+(ge\w+t|ge\w+en)\b",
-        text_de, re.IGNORECASE
-    ):
-        return False, "Perfekt"
-
-    # ─── چک Präteritum ───
-    praeteritum_verbs = [
-        r"\bwar\b", r"\bhatte\b", r"\bging\b", r"\bkam\b",
-        r"\bsagte\b", r"\bmachte\b", r"\bsah\b", r"\bwurde\b",
-        r"\bkonnte\b", r"\bmusste\b", r"\bwollte\b", r"\bsollte\b",
-        r"\bdurfte\b", r"\bfragte\b", r"\bantworte\b", r"\bfand\b",
-        r"\bgab\b", r"\bnahm\b", r"\bstand\b", r"\bsaß\b",
-    ]
-    for pattern in praeteritum_verbs:
-        if re.search(pattern, text_de, re.IGNORECASE):
-            return False, f"Präteritum ({pattern})"
-
-    # ─── چک Nebensätze ───
-    if re.search(
-        r"\b(weil|dass|wenn|obwohl|damit|ob)\b",
-        text_de, re.IGNORECASE
-    ):
-        return False, "Nebensatz"
-
-    # ─── چک um...zu ───
-    if re.search(r"\bum\b.*\bzu\b", text_de, re.IGNORECASE):
-        return False, "um...zu"
-
-    # ─── چک Futur (werden + Infinitiv) ───
-    if re.search(
-        r"\b(werde|wird|werden|werdet)\s+\w+\s+(en|n)\b",
-        text_de, re.IGNORECASE
-    ):
-        return False, "Futur"
-
-    # ─── چک Relativsatz ───
-    if re.search(
-        r"\b(der|die|das)\s+.*,\s*(der|die|das|den|dem)\b",
-        text_de, re.IGNORECASE
-    ):
-        return False, "Relativsatz"
-
-    # ─── چک طول جملات (حداکثر ۱۰ کلمه) ───
-    sentences = re.split(r'[.!?"]+', text_de)
-    for sent in sentences:
-        sent_words = sent.strip().split()
-        if len(sent_words) > 10:
-            return False, f"جمله بیش از ۱۰ کلمه: '{sent[:30]}...'"
-
-    return True, "ok"
 
 
 # ─── انتخاب هوشمند کلمات ─────────────────────────────────────────
@@ -286,6 +157,7 @@ def _select_genre(level: str, lesson_title: str) -> Dict:
     allowed_ids = GENRE_BY_LEVEL.get(level, ["daily"])
     allowed_genres = [g for g in GENRES if g["id"] in allowed_ids]
 
+    # اگر موضوع درس مشخص است، ژانر مرتبط انتخاب کن
     lesson_lower = (lesson_title or "").lower()
     topic_genre_map = {
         "einkaufen": ["daily"],
@@ -316,6 +188,7 @@ def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
         accuracy = weekly.get("accuracy", 0)
         total = weekly.get("total_answers", 0)
 
+        # اگر داده کافی نیست، سطح درس را برگردان
         if total < 10:
             return lesson_level
 
@@ -326,211 +199,131 @@ def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
             return lesson_level
 
         if accuracy < 55 and idx > 0:
-            return levels[idx - 1]
+            return levels[idx - 1]  # یک پله پایین‌تر
         elif accuracy > 85 and idx < len(levels) - 1:
-            return levels[idx + 1]
+            return levels[idx + 1]  # یک پله بالاتر
 
         return lesson_level
     except Exception:
         return lesson_level
 
 
-# ─── ساخت پرامپت داستان ──────────────────────────────────────────
+# ─── ساخت پرامپت داستان (رویکرد طبیعی) ──────────────────────────
 def _build_enhanced_prompt(
     words: List[Dict],
     level: str,
     lesson_title: str,
     genre: Dict,
-    user_id: int,
     story_number: int = 1,
     total_stories_in_series: int = 1,
 ) -> str:
-    """ساخت پرامپت پیشرفته با ساختار داستانی واقعی."""
-    word_lines = []
+    """ساخت پرامپت با رویکرد طبیعی و داستان‌محور."""
+    
+    # ─── Core Vocabulary (کلماتی که حتماً باید باشند) ───
+    core_lines = []
     for w in words:
         art = (w.get("article") or "").strip()
         disp = f"{art} {w['german']}".strip() if art else w["german"]
+        core_lines.append(f'- "{disp}" ({w["persian"]})')
+    core_vocab = "\n".join(core_lines)
 
-        # ─── اصلاح: user_id واقعی ───
-        stats = None
-        try:
-            stats = db.get_word_stats_full(user_id, w["id"])
-        except Exception:
-            pass
-
-        if not stats:
-            status = "new"
-        elif stats.get("phase") == "learning" or (
-            stats.get("wrong", 0) > stats.get("correct", 0)
-        ):
-            status = "weak"
-        else:
-            status = "mastered"
-
-        rep_rule = _get_repetition_rule(status)
-        word_lines.append(
-            f'- id={w["id"]} | "{disp}" = {w["persian"]} | status={status} | repeat={rep_rule}'
-        )
-
-    word_list = "\n".join(word_lines)
-
-    grammar_rules = {
-        "A1": """STRICT A1 RULES - VIOLATION = INVALID STORY:
-- ONLY Präsens tense. NO Perfekt, NO Präteritum, NO Futur.
-- Maximum 8 words per sentence. NO exceptions.
-- NO Nebensätze (no weil, dass, wenn, obwohl, damit, ob).
-- NO um...zu constructions.
-- NO Relativsätze.
-- NO Konjunktiv II.
-- NO modal verbs in complex constructions.
-- Use only: Subject + Verb + Object. Very simple.""",
-        "A2": """A2 RULES:
-- Präsens and Perfekt allowed. NO Präteritum.
-- Simple Nebensätze with 'weil', 'dass' only.
-- Maximum 12 words per sentence.
-- NO um...zu, NO Relativsätze.""",
-        "B1": """B1 RULES:
-- All tenses allowed.
-- Nebensätze and Relativsätze OK.
-- Konjunktiv II for politeness.
-- Maximum 15 words per sentence.""",
-    }
-    grammar_hint = grammar_rules.get(level, grammar_rules["A1"])
-
-    # ─── مثال‌های منفی صریح برای A1 ───
-    negative_examples = ""
-    if level == "A1":
-        negative_examples = """
-FORBIDDEN CONSTRUCTIONS IN A1:
-❌ NEVER use Nebensätze:
-   WRONG: "Ich bleibe hier, weil es schneit."
-   CORRECT: "Ich bleibe hier. Es schneit."
-
-❌ NEVER use Präteritum (war, hatte, ging, kam, sagte, machte):
-   WRONG: "Gestern war es schön."
-   CORRECT: "Gestern ist es schön."
-
-❌ NEVER use Perfekt (haben/sein + Partizip II):
-   WRONG: "Ich habe Brot gekauft."
-   CORRECT: "Ich kaufe Brot."
-
-❌ NEVER use Futur (werden + Infinitiv):
-   WRONG: "Es wird schneien."
-   CORRECT: "Es schneit bald."
-
-❌ NEVER use um...zu, Relativsätze, or Konjunktiv II.
-❌ NEVER use sentences with more than 10 words.
+    # ─── Support Vocabulary (کلماتی برای طبیعی شدن داستان) ───
+    support_vocab = """
+SUPPORT VOCABULARY (Use these freely to make the story natural, do NOT force them):
+gehen, kommen, haben, sein, machen, sagen, sehen, geben, nehmen, wollen, können, müssen,
+heute, morgen, jetzt, hier, dort, gut, schlecht, schön, müde, hungrig, schnell, langsam,
+und, aber, denn, oder.
 """
 
-    # ─── Narrow Reading ───
+    # ─── گرامر و استایل (طبیعی اما ساده) ───
+    grammar_style = f"""
+GRAMMAR & STYLE (Natural German for {level}):
+- Use primarily Präsens.
+- Modal verbs (können, müssen, wollen, möchten) are ALLOWED and ENCOURAGED for naturalness.
+- Keep sentences relatively short, but natural flow is MORE important than a strict word count.
+- Avoid complex nested subordinate clauses. Simple 'weil', 'dass', 'und', 'aber', 'denn' are fine.
+- NO literary, poetic, or overly formal language. NO Plusquamperfekt. NO Genitiv (use 'von' or Dativ).
+- The text must be 100% German. NO Persian translations inside the text.
+"""
+
+    # ─── ساختار داستان (اتفاق ساده) ───
+    plot_structure = """
+PLOT REQUIREMENT (Micro-Story):
+The story MUST have a simple, relatable micro-plot, not just a list of facts:
+1. SITUATION/GOAL: The character wants to do something or is in a specific place.
+2. MINOR PROBLEM: Something small goes wrong or is missing (e.g., forgot wallet, it starts raining, missed the bus).
+3. RESOLUTION: The character solves it simply or accepts it.
+
+AVOID THESE PATTERNS:
+- Lists of disconnected facts ("Ich bin X. Ich bin Y. Die Hausnummer ist Z.")
+- Random personal info that has nothing to do with the story ("Ich bin ledig/verheiratet" when irrelevant)
+- Words used unnaturally just to include them
+- Repeating the same fact twice
+"""
+
+    # ─── Narrow Reading (اگر سری است) ───
     series_instruction = ""
     if total_stories_in_series > 1:
         series_instruction = f"""
-NARROW READING SERIES: This is story {story_number} of {total_stories_in_series} about "{lesson_title}".
-- Use a DIFFERENT situation but the SAME theme.
-- Introduce 1-2 NEW vocabulary items that were NOT in previous stories.
-- Reuse the theme's core vocabulary in a new context.
+NARROW READING: This is story {story_number} of {total_stories_in_series} about "{lesson_title}".
+Keep the same theme but change the specific situation and characters.
+Introduce 1-2 NEW vocabulary items naturally.
 """
 
     return f"""You are an expert German language teacher and creative storyteller.
-Write a SHORT STORY for {level} learners.
+Write a SHORT, NATURAL, and ENGAGING story for {level} learners.
 
-LESSON THEME: {lesson_title or "General"}
-GENRE: {genre['de']} ({genre['fa']}) - {genre['desc']}
+LESSON THEME: {lesson_title or "Everyday Life"}
+TOPIC/SITUATION: {genre['desc']} (e.g., {genre['de']})
 LEVEL: {level}
-GRAMMAR RULES: {grammar_hint}
-{negative_examples}
 {series_instruction}
-TARGET WORDS (must ALL appear naturally):
-{word_list}
 
-STORY STRUCTURE REQUIREMENTS:
-1. CHARACTER: Give the main character a name and one personality trait.
-2. SETTING: Clearly establish where and when (1-2 sentences).
-3. CONFLICT: Something small goes wrong or a challenge appears.
-4. RESOLUTION: The problem is solved using at least ONE target word.
-5. ENDING: A satisfying emotional conclusion or short dialogue.
-6. DIALOGUE: Include at least 2 lines of direct speech („...").
+{grammar_style}
+
+{plot_structure}
+
+CORE VOCABULARY (Must ALL appear naturally in the story):
+{core_vocab}
+
+{support_vocab}
 
 FORMATTING RULES:
-- The story text must be 100% German. Do NOT add any Persian translations inside the story text.
-- The text_fa field will contain the full Persian translation separately.
-- Story length: 8-12 sentences for A1, 10-15 for A2+.
-- Do NOT use idioms beyond {level}.
-- Keep sentences natural and varied in structure.
-
-REPETITION RULES:
-- Each word must appear EXACTLY ONCE unless the story naturally requires more.
-- Do NOT force repetition. One natural use is enough.
-- If a word does not fit naturally, SKIP it and use a synonym or rephrase.
+- Story length: 6-10 sentences.
+- Include at least 1-2 lines of simple direct speech („...").
+- Do NOT just list facts. Make it a coherent narrative with a beginning, middle, and end.
+- Vary your openings. Do NOT always start with "Ich bin [Name]. Ich bin [Adjektiv]."
 
 QUESTIONS: Create 4 questions IN GERMAN:
-- 2 COMPREHENSION questions about the plot (set "question_type": "comprehension", "word_id": null)
-- 2 VOCABULARY questions about specific target words (set "question_type": "vocabulary", "word_id": <id>)
-
-Example comprehension question:
-"Warum geht Anna zum Markt?" (word_id: null, question_type: "comprehension")
+1. COMPREHENSION: About the plot or character's motivation (set "question_type": "comprehension", "word_id": null).
+2. COMPREHENSION: About what happens in the story (set "question_type": "comprehension", "word_id": null).
+3. VOCABULARY: Meaning of a specific core word in context (set "question_type": "vocabulary", "word_id": <id>).
+4. DETAIL: A simple fact from the story (set "question_type": "detail", "word_id": null).
 
 Example vocabulary question:
 "Was bedeutet „bezahlen" in diesem Text?" (word_id: 42, question_type: "vocabulary")
 
+Example comprehension question:
+"Warum geht Anna zum Markt?" (word_id: null, question_type: "comprehension")
+
+Example detail question:
+"Was kauft Anna im Supermarkt?" (word_id: null, question_type: "detail")
+
 Return ONLY valid JSON:
 {{
-    "title_de": "German title",
+    "title_de": "Short German title",
     "title_fa": "Persian title",
-    "text_de": "Story text in 100% German, NO Persian translations inside",
-    "text_fa": "Natural Persian translation of the full story",
+    "text_de": "100% German story text, no Persian inside",
+    "text_fa": "Natural Persian translation",
     "questions": [
         {{
-            "question": "German comprehension question?",
+            "question": "German question?",
             "options": ["A", "B", "C", "D"],
             "correct_answer": "exact text of correct option",
             "word_id": null,
             "question_type": "comprehension"
-        }},
-        {{
-            "question": "Was bedeutet „Word"?",
-            "options": ["A", "B", "C", "D"],
-            "correct_answer": "exact text of correct option",
-            "word_id": 123,
-            "question_type": "vocabulary"
         }}
     ]
-}}
-
-NARRATIVE COHERENCE (CRITICAL):
-- ALL target words must relate to a SINGLE central theme.
-- Do NOT force unrelated words into the story.
-- If target words have nothing in common, create a theme that naturally connects them.
-- Every sentence must logically follow the previous one.
-- NO random topic jumps (e.g., from CV to favorite month).
-
-CRITICAL — AVOID THESE COMMON MISTAKES:
-
-❌ Do NOT add random personal info that has nothing to do with the story:
-   WRONG: "Ich bin ledig." (when the story is about school)
-   WRONG: "Die Hausnummer ist 12." (irrelevant detail)
-   WRONG: "Ich brauche das Geburtsdatum." (no context)
-
-❌ Do NOT use words in unnatural ways:
-   WRONG: "Ich bringe das Abitur." (Abitur is not something you "bring")
-   CORRECT: "Ich mache das Abitur."
-   WRONG: "Ich wohne im Hotel." (people don't live in hotels)
-   CORRECT: "Ich übernachte im Hotel."
-
-❌ Do NOT repeat the same fact twice:
-   WRONG: "Ich bin verheiratet. ... Ich bin verheiratet."
-
-❌ Do NOT create lists of unrelated facts:
-   WRONG: "Ich bin Lars. Ich bin verheiratet. Ich wohne im Hotel.
-           Der Mittag ist sonnig. Ich brauche das Geburtsdatum."
-   CORRECT: "Ich bin Lars und ich bin mit Anna verheiratet.
-           Wir übernachten heute in einem schönen Hotel.
-           Der Mittag ist sonnig und wir gehen spazieren."
-
-If a target word does not fit the story naturally, SKIP it.
-It is better to use 4 words well than 5 words badly.
-"""
+}}"""
 
 
 # ─── تولید داستان ─────────────────────────────────────────────────
@@ -552,22 +345,12 @@ async def _generate_story_for_lesson(
         )
         return None
 
-    # ─── چک coherence کلمات ───
-    if not _check_word_coherence(words):
-        logger.warning(
-            "کلمات داستان درس %d انسجام کافی ندارند، ادامه با کلمات موجود",
-            lesson_id,
-        )
-
     lesson = db.get_lesson(lesson_id)
     lesson_title = lesson[1] if lesson and len(lesson) > 1 else ""
 
-    # ─── فیلتر کلمات مرتبط ───
-    words = _filter_coherent_words(words, lesson_title)
-
-    # ─── Narrow Reading ───
+    # ─── Narrow Reading: تعداد داستان‌های قبلی ───
     story_count = db.get_story_count_by_lesson(lesson_id)
-    total_in_series = 3
+    total_in_series = 3  # هر موضوع ۳ داستان
     story_number = (story_count % total_in_series) + 1
 
     # ─── ژانر هوشمند ───
@@ -575,7 +358,6 @@ async def _generate_story_for_lesson(
 
     prompt = _build_enhanced_prompt(
         words, level, lesson_title, genre,
-        user_id=user_id,
         story_number=story_number,
         total_stories_in_series=total_in_series,
     )
@@ -599,33 +381,35 @@ async def _generate_story_for_lesson(
             if not text_de:
                 continue
 
-            # ─── اعتبارسنجی: عدم وجود فارسی ───
+            # ─── اعتبارسنجی ۱: عدم وجود فارسی در متن ───
             persian_in_text = bool(re.search(r"[\u0600-\u06FF]", text_de))
             if persian_in_text:
-                text_de = re.sub(
-                    r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", text_de
-                ).strip()
+                # حذف پرانتزهای فارسی به عنوان fallback
+                text_de = re.sub(r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", text_de).strip()
+                # اگر بعد از حذف هنوز فارسی بود، رد کن
+                if re.search(r"[\u0600-\u06FF]", text_de):
+                    logger.warning("داستان شامل فارسی - تلاش %d", attempt + 1)
+                    continue
 
-            # ─── اعتبارسنجی استفاده از کلمات ───
+            # ─── اعتبارسنجی ۲: حضور کلمات هدف (Coverage) ───
             text_lower = text_de.lower()
             used = sum(1 for w in words if w["german"].lower() in text_lower)
             usage_ratio = used / len(words) if words else 0
 
             if usage_ratio < 0.6:
                 logger.warning(
-                    "داستان فقط %d/%d کلمه داشت (%.0f%%) - تلاش %d",
+                    "Coverage پایین: %d/%d (%.0f%%) - تلاش %d",
                     used, len(words), usage_ratio * 100, attempt + 1,
                 )
                 continue
 
-            # ─── اعتبارسنجی گرامری ───
-            if level == "A1":
-                is_valid, reason = _validate_a1_grammar(text_de)
-                if not is_valid:
-                    logger.warning(
-                        "داستان A1 شامل %s است - تلاش %d", reason, attempt + 1
-                    )
-                    continue
+            # ─── اعتبارسنجی ۳: طول منطقی داستان ───
+            word_count = len(text_de.split())
+            if word_count < 30 or word_count > 250:
+                logger.warning(
+                    "طول داستان غیرمنطقی: %d کلمه - تلاش %d", word_count, attempt + 1
+                )
+                continue
 
             # ─── اعتبارسنجی سوالات ───
             questions = result.get("questions") or []
@@ -641,11 +425,13 @@ async def _generate_story_for_lesson(
                 if len(options) < 2 or not correct:
                     continue
 
+                # ─── question_type ───
                 q_type = q.get("question_type", "comprehension")
-                if q_type not in ("comprehension", "vocabulary"):
+                if q_type not in ("comprehension", "vocabulary", "detail"):
                     q_type = "comprehension"
                 q["question_type"] = q_type
 
+                # ─── word_id فقط برای vocabulary ───
                 try:
                     word_id = int(q.get("word_id"))
                 except Exception:
@@ -653,7 +439,7 @@ async def _generate_story_for_lesson(
 
                 if q_type == "vocabulary" and word_id not in target_id_set:
                     word_id = None
-                elif q_type == "comprehension":
+                elif q_type in ("comprehension", "detail"):
                     word_id = None
 
                 q["word_id"] = word_id
@@ -729,10 +515,12 @@ async def show_story(query, context, story_id: int):
         return
 
     context.user_data["current_story_id"] = story_id
+    # ─── ریست سطح راهنمایی ───
     context.user_data["story_hint_level"] = 0
 
     title = story.get("title_de") or story.get("title_fa") or "داستان"
 
+    # ─── نمایش کلمات هدف با وضعیت ───
     target_ids = _safe_id_list(story.get("target_word_ids"))
     words = db.get_word_objects_by_ids(target_ids) if target_ids else []
 
@@ -779,6 +567,7 @@ async def show_story_hint(query, context, story_id: int):
         target_ids = _safe_id_list(story.get("target_word_ids"))
         words = db.get_word_objects_by_ids(target_ids) if target_ids else []
 
+        # پیدا کردن ۳ کلمه‌ای که کاربر ضعیف‌تر است
         weak_in_story = []
         for w in words:
             stats = db.get_word_stats_full(user_id, w.id)
@@ -808,6 +597,7 @@ async def show_story_hint(query, context, story_id: int):
         title_fa = story.get("title_fa") or story.get("title_de") or "داستان"
         text_fa = story.get("text_fa") or ""
 
+        # خلاصه: فقط ۲-۳ جمله اول
         sentences = text_fa.split(".")
         summary = ". ".join(sentences[:3]) + "." if len(sentences) > 3 else text_fa
 
@@ -862,6 +652,7 @@ async def play_story_listen_read(query, context, story_id: int):
             pass
         return
 
+    # ابتدا متن را نمایش بده
     title = story.get("title_de") or "داستان"
     msg = (
         f"🔊+📖 <b>همزمان بخوان و بشنو</b>\n\n"
@@ -877,11 +668,8 @@ async def play_story_listen_read(query, context, story_id: int):
     ])
     await render(query, msg, reply_markup=kb)
 
-    clean_text = re.sub(r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", story["text_de"]).strip()
-    if not clean_text:
-        clean_text = story["text_de"]
-
-    audio_path = await tts.get_audio_path(clean_text)
+    # پخش صدا
+    audio_path = await tts.get_audio_path(story["text_de"])
     if audio_path:
         try:
             with open(audio_path, "rb") as f:
@@ -921,11 +709,8 @@ async def play_story_listen_only(query, context, story_id: int):
     ])
     await render(query, msg, reply_markup=kb)
 
-    clean_text = re.sub(r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", story["text_de"]).strip()
-    if not clean_text:
-        clean_text = story["text_de"]
-
-    audio_path = await tts.get_audio_path(clean_text)
+    # پخش صدا
+    audio_path = await tts.get_audio_path(story["text_de"])
     if audio_path:
         try:
             with open(audio_path, "rb") as f:
@@ -939,6 +724,44 @@ async def play_story_listen_only(query, context, story_id: int):
                 )
         except Exception as e:
             logger.error("خطا در پخش صدای Listen Only: %s", e)
+
+
+# ─── پخش ساده صدا (سازگاری با route قدیمی) ───────────────────────
+async def play_story_audio(query, context, story_id: int):
+    """پخش صدای داستان (حالت ساده)."""
+    story = db.get_story(story_id)
+    if not story:
+        try:
+            await query.answer("❌ داستان پیدا نشد.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    audio_path = await tts.get_audio_path(story["text_de"])
+    if not audio_path:
+        try:
+            await query.answer("❌ تلفظ در دسترس نیست.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    try:
+        with open(audio_path, "rb") as f:
+            await context.bot.send_audio(
+                chat_id=query.message.chat_id,
+                audio=f,
+                title=story.get("title_de") or "داستان",
+                performer="German Bot",
+                reply_to_message_id=query.message.message_id,
+                allow_sending_without_reply=True,
+            )
+        await query.answer("🔊 در حال پخش...")
+    except Exception as e:
+        logger.error("خطا در پخش صدای داستان: %s", e)
+        try:
+            await query.answer("❌ خطا در پخش صدا.", show_alert=True)
+        except Exception:
+            pass
 
 
 # ─── کلمات داستان ─────────────────────────────────────────────────
@@ -1002,14 +825,17 @@ async def start_story_quiz(query, context, story_id: int):
         )
         return
 
-    # ─── جداسازی Comprehension و Vocabulary ───
+    # ─── جداسازی انواع سوالات ───
     comprehension_qs = [q for q in questions if q.get("question_type") == "comprehension"]
     vocabulary_qs = [q for q in questions if q.get("question_type") == "vocabulary"]
+    detail_qs = [q for q in questions if q.get("question_type") == "detail"]
 
-    if not comprehension_qs and not vocabulary_qs:
+    # اگر question_type ندارند، همه را comprehension فرض کن
+    if not comprehension_qs and not vocabulary_qs and not detail_qs:
         comprehension_qs = questions
 
-    ordered_questions = comprehension_qs + vocabulary_qs
+    # ترتیب: اول comprehension، بعد detail، بعد vocabulary
+    ordered_questions = comprehension_qs + detail_qs + vocabulary_qs
 
     context.user_data["story_quiz"] = {
         "story_id": story_id,
@@ -1021,6 +847,8 @@ async def start_story_quiz(query, context, story_id: int):
         "comprehension_wrong": 0,
         "vocabulary_correct": 0,
         "vocabulary_wrong": 0,
+        "detail_correct": 0,
+        "detail_wrong": 0,
     }
 
     await _show_story_question(query, context)
@@ -1051,8 +879,14 @@ async def _show_story_question(query, context):
     num = quiz["current"] + 1
     total = len(quiz["questions"])
 
+    # ─── برچسب نوع سوال ───
     q_type = q.get("question_type", "comprehension")
-    type_label = "📖 درک مطلب" if q_type == "comprehension" else "🧠 واژگان"
+    type_labels = {
+        "comprehension": "📖 درک مطلب",
+        "vocabulary": "🧠 واژگان",
+        "detail": "🔍 جزئیات",
+    }
+    type_label = type_labels.get(q_type, "📖 درک مطلب")
 
     msg = f"❓ <b>سوال {num} از {total}</b> [{type_label}]\n{esc(q['question'])}"
 
@@ -1105,16 +939,22 @@ async def handle_story_answer(query, context, suffix: str):
             quiz["comprehension_correct"] += 1
         else:
             quiz["comprehension_wrong"] += 1
-    else:  # vocabulary
+    elif q_type == "vocabulary":
         if is_correct:
             quiz["vocabulary_correct"] += 1
         else:
             quiz["vocabulary_wrong"] += 1
+    elif q_type == "detail":
+        if is_correct:
+            quiz["detail_correct"] += 1
+        else:
+            quiz["detail_wrong"] += 1
 
     # ─── 4. فقط Vocabulary questions روی FSRS اثر بگذارند ───
     if q_type == "vocabulary" and word_id:
         db.learning.record_skill(user_id, word_id, "reading", is_correct)
 
+        # FSRS فقط برای vocab questions
         from srs_service import FSRSService
         fsrs_service = FSRSService(db)
         grade = 3 if is_correct else 1
@@ -1169,6 +1009,7 @@ async def _show_story_quiz_summary(query, context):
     wrong = quiz["wrong"]
     accuracy = (correct / total * 100) if total > 0 else 0
 
+    # ─── آمار تفکیکی ───
     comp_correct = quiz.get("comprehension_correct", 0)
     comp_wrong = quiz.get("comprehension_wrong", 0)
     comp_total = comp_correct + comp_wrong
@@ -1179,6 +1020,11 @@ async def _show_story_quiz_summary(query, context):
     vocab_total = vocab_correct + vocab_wrong
     vocab_acc = int(vocab_correct / vocab_total * 100) if vocab_total else 0
 
+    detail_correct = quiz.get("detail_correct", 0)
+    detail_wrong = quiz.get("detail_wrong", 0)
+    detail_total = detail_correct + detail_wrong
+    detail_acc = int(detail_correct / detail_total * 100) if detail_total else 0
+
     db.record_activity(query.from_user.id, 5 * correct)
 
     msg = (
@@ -1186,9 +1032,14 @@ async def _show_story_quiz_summary(query, context):
         f"✅ درست: {correct}\n"
         f"❌ اشتباه: {wrong}\n"
         f"🎯 دقت کل: {accuracy:.0f}%\n\n"
-        f"📖 درک مطلب: {comp_correct}/{comp_total} ({comp_acc}%)\n"
-        f"🧠 واژگان: {vocab_correct}/{vocab_total} ({vocab_acc}%)\n\n"
     )
+    if comp_total:
+        msg += f"📖 درک مطلب: {comp_correct}/{comp_total} ({comp_acc}%)\n"
+    if detail_total:
+        msg += f"🔍 جزئیات: {detail_correct}/{detail_total} ({detail_acc}%)\n"
+    if vocab_total:
+        msg += f"🧠 واژگان: {vocab_correct}/{vocab_total} ({vocab_acc}%)\n"
+    msg += "\n"
 
     if accuracy == 100:
         msg += "🌟 عالی! داستان را کامل فهمیدی!"
@@ -1199,6 +1050,7 @@ async def _show_story_quiz_summary(query, context):
 
     kb_buttons = []
 
+    # ─── Story Replay: اگر دقت زیر ۶۰٪ بود ───
     if accuracy < 60:
         kb_buttons.append([
             InlineKeyboardButton("🔄 Replay با راهنمایی", callback_data=f"story_replay:{story_id}")
@@ -1232,9 +1084,11 @@ async def replay_story(query, context, story_id: int):
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
+    # ریست hint level
     context.user_data["story_hint_level"] = 0
 
     title = story.get("title_de") or "داستان"
+
     msg = (
         f"🔄 <b>Replay: {esc(title)}</b>\n\n"
         f"این بار با دقت بیشتری بخوان و گوش بده.\n"
@@ -1250,47 +1104,3 @@ async def replay_story(query, context, story_id: int):
         [InlineKeyboardButton("📖 داستان بعدی", callback_data=f"story_next:{story['lesson_id']}")],
     ])
     await render(query, msg, reply_markup=kb)
-
-
-# ─── تلفظ ساده (سازگاری با route قبلی) ───────────────────────────
-async def play_story_audio(query, context, story_id: int):
-    """پخش صدای داستان (حالت ساده)."""
-    story = db.get_story(story_id)
-    if not story:
-        try:
-            await query.answer("❌ داستان پیدا نشد.", show_alert=True)
-        except Exception:
-            pass
-        return
-
-    clean_text = re.sub(
-        r"\s*\([^)]*[\u0600-\u06FF][^)]*\)", "", story["text_de"]
-    ).strip()
-    if not clean_text:
-        clean_text = story["text_de"]
-
-    audio_path = await tts.get_audio_path(clean_text)
-    if not audio_path:
-        try:
-            await query.answer("❌ تلفظ در دسترس نیست.", show_alert=True)
-        except Exception:
-            pass
-        return
-
-    try:
-        with open(audio_path, "rb") as f:
-            await context.bot.send_audio(
-                chat_id=query.message.chat_id,
-                audio=f,
-                title=story.get("title_de") or "داستان",
-                performer="German Bot",
-                reply_to_message_id=query.message.message_id,
-                allow_sending_without_reply=True,
-            )
-        await query.answer("🔊 در حال پخش...")
-    except Exception as e:
-        logger.error("خطا در پخش صدای داستان: %s", e)
-        try:
-            await query.answer("❌ خطا در پخش صدا.", show_alert=True)
-        except Exception:
-            pass
