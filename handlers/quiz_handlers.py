@@ -553,110 +553,123 @@ async def _show_quiz_summary(query, context, header: str = ""):
 
 
 async def handle_quiz_answer(query, context):
-    if "current_quiz" not in context.user_data:
+    # LOCK: جلوگیری از double-tap
+    lock_key = "quiz_answer_lock"
+    if context.user_data.get(lock_key):
         try:
-            await query.answer("⚠️ کوییز فعال نیست.", show_alert=True)
+            await query.answer()
         except Exception:
             pass
         return
-
-    quiz_info = context.user_data["current_quiz"]
-
+    context.user_data[lock_key] = True
+    
     try:
-        chosen_index = int(query.data.split(":")[1])
-    except (ValueError, IndexError):
-        await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
-        return
-
-    options = quiz_info.get("options", [])
-    if chosen_index < 0 or chosen_index >= len(options):
-        await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
-        return
-
-    user_id = query.from_user.id
-    is_correct = chosen_index == quiz_info["correct_index"]
-    user_answer_text = options[chosen_index]
-    correct_answer = (
-        quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
-    )
-
-    record_quiz_answer(
-        user_id=user_id,
-        word_id=quiz_info.get("word_id"),
-        skill_type=quiz_info.get("type", "meaning"),
-        is_correct=is_correct,
-        user_answer=user_answer_text,
-        correct_answer=correct_answer,
-        update_srs=True,
-        update_quiz_stats=True,
-        xp=10 if is_correct else 0,
-        quiz_type=quiz_info.get("type", "meaning"),
-    )
-
-    _update_quiz_session(
-        context,
-        is_correct,
-        quiz_info.get("word", ""),
-        quiz_info.get("word_id"),
-        user_answer_text,
-        correct_answer,
-    )
-
-    context.user_data.pop("current_quiz", None)
-
-    if is_correct:
+        if "current_quiz" not in context.user_data:
+            try:
+                await query.answer("⚠️ کوییز فعال نیست.", show_alert=True)
+            except Exception:
+                pass
+            return
+        
+        quiz_info = context.user_data["current_quiz"]
+        
         try:
-            await query.answer("✅ درست بود!", show_alert=False)
-        except Exception:
-            pass
-
-        if config.QUIZ_AUTO_NEXT_ON_CORRECT:
-            if _is_session_finished(context):
-                await _show_quiz_summary(query, context)
-            else:
-                context.user_data["quiz_flash"] = "✅ درست بود!"
-                await _send_next_quiz(query, context)
+            chosen_index = int(query.data.split(":")[1])
+        except (ValueError, IndexError):
+            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
             return
 
-        feedback = "✅ آفرین! جواب درست بود! 🎉"
-    else:
-        try:
-            await query.answer("❌ اشتباه بود", show_alert=False)
-        except Exception:
-            pass
+        options = quiz_info.get("options", [])
+        if chosen_index < 0 or chosen_index >= len(options):
+            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+            return
 
-        feedback = f"❌ اشتباه بود!\n✅ جواب درست: {esc(correct_answer)}"
-
-        if llm.is_available():
-            explanation = await llm.explain_mistake(
-                quiz_info.get("word", ""),
-                user_answer_text,
-                correct_answer,
-                quiz_info.get("type", "meaning"),
-            )
-            if explanation:
-                feedback += f"\n💡 {esc(explanation)}"
-
-    if _is_session_finished(context):
-        await _show_quiz_summary(query, context, header=feedback)
-    else:
-        progress = _get_session_progress(context)
-        text = feedback
-        if progress:
-            text += f"\n{esc(progress)}"
-
-        kb = InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("⏭️ سوال بعدی", callback_data="quiz_next")],
-                [
-                    InlineKeyboardButton(
-                        "🔙 منوی اصلی", callback_data="back_to_main_menu"
-                    )
-                ],
-            ]
+        user_id = query.from_user.id
+        is_correct = chosen_index == quiz_info["correct_index"]
+        user_answer_text = options[chosen_index]
+        correct_answer = (
+            quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
         )
 
-        await render(query, text, reply_markup=kb)
+        record_quiz_answer(
+            user_id=user_id,
+            word_id=quiz_info.get("word_id"),
+            skill_type=quiz_info.get("type", "meaning"),
+            is_correct=is_correct,
+            user_answer=user_answer_text,
+            correct_answer=correct_answer,
+            update_srs=True,
+            update_quiz_stats=True,
+            xp=10 if is_correct else 0,
+            quiz_type=quiz_info.get("type", "meaning"),
+        )
+
+        _update_quiz_session(
+            context,
+            is_correct,
+            quiz_info.get("word", ""),
+            quiz_info.get("word_id"),
+            user_answer_text,
+            correct_answer,
+        )
+
+        context.user_data.pop("current_quiz", None)
+
+        if is_correct:
+            try:
+                await query.answer("✅ درست بود!", show_alert=False)
+            except Exception:
+                pass
+
+            if config.QUIZ_AUTO_NEXT_ON_CORRECT:
+                if _is_session_finished(context):
+                    await _show_quiz_summary(query, context)
+                else:
+                    context.user_data["quiz_flash"] = "✅ درست بود!"
+                    await _send_next_quiz(query, context)
+                return
+
+            feedback = "✅ آفرین! جواب درست بود! 🎉"
+        else:
+            try:
+                await query.answer("❌ اشتباه بود", show_alert=False)
+            except Exception:
+                pass
+
+            feedback = f"❌ اشتباه بود!\n✅ جواب درست: {esc(correct_answer)}"
+
+            if llm.is_available():
+                explanation = await llm.explain_mistake(
+                    quiz_info.get("word", ""),
+                    user_answer_text,
+                    correct_answer,
+                    quiz_info.get("type", "meaning"),
+                )
+                if explanation:
+                    feedback += f"\n💡 {esc(explanation)}"
+
+        if _is_session_finished(context):
+            await _show_quiz_summary(query, context, header=feedback)
+        else:
+            progress = _get_session_progress(context)
+            text = feedback
+            if progress:
+                text += f"\n{esc(progress)}"
+
+            kb = InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("⏭️ سوال بعدی", callback_data="quiz_next")],
+                    [
+                        InlineKeyboardButton(
+                            "🔙 منوی اصلی", callback_data="back_to_main_menu"
+                        )
+                    ],
+                ]
+            )
+
+            await render(query, text, reply_markup=kb)
+    finally:
+        context.user_data.pop(lock_key, None)
 
 
 async def start_quiz_session(

@@ -3,6 +3,7 @@
 import logging
 import os
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
@@ -22,6 +23,7 @@ class DatabaseConnection:
 
     def __init__(self, db_name: str = "words.db"):
         self.db_name = db_name
+        self._write_lock = threading.Lock()
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
         self._setup_connection()
 
@@ -33,17 +35,26 @@ class DatabaseConnection:
 
     @contextmanager
     def cursor(self, commit: bool = False):
-        """Context manager for database cursors with automatic cleanup."""
-        cur = self.conn.cursor()
+        """Context manager for database cursors with automatic cleanup.
+        
+        For write operations (commit=True), acquires a lock to prevent race conditions.
+        """
+        if commit:
+            self._write_lock.acquire()
         try:
-            yield cur
-            if commit:
-                self.conn.commit()
-        except Exception:
-            self.conn.rollback()
-            raise
+            cur = self.conn.cursor()
+            try:
+                yield cur
+                if commit:
+                    self.conn.commit()
+            except Exception:
+                self.conn.rollback()
+                raise
+            finally:
+                cur.close()
         finally:
-            cur.close()
+            if commit:
+                self._write_lock.release()
 
     def close(self) -> None:
         """Close database connection."""

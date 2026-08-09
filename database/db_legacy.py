@@ -1111,7 +1111,8 @@ class Database:
 
     # ---------- Gamification + Same-day review ----------
     def _today_local(self) -> str:
-        tz = timezone(timedelta(hours=3, minutes=30))
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+        tz = timezone(timedelta(hours=USER_TIMEZONE_OFFSET_HOURS, minutes=USER_TIMEZONE_OFFSET_MINUTES))
         return datetime.now(tz).strftime("%Y-%m-%d")
 
     def get_user_progress(self, user_id: int) -> Dict:
@@ -1409,13 +1410,13 @@ class Database:
             )
 
     def get_mistake_word_count(self, user_id: int) -> int:
-        """تعداد کلماتی که کاربر حداقل یک اشتباه داشته است."""
+        """تعداد کلمات با اشتباه حل‌نشده."""
         with self._cursor() as c:
             c.execute(
                 """
                 SELECT COUNT(DISTINCT word_id)
-                FROM word_skills
-                WHERE user_id = ? AND wrong_count > 0
+                FROM mistake_stats
+                WHERE user_id = ? AND resolved_at IS NULL AND wrong_count > 0
                 """,
                 (user_id,),
             )

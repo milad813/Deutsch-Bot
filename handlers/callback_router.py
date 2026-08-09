@@ -414,11 +414,12 @@ async def inline_handler(update, context):
         return
 
     # ─── باگ‌فیکس: story_ans هم باید فیدبک toast داشته باشه ───
-    if not data.startswith(("quiz_ans:", "ltr_ans:", "grammar_ans:", "story_ans:")):
+    if not data.startswith(("quiz_ans:", "ltr_ans:", "grammar_ans:")):
         try:
             await query.answer()
         except Exception:
             pass
+    # story_ans فیدبک را در handler خودش می‌دهد
 
     if data in EXACT_ROUTES:
         handler = EXACT_ROUTES[data]
