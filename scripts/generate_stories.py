@@ -78,10 +78,9 @@ CRITICAL RULES:
 1. The story must have a clear character, a situation, and a small resolution (a tiny plot).
 2. Use simple {level} grammar (mostly Präsens, short sentences, max 10 words per sentence).
 3. Each target word must appear at least once, in a grammatically correct form (conjugated/declined as needed).
-4. IMPORTANT: Right after EACH target word's FIRST appearance, add its Persian meaning in parentheses.
-   Example: "Anna geht in den Supermarkt (سوپرمارکت) und kauft Brot (نان)."
-5. The Persian in parentheses must be SHORT (just the meaning, not a full sentence).
-6. Keep the story logical and natural despite the parentheses.
+4. The story text must be 100% German. Do NOT add any Persian translations inside the story.
+5. The text_fa field will contain the full Persian translation separately.
+6. Keep the story logical and natural.
 7. Do NOT use idioms or vocabulary beyond {level}.
 
 Also create 3 reading-comprehension questions in GERMAN about the story.
@@ -91,7 +90,7 @@ Return ONLY valid JSON in this exact format:
 {{
   "title_de": "German title",
   "title_fa": "Persian title",
-  "text_de": "The story with Persian meanings in parentheses after target words",
+  "text_de": "The story in 100% German, NO Persian inside",
   "text_fa": "Full natural Persian translation of the story (no parentheses)",
   "questions": [
     {{
