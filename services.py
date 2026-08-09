@@ -65,6 +65,10 @@ SESSION_KEYS = {
     "current_story_id",
     "story_quiz",
     "ltr_user_id",
+    # LTR current question data
+    "ltr_current_options",
+    "ltr_current_correct_index",
+    "ltr_current_correct_text",
 }
 
 

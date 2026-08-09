@@ -230,6 +230,10 @@ class LTRSessionManager:
             "ltr_index",
             "ltr_delayed_1",
             "ltr_delayed_2",
+            "ltr_user_id",
+            "ltr_current_options",
+            "ltr_current_correct_index",
+            "ltr_current_correct_text",
         ]
         for key in keys_to_clear:
             self.user_data.pop(key, None)
