@@ -17,7 +17,7 @@ tts = TTSService()
 SESSION_KEYS = {
     "conversation_history",
     "current_quiz",
-    "quiz_session",
+    "quiz_session_obj",
     "quiz_type",
     "quiz_lesson_id",
     "quiz_source_filter",
