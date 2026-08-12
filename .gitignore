@@ -19,30 +19,21 @@ __pycache__/
 # Dependencies
 .venv/
 venv/
-.env/
-
-# Editors
-.vscode/
-.idea/
-
-# Temp files
-*.tmp
-*.swp
-*.swo
+pip-log.txt
+pipenv.lock
 
 # Coverage
 .coverage
 coverage/
 htmlcov/
 
-# MyPy
-.mypy_cache/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Pytest
-.pytest_cache/
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
+# OS
+.DS_Store
+Thumbs.db
 ```

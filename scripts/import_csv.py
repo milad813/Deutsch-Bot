@@ -12,6 +12,15 @@ from database import Database
 ARTICLES = ("der", "die", "das")
 
 
+def _parse_int(value, default=None):
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
 def norm(value):
     if value is None:
         return None
@@ -152,6 +161,16 @@ def main():
                 example_fa=pick(row, "example_fa"),
                 collocation_de=pick(row, "collocation_de"),
                 collocation_fa=pick(row, "collocation_fa"),
+                # ─── فیلدهای جدید CSV ───
+                cefr_estimated=pick(row, "cefr_estimated"),
+                topics=pick(row, "topics"),
+                contexts=pick(row, "contexts"),
+                common_situations=pick(row, "common_situations"),
+                story_roles=pick(row, "story_roles"),
+                related_words=pick(row, "related_words"),
+                common_collocations_de=pick(row, "common_collocations_de"),
+                story_suitability=_parse_int(pick(row, "story_suitability"), default=3),
+                story_suitability_reason=pick(row, "story_suitability_reason"),
             )
 
             imported += 1

@@ -215,6 +215,16 @@ class Database:
             "ALTER TABLE stories ADD COLUMN questions_json TEXT",
             "ALTER TABLE stories ADD COLUMN level TEXT",
             "ALTER TABLE user_settings ADD COLUMN daily_goal INTEGER DEFAULT 10",
+            # ─── ستون‌های جدید metadata ───
+            "ALTER TABLE words ADD COLUMN cefr_estimated TEXT",
+            "ALTER TABLE words ADD COLUMN topics TEXT",
+            "ALTER TABLE words ADD COLUMN contexts TEXT",
+            "ALTER TABLE words ADD COLUMN common_situations TEXT",
+            "ALTER TABLE words ADD COLUMN story_roles TEXT",
+            "ALTER TABLE words ADD COLUMN related_words TEXT",
+            "ALTER TABLE words ADD COLUMN common_collocations_de TEXT",
+            "ALTER TABLE words ADD COLUMN story_suitability INTEGER DEFAULT 3",
+            "ALTER TABLE words ADD COLUMN story_suitability_reason TEXT",
         ]
         with self._cursor(commit=True) as c:
             for sql in migrations:
@@ -411,6 +421,16 @@ class Database:
         example_fa: str = None,
         collocation_de: str = None,
         collocation_fa: str = None,
+        # ─── فیلدهای جدید ───
+        cefr_estimated: str = None,
+        topics: str = None,
+        contexts: str = None,
+        common_situations: str = None,
+        story_roles: str = None,
+        related_words: str = None,
+        common_collocations_de: str = None,
+        story_suitability: int = None,
+        story_suitability_reason: str = None,
     ) -> int:
         with self._cursor(commit=True) as c:
             c.execute(
@@ -432,26 +452,25 @@ class Database:
                 c.execute(
                     """
                     UPDATE words SET
-                    book_id = ?, lesson_id = ?, article = ?, german = ?, persian = ?,
-                    english_meaning = ?, word_type = ?, plural_form = ?, verb_forms = ?, comparative = ?,
-                    example_de = ?, example_fa = ?, collocation_de = ?, collocation_fa = ?
+                        book_id=?, lesson_id=?, article=?, german=?, persian=?,
+                        english_meaning=?, word_type=?, plural_form=?, verb_forms=?,
+                        comparative=?, example_de=?, example_fa=?,
+                        collocation_de=?, collocation_fa=?,
+                        cefr_estimated=?, topics=?, contexts=?,
+                        common_situations=?, story_roles=?, related_words=?,
+                        common_collocations_de=?, story_suitability=?,
+                        story_suitability_reason=?
                     WHERE id = ?
                     """,
                     (
-                        book_id,
-                        lesson_id,
-                        article,
-                        german_word,
-                        persian_meaning,
-                        english_meaning,
-                        word_type,
-                        plural_form,
-                        verb_forms,
-                        comparative,
-                        example_de,
-                        example_fa,
-                        collocation_de,
-                        collocation_fa,
+                        book_id, lesson_id, article, german_word, persian_meaning,
+                        english_meaning, word_type, plural_form, verb_forms,
+                        comparative, example_de, example_fa,
+                        collocation_de, collocation_fa,
+                        cefr_estimated, topics, contexts,
+                        common_situations, story_roles, related_words,
+                        common_collocations_de, story_suitability,
+                        story_suitability_reason,
                         word_id,
                     ),
                 )
@@ -460,39 +479,34 @@ class Database:
                 c.execute(
                     """
                     INSERT INTO words (
-                    user_id, book_id, lesson_id, article, german, persian,
-                    english_meaning, word_type, plural_form, verb_forms, comparative,
-                    example_de, example_fa, collocation_de, collocation_fa
+                        user_id, book_id, lesson_id, article, german, persian,
+                        english_meaning, word_type, plural_form, verb_forms, comparative,
+                        example_de, example_fa, collocation_de, collocation_fa,
+                        cefr_estimated, topics, contexts, common_situations,
+                        story_roles, related_words, common_collocations_de,
+                        story_suitability, story_suitability_reason
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
-                        _DEFAULT_OWNER_ID,
-                        book_id,
-                        lesson_id,
-                        article,
-                        german_word,
-                        persian_meaning,
-                        english_meaning,
-                        word_type,
-                        plural_form,
-                        verb_forms,
-                        comparative,
-                        example_de,
-                        example_fa,
-                        collocation_de,
-                        collocation_fa,
+                        _DEFAULT_OWNER_ID, book_id, lesson_id, article,
+                        german_word, persian_meaning, english_meaning, word_type,
+                        plural_form, verb_forms, comparative, example_de, example_fa,
+                        collocation_de, collocation_fa, cefr_estimated, topics,
+                        contexts, common_situations, story_roles, related_words,
+                        common_collocations_de, story_suitability,
+                        story_suitability_reason,
                     ),
                 )
                 return c.lastrowid
             except sqlite3.IntegrityError:
                 c.execute(
                     """
-                SELECT id FROM words
-                WHERE german = ?
-                  AND COALESCE(book_id, -1) = ?
-                  AND COALESCE(lesson_id, -1) = ?
-                """,
+                    SELECT id FROM words
+                    WHERE german = ?
+                    AND COALESCE(book_id, -1) = ?
+                    AND COALESCE(lesson_id, -1) = ?
+                    """,
                     (
                         german_word,
                         book_id if book_id is not None else -1,
@@ -506,27 +520,24 @@ class Database:
                 c.execute(
                     """
                     UPDATE words SET
-                    book_id = ?, lesson_id = ?, article = ?, german = ?, persian = ?,
-                    english_meaning = ?, word_type = ?, plural_form = ?, verb_forms = ?, comparative = ?,
-                    example_de = ?, example_fa = ?, collocation_de = ?, collocation_fa = ?
+                        book_id=?, lesson_id=?, article=?, german=?, persian=?,
+                        english_meaning=?, word_type=?, plural_form=?, verb_forms=?,
+                        comparative=?, example_de=?, example_fa=?,
+                        collocation_de=?, collocation_fa=?,
+                        cefr_estimated=?, topics=?, contexts=?,
+                        common_situations=?, story_roles=?, related_words=?,
+                        common_collocations_de=?, story_suitability=?,
+                        story_suitability_reason=?
                     WHERE id = ?
                     """,
                     (
-                        book_id,
-                        lesson_id,
-                        article,
-                        german_word,
-                        persian_meaning,
-                        english_meaning,
-                        word_type,
-                        plural_form,
-                        verb_forms,
-                        comparative,
-                        example_de,
-                        example_fa,
-                        collocation_de,
-                        collocation_fa,
-                        word_id,
+                        book_id, lesson_id, article, german_word, persian_meaning,
+                        english_meaning, word_type, plural_form, verb_forms,
+                        comparative, example_de, example_fa,
+                        collocation_de, collocation_fa, cefr_estimated, topics,
+                        contexts, common_situations, story_roles, related_words,
+                        common_collocations_de, story_suitability,
+                        story_suitability_reason, word_id,
                     ),
                 )
                 return word_id
@@ -588,8 +599,11 @@ class Database:
             c.execute(
                 """
                 SELECT id, article, german, persian, word_type,
-                plural_form, verb_forms, comparative, example_de, example_fa,
-                english_meaning, collocation_de, collocation_fa
+                       plural_form, verb_forms, comparative, example_de, example_fa,
+                       english_meaning, collocation_de, collocation_fa,
+                       cefr_estimated, topics, contexts, common_situations,
+                       story_roles, related_words, common_collocations_de,
+                       story_suitability, story_suitability_reason
                 FROM words
                 WHERE lesson_id = ?
                 ORDER BY word_type, german
@@ -614,6 +628,16 @@ class Database:
                         "english_meaning": r[10],
                         "collocation_de": r[11],
                         "collocation_fa": r[12],
+                        # ─── metadata جدید ───
+                        "cefr_estimated": r[13],
+                        "topics": r[14],
+                        "contexts": r[15],
+                        "common_situations": r[16],
+                        "story_roles": r[17],
+                        "related_words": r[18],
+                        "common_collocations_de": r[19],
+                        "story_suitability": r[20],
+                        "story_suitability_reason": r[21],
                     }
                 )
             return result

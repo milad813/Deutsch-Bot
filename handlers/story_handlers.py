@@ -66,22 +66,24 @@ def _safe_id_list(raw):
 def _select_smart_words(
     user_id: int, lesson_id: int, exclude_ids: Set[int], level: str = "A1"
 ) -> List[Dict]:
-    """انتخاب کلمات candidate برای ارسال به LLM Planning.
-    
-    این تابع کلمات رو از دیتابیس انتخاب می‌کنه ولی تصمیم نهایی
-    با LLM Planning هست. ما فقط یک pool مناسب می‌سازیم.
-    
-    استراتژی:
-    - weak words: اولویت بالا (بیشترین تعداد)
-    - new words: متوسط (۲-۳ تا)
-    - mastered: حداکثر ۲ تا (فقط برای context طبیعی)
-    """
+    """انتخاب هوشمند کلمات با استفاده از metadata جدید."""
     all_words = db.get_words_by_lesson_full(lesson_id)
     if not all_words:
         return []
 
-    story_friendly = [w for w in all_words if w.get("word_type") in STORY_WORD_TYPES]
+    # ─── فیلتر ۱: فقط کلمات story-friendly ───
+    story_friendly = [
+        w for w in all_words
+        if w.get("word_type") in STORY_WORD_TYPES
+        and (w.get("story_suitability") or 3) >= 3
+    ]
 
+    if not story_friendly:
+        story_friendly = [
+            w for w in all_words if w.get("word_type") in STORY_WORD_TYPES
+        ]
+
+    # ─── دسته‌بندی new/weak/mastered ───
     new_words = []
     weak_words = []
     mastered_words = []
@@ -100,44 +102,39 @@ def _select_smart_words(
         else:
             mastered_words.append(w)
 
-    # ─── نسبت بر اساس سطح ───
+    # ─── نسبت‌ها ───
     new_ratio, review_ratio, mastered_ratio = _get_word_ratios(level)
     total_candidates = min(MAX_CANDIDATE_WORDS, len(story_friendly))
     n_new = max(1, int(total_candidates * new_ratio))
     n_weak = max(1, int(total_candidates * review_ratio))
-    n_mastered = max(0, total_candidates - n_new - n_weak)
-    
-    # mastered رو به حداکثر ۲ محدود کن
-    n_mastered = min(n_mastered, 2)
+    n_mastered = min(max(0, total_candidates - n_new - n_weak), 2)
 
     selected = []
 
-    # 1. کلمات ضعیف (اولویت بالا)
+    # ۱. کلمات ضعیف (اولویت بالا)
     random.shuffle(weak_words)
     selected.extend(weak_words[:n_weak])
 
-    # 2. کلمات جدید
+    # ۲. کلمات جدید
     random.shuffle(new_words)
     selected.extend(new_words[:n_new])
 
-    # 3. اگر کلمات ضعیف+جدید کم بود، از ضعیف‌های بین‌درسی
+    # ۳. کلمات ضعیف بین‌درسی
     if len(selected) < n_new + n_weak:
         remaining = (n_new + n_weak) - len(selected)
         if remaining > 0:
             try:
                 exclude_list = list(exclude_ids)[:500]
-                global_weak_words = db.words.get_weak(
-                    user_id=user_id,
-                    limit=remaining * 2,
-                    exclude_ids=exclude_list,
+                global_weak = db.words.get_weak(
+                    user_id=user_id, limit=remaining * 2, exclude_ids=exclude_list
                 )
-                for w in global_weak_words:
+                for w in global_weak:
                     wd = {
-                        "id": w.id,
-                        "german": w.german,
-                        "persian": w.persian,
-                        "article": w.article,
-                        "word_type": w.word_type,
+                        "id": w.id, "german": w.german, "persian": w.persian,
+                        "article": w.article, "word_type": w.word_type,
+                        "example_de": w.example_de, "example_fa": w.example_fa,
+                        "story_suitability": 3, "story_roles": "",
+                        "topics": "", "contexts": "",
                     }
                     if not any(x["id"] == w.id for x in selected):
                         selected.append(wd)
@@ -146,12 +143,12 @@ def _select_smart_words(
             except Exception as e:
                 logger.warning("خطا در گرفتن کلمات ضعیف بین‌درسی: %s", e)
 
-    # 4. کلمات تثبیت‌شده (حداکثر ۲ تا، فقط برای context)
+    # ۴. کلمات mastered (حداکثر ۲)
     if n_mastered > 0:
         random.shuffle(mastered_words)
         selected.extend(mastered_words[:n_mastered])
 
-    # 5. پر کردن اگر خیلی کم بود
+    # ۵. پر کردن اگر کم بود
     if len(selected) < MIN_STORY_WORDS:
         used_ids = {w["id"] for w in selected}
         for w in story_friendly:
@@ -221,11 +218,7 @@ def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
 
 # ─── مرحله ۱: برنامه‌ریزی با LLM ─────────────────────────────────
 async def _plan_story(words: List[Dict], level: str, lesson_title: str) -> Optional[Dict]:
-    """از LLM بخواه کلمات مناسب رو انتخاب کنه و situation پیشنهاد بده.
-    
-    این تابع جایگزین لیست hardcoded شده. خود LLM تصمیم می‌گیره
-    کدوم کلمات در چه داستانی جا میشن.
-    """
+    """LLM Planning با metadata غنی."""
     if not llm.is_available():
         return None
 
@@ -233,7 +226,25 @@ async def _plan_story(words: List[Dict], level: str, lesson_title: str) -> Optio
     for w in words:
         art = (w.get("article") or "").strip()
         disp = f"{art} {w['german']}".strip() if art else w["german"]
-        word_lines.append(f'- "{disp}" ({w.get("persian", "")}) [{w.get("word_type", "")}]')
+
+        line = f'- "{disp}" ({w.get("persian", "")}) [{w.get("word_type", "")}]'
+
+        # ─── اضافه کردن metadata ───
+        roles = w.get("story_roles") or ""
+        topics = w.get("topics") or ""
+        situations = w.get("common_situations") or ""
+        example = w.get("example_de") or ""
+
+        if roles:
+            line += f' roles=[{roles}]'
+        if topics:
+            line += f' topics=[{topics}]'
+        if situations:
+            line += f' situations=[{situations}]'
+        if example:
+            line += f' example="{example}"'
+
+        word_lines.append(line)
 
     word_list = "\n".join(word_lines)
 
@@ -241,17 +252,19 @@ async def _plan_story(words: List[Dict], level: str, lesson_title: str) -> Optio
 
 LESSON THEME: {lesson_title or "Everyday Life"}
 
-AVAILABLE VOCABULARY (from this lesson's word bank):
+AVAILABLE VOCABULARY (with metadata):
 {word_list}
 
 YOUR TASK:
-1. Choose a SIMPLE, natural situation (one central event).
-   Examples: "visiting a friend", "going shopping", "a day at work", "traveling by train".
-2. From the vocabulary above, select ONLY 3-5 words that fit NATURALLY into this situation.
-3. REJECT words that would feel forced, unnatural, or bureaucratic
-   (e.g., "Familienstand", "Hausnummer", "Geburtsdatum" in a casual story).
-4. The selected words must ALL connect to the SAME situation logically.
-5. Suggest a small problem and a simple resolution.
+1. Look at the topics, situations, and story_roles metadata.
+2. Find a COMMON THEME or SITUATION that connects most of these words.
+3. Choose a SIMPLE, natural situation (one central event).
+4. From the vocabulary above, select ONLY 3-5 words that:
+   - Fit NATURALLY into this situation
+   - Have compatible story_roles (setting + action + person/object)
+   - Share related topics or contexts
+5. REJECT words that would feel forced or don't connect to the theme.
+6. Suggest a small problem and a simple resolution.
 
 Return ONLY valid JSON:
 {{
@@ -272,29 +285,21 @@ Return ONLY valid JSON:
         )
         if not content:
             return None
-
         result = json.loads(llm._clean_json(content))
         if not isinstance(result, dict):
             return None
-
         selected = result.get("selected_words", [])
         if not selected or len(selected) < 2:
             return None
-
         situation = result.get("situation_de", result.get("situation_en", ""))
         if not situation:
             return None
-
         logger.info(
             "📋 Story Plan: situation='%s', selected=%d/%d, rejected=%d",
-            situation[:60],
-            len(selected),
-            len(words),
+            situation[:60], len(selected), len(words),
             len(result.get("rejected_words", [])),
         )
-
         return result
-
     except Exception as e:
         logger.warning("خطا در برنامه‌ریزی داستان: %s", e)
         return None
@@ -336,12 +341,23 @@ def _build_enhanced_prompt(
 ) -> str:
     """ساخت پرامپت با اولویت طبیعی بودن."""
 
-    # ─── Core Vocabulary ───
+    # ─── Core Vocabulary با metadata ───
     core_lines = []
     for w in words:
         art = (w.get("article") or "").strip()
         disp = f"{art} {w['german']}".strip() if art else w["german"]
-        core_lines.append(f'- "{disp}" ({w.get("persian", "")})')
+        line = f'- "{disp}" ({w.get("persian", "")})'
+
+        # اضافه کردن example sentence
+        if w.get("example_de"):
+            line += f' — example: "{w["example_de"]}"'
+
+        # اضافه کردن collocation
+        if w.get("collocation_de"):
+            line += f' — collocation: "{w["collocation_de"]}"'
+
+        core_lines.append(line)
+
     core_vocab = "\n".join(core_lines)
 
     # ─── Support Vocabulary ───
@@ -588,22 +604,19 @@ async def _generate_story_for_lesson(
                 )
                 continue
 
-            # ─── اعتبارسنجی ۳: پوشش کلمات (آستانه پایین) ───
+            # ─── اعتبارسنجی ۳: پوشش کلمات (آستانه بالاتر) ───
             text_lower = text_de.lower()
             used = sum(1 for w in words if w["german"].lower() in text_lower)
             usage_ratio = used / len(words) if words else 0
-
-            if usage_ratio < 0.4:
+            if usage_ratio < 0.6:  # ← تغییر از 0.4 به 0.6
                 logger.warning(
-                    "Coverage خیلی پایین: %d/%d (%.0f%%) - تلاش %d",
+                    "Coverage پایین: %d/%d (%.0f%%) - تلاش %d",
                     used, len(words), usage_ratio * 100, attempt + 1,
                 )
                 continue
 
-            # ─── اعتبارسنجی ۴: طبیعی بودن با LLM ───
-            if not await _validate_story_naturalness(text_de, words, level):
-                logger.warning("داستان طبیعی نیست - تلاش %d", attempt + 1)
-                continue
+            # ─── حذف naturalness check جداگانه ───
+            # (prompt بهتر جایگزینش می‌شود)
 
             # ─── اعتبارسنجی سوالات ───
             questions = result.get("questions") or []
