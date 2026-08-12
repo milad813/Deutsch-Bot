@@ -78,6 +78,7 @@ SESSION_KEYS = {
     "ltr_current_options",
     "ltr_current_correct_index",
     "ltr_current_correct_text",
+    "ltr_question_type",
     # ✅ کلیدهای جدید Listening/Writing
     "listening_session",
     "listening_current",
