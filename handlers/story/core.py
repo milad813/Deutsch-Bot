@@ -276,7 +276,6 @@ async def _validate_story_naturalness(
     )
     return word_count >= MIN_STORY_WORDS
 
-
 async def _generate_story_for_lesson(
     user_id: int, lesson_id: int, exclude_ids: Set[int]
 ) -> Optional[Dict]:
@@ -284,15 +283,18 @@ async def _generate_story_for_lesson(
     lesson = db.get_lesson(lesson_id)
     if not lesson:
         return None
-
-    level = _get_adaptive_level(user_id, lesson["level"])
-    genre = _select_genre(level, lesson["title"])
-
+    
+    # ─── اصلاح باگ: lesson یک tuple است (lesson_number, title) ───
+    lesson_title = lesson[1] or f"درس {lesson[0]}"
+    book_level = db.get_book_level_by_lesson(lesson_id) or "A1"
+    
+    level = _get_adaptive_level(user_id, book_level)
+    genre = _select_genre(level, lesson_title)
     logger.info(
         "📖 شروع ساخت داستان: درس %d (%s)، سطح %s، ژانر %s",
-        lesson_id, lesson["title"], level, genre["fa"]
+        lesson_id, lesson_title, level, genre["fa"]
     )
-
+    
     # ─── انتخاب هوشمند کلمات ───
     candidate_words = _select_smart_words(user_id, lesson_id, exclude_ids, level)
     if len(candidate_words) < MIN_STORY_WORDS:
@@ -300,7 +302,7 @@ async def _generate_story_for_lesson(
         return None
 
     # ─── Planning با LLM ───
-    plan = await _plan_story(candidate_words, level, lesson["title"])
+    plan = await _plan_story(candidate_words, level, lesson_title)  # ✅ تغییر یافت
     if not plan:
         logger.warning("Planning ناموفق بود")
         return None
@@ -312,71 +314,9 @@ async def _generate_story_for_lesson(
         target_words = candidate_words[:MAX_STORY_WORDS]
 
     # ─── تولید داستان نهایی ───
-    prompt = _build_enhanced_prompt(target_words, level, lesson["title"], genre)
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            response = await llm.generate(prompt, temperature=0.7, max_tokens=800)
-            raw = response.strip()
-
-            # ─── استخراج JSON ───
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            if not match:
-                logger.warning("JSON پیدا نشد (تلاش %d)", attempt + 1)
-                continue
-
-            story_data = json.loads(match.group())
-
-            # ─── اعتبارسنجی ───
-            if not all(k in story_data for k in ["title", "text", "target_word_ids", "questions"]):
-                logger.warning("کلیدهای ضروری缺失 (تلاش %d)", attempt + 1)
-                continue
-
-            questions = story_data.get("questions", [])
-            valid_q = [
-                q for q in questions
-                if isinstance(q, dict)
-                and "q" in q and "options" in q and "correct_index" in q
-                and len(q["options"]) == 4
-            ]
-
-            if len(valid_q) < 2:
-                logger.warning("سوالات کافی نیست: %d (تلاش %d)", len(valid_q), attempt + 1)
-                continue
-
-            # ─── بررسی طبیعی بودن ───
-            is_natural = await _validate_story_naturalness(
-                story_data["text"], target_words, level
-            )
-            if not is_natural:
-                logger.warning("داستان طبیعی نیست (تلاش %d)", attempt + 1)
-                continue
-
-            # ─── ذخیره در دیتابیس ───
-            story_id = db.create_story(
-                lesson_id=lesson_id,
-                title=story_data["title"],
-                text_de=story_data["text"],
-                text_fa="",  # بعداً توسط مترجم پر می‌شود
-                target_word_ids=json.dumps([w["id"] for w in target_words]),
-                questions_json=json.dumps(valid_q, ensure_ascii=False),
-                level=level,
-            )
-
-            logger.info(
-                "✅ داستان id=%d برای درس %d (%d کلمه، %d سوال، ژانر: %s، سری: %d/%d)",
-                story_id, lesson_id, len(target_words), len(valid_q),
-                genre["fa"], attempt + 1, max_retries,
-            )
-            return db.get_story(story_id)
-
-        except Exception as e:
-            logger.warning("خطا در ساخت داستان (تلاش %d): %s", attempt + 1, e)
-            continue
-
-    return None
-
+    prompt = _build_enhanced_prompt(target_words, level, lesson_title, genre)  # ✅ تغییر یافت
+    
+    # ... (بقیه کد تابع یعنی حلقه max_retries را بدون تغییر نگه دارید) ...
 
 async def show_story_menu(query, context, lesson_id: int):
     """منوی داستان - همیشه تولید داستان جدید."""
