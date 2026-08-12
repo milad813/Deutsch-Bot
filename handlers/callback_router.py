@@ -4,7 +4,20 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
-from handlers import grammar_handlers, learning_handlers, menus, quiz_handlers, story_handlers, admin_handlers
+from handlers import grammar_handlers, learning_handlers, menus, quiz_handlers, admin_handlers
+from handlers.story import (
+    show_story_menu,
+    show_story,
+    show_story_translation,
+    show_story_words,
+    play_story_audio,
+    show_story_hint,
+    play_story_listen_read,
+    play_story_listen_only,
+    replay_story,
+    start_story_quiz,
+    handle_story_answer,
+)
 from handlers.learning import (FlashcardSessionManager, handle_flip_card,
                                handle_next_flashcard, handle_rate_card,
                                handle_skip_flashcard, start_flashcard_session)
@@ -400,18 +413,18 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
         lambda q, c, s: grammar_handlers.start_grammar_quiz(q, c, int(s)),
     ),
     (CallbackPrefix.GRAMMAR_ANS.value, lambda q, c, s: grammar_handlers.handle_grammar_answer(q, c, s)),
-    (CallbackPrefix.STORY_LESSON.value, lambda q, c, s: story_handlers.show_story_menu(q, c, int(s))),
-    (CallbackPrefix.STORY_VIEW.value, lambda q, c, s: story_handlers.show_story(q, c, int(s))),
-    (CallbackPrefix.STORY_FA.value, lambda q, c, s: story_handlers.show_story_translation(q, c, int(s))),
-    (CallbackPrefix.STORY_WORDS.value, lambda q, c, s: story_handlers.show_story_words(q, c, int(s))),
-    (CallbackPrefix.STORY_AUDIO.value, lambda q, c, s: story_handlers.play_story_audio(q, c, int(s))),
-    (CallbackPrefix.STORY_HINT.value, lambda q, c, s: story_handlers.show_story_hint(q, c, int(s))),
-    (CallbackPrefix.STORY_LISTEN_READ.value, lambda q, c, s: story_handlers.play_story_listen_read(q, c, int(s))),
-    (CallbackPrefix.STORY_LISTEN_ONLY.value, lambda q, c, s: story_handlers.play_story_listen_only(q, c, int(s))),
-    (CallbackPrefix.STORY_REPLAY.value, lambda q, c, s: story_handlers.replay_story(q, c, int(s))),
-    (CallbackPrefix.STORY_QUIZ.value, lambda q, c, s: story_handlers.start_story_quiz(q, c, int(s))),
-    (CallbackPrefix.STORY_ANS.value, lambda q, c, s: story_handlers.handle_story_answer(q, c, s)),
-    (CallbackPrefix.STORY_NEXT.value, lambda q, c, s: story_handlers.show_story_menu(q, c, int(s))),
+    (CallbackPrefix.STORY_LESSON.value, lambda q, c, s: show_story_menu(q, c, int(s))),
+    (CallbackPrefix.STORY_VIEW.value, lambda q, c, s: show_story(q, c, int(s))),
+    (CallbackPrefix.STORY_FA.value, lambda q, c, s: show_story_translation(q, c, int(s))),
+    (CallbackPrefix.STORY_WORDS.value, lambda q, c, s: show_story_words(q, c, int(s))),
+    (CallbackPrefix.STORY_AUDIO.value, lambda q, c, s: play_story_audio(q, c, int(s))),
+    (CallbackPrefix.STORY_HINT.value, lambda q, c, s: show_story_hint(q, c, int(s))),
+    (CallbackPrefix.STORY_LISTEN_READ.value, lambda q, c, s: play_story_listen_read(q, c, int(s))),
+    (CallbackPrefix.STORY_LISTEN_ONLY.value, lambda q, c, s: play_story_listen_only(q, c, int(s))),
+    (CallbackPrefix.STORY_REPLAY.value, lambda q, c, s: replay_story(q, c, int(s))),
+    (CallbackPrefix.STORY_QUIZ.value, lambda q, c, s: start_story_quiz(q, c, int(s))),
+    (CallbackPrefix.STORY_ANS.value, lambda q, c, s: handle_story_answer(q, c, s)),
+    (CallbackPrefix.STORY_NEXT.value, lambda q, c, s: show_story_menu(q, c, int(s))),
     (CallbackPrefix.SET_LEVEL.value, lambda q, c, s: menus.handle_set_level(q, c, s)),
     (CallbackPrefix.SET_GOAL.value, lambda q, c, s: menus.handle_set_goal(q, c, s)),
     (CallbackPrefix.WRITING_START.value, lambda q, c, s: writing_handlers.handle_writing_start(q, c)),
