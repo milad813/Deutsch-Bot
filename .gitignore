@@ -9,7 +9,7 @@ __pycache__/
 *.so
 *.a
 *.out
-
+*.mp3
 # Dependencies
 .venv/
 venv/
