@@ -8,7 +8,7 @@ import config
 from handlers import grammar_handlers, menus, quiz_handlers, admin_handlers
 from handlers.learning.ltr_handlers import (
     handle_study_lesson, handle_ltr_ready, handle_ltr_summary,
-    handle_ltr_exit, handle_ltr_answer
+    handle_ltr_exit, handle_ltr_answer, handle_ltr_learned
 )
 from handlers.story import (
     show_story_menu,
@@ -231,6 +231,7 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "quiz_retry_wrong": lambda q, c: quiz_handlers.start_wrong_quiz(q, c),
     "next_flashcard": lambda q, c: handle_next_flashcard(q, c),
     "ltr_ready": handle_ltr_ready,
+    "ltr_learned": handle_ltr_learned,
     "ltr_summary": handle_ltr_summary,
     "ltr_exit": handle_ltr_exit,
     "flashcard_due": lambda q, c: start_flashcard_session(q, c, only_due=True),

@@ -1,11 +1,22 @@
-"""LTR (Learn-Test-Review) callback handlers."""
+"""LTR (Learn-Test-Review) handlers - CORRECT implementation.
+
+Flow:
+1. Learn: Show word with details → user confirms "learned"
+2. After DELAY_AFTER_LEARN words, trigger Test
+3. Test: Quiz question about a previously learned word
+4. If wrong → schedule retry
+5. When all words learned & tested → Summary
+"""
 import logging
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from handlers.learning.ltr_session import (
-    LTRSessionManager, _ltr_answer_keyboard,
-    _ltr_wrong_display_german_options, _make_ltr_options,
-    _ltr_intro_keyboard,
+    LTRSessionManager,
+    _ltr_answer_keyboard,
+    _ltr_learn_keyboard,
+    _ltr_wrong_display_german_options,
+    _make_ltr_options,
 )
 from services import db
 from ui import back_inline_keyboard, esc, render
@@ -13,8 +24,12 @@ from ui import back_inline_keyboard, esc, render
 logger = logging.getLogger(__name__)
 
 
+# ═══════════════════════════════════════════════════════════════════
+# Entry Point
+# ═══════════════════════════════════════════════════════════════════
+
 async def handle_study_lesson(query, context, suffix: str):
-    """Handle study_lesson: callback - start LTR session."""
+    """Start LTR session for a lesson."""
     try:
         lesson_id = int(suffix)
     except ValueError:
@@ -25,219 +40,273 @@ async def handle_study_lesson(query, context, suffix: str):
     new_words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=20)
 
     if not weak_words and not new_words:
-        await render(query, "🎉 هیچ کلمه‌ی جدید یا ضعیفی در این درس ندارید!",
-                     reply_markup=back_inline_keyboard())
+        await render(
+            query,
+            "🎉 هیچ کلمه‌ی جدید یا ضعیفی در این درس ندارید!",
+            reply_markup=back_inline_keyboard(),
+        )
         return
 
-    ltr_manager = LTRSessionManager(context)
-    if not ltr_manager.initialize(user_id, lesson_id, weak_words, new_words):
+    ltr = LTRSessionManager(context)
+    if not ltr.initialize(user_id, lesson_id, weak_words, new_words):
         await render(query, "❌ خطا در شروع جلسه.", reply_markup=back_inline_keyboard())
         return
 
-    word = ltr_manager.get_current_word()
-    if word:
-        await _show_ltr_intro(query, context, word, lesson_id)
+    # Show first word to learn
+    await _show_learn_word(query, context)
 
 
-async def _show_ltr_intro(query, context, word, lesson_id: int):
-    """نمایش کلمه اول (فاز Learn) برای شروع جلسه."""
+# ═══════════════════════════════════════════════════════════════════
+# LEARN Phase
+# ═══════════════════════════════════════════════════════════════════
+
+async def _show_learn_word(query, context):
+    """Show a word for the user to learn."""
+    ltr = LTRSessionManager(context)
+    word = ltr.get_next_word_to_learn()
+
+    if not word:
+        # No more words to learn, go to test or done
+        await _route_next_action(query, context)
+        return
+
+    # Set TTS text
     context.user_data["current_tts_text"] = word.display_german
 
-    msg = (
-        f"🧠 <b>تمرین عمیق (LTR)</b>\n"
-        f"📚 درس: {lesson_id}\n\n"
-        f"🇩🇪 <b>{esc(word.display_german)}</b>\n"
-        f"🇮🇷 {esc(word.persian)}\n"
-    )
-    if word.example_de:
-        msg += f"📝 {esc(word.example_de)}\n"
-    if word.example_fa:
-        msg += f"🇮🇷 <i>{esc(word.example_fa)}</i>\n"
+    progress = ltr.get_progress_info()
 
-    msg += (
-        "\nدر این حالت، هر کلمه را اول <b>یاد می‌گیری</b>، بعد ازت <b>سوال</b> می‌پرسم.\n"
-        "🔊 گوش بده و خوب یاد بگیر!"
-    )
+    # Build learn message
+    parts = [
+        f"📚 <b>یادگیری کلمه {progress['learned'] + 1} از {progress['total']}</b>",
+        f"{progress['progress_bar']} ({progress['percentage']}%)",
+        "",
+        f"🇩🇪 <b>{esc(word.display_german)}</b>",
+        f"🇮🇷 {esc(word.persian)}",
+    ]
 
-    await render(query, msg, reply_markup=_ltr_intro_keyboard())
+    if word.english_meaning:
+        parts.append(f"🇬🇧 {esc(word.english_meaning)}")
 
-
-async def handle_ltr_ready(query, context):
-    """کاربر آماده است → سوال بپرس."""
-    ltr_manager = LTRSessionManager(context)
-    word = ltr_manager.get_current_word()
-    if word:
-        await _show_ltr_question(query, context, word)
-    else:
-        await render(query, "❌ کلمه‌ای در صف نیست.", reply_markup=back_inline_keyboard())
-
-
-async def _show_ltr_learn_phase(query, context, word, notice: str = ""):
-    """✅ FIX: فاز Learn برای کلمات بعدی (بعد از کلمه اول)."""
-    context.user_data["current_tts_text"] = word.display_german
-
-    ltr_manager = LTRSessionManager(context)
-    progress = ltr_manager.get_progress_info()
-
-    parts = []
-    if notice:
-        parts.append(notice)
-        parts.append("")  # خط خالی
-
-    parts.append(f"🧠 <b>کلمه {progress['position']} از {progress['total']}</b>")
-    parts.append(f"{progress['progress_bar']} ({progress['percentage']}%)")
-    parts.append("")
-    parts.append(f"🇩🇪 <b>{esc(word.display_german)}</b>")
-    parts.append(f"🇮🇷 {esc(word.persian)}")
+    if word.extra_forms_line:
+        parts.append(f"📖 {esc(word.extra_forms_line)}")
 
     if word.example_de:
         parts.append(f"📝 {esc(word.example_de)}")
     if word.example_fa:
         parts.append(f"🇮🇷 <i>{esc(word.example_fa)}</i>")
 
-    if word.extra_forms_line:
-        parts.append(f"📖 {esc(word.extra_forms_line)}")
+    if word.collocation_line:
+        parts.append(f"🔗 {esc(word.collocation_line)}")
 
     parts.append("")
-    parts.append("👆 خوب یاد بگیر، بعد دکمه «آماده‌ام» را بزن!")
+    parts.append("👆 خوب یاد بگیر، بعد دکمه «یاد گرفتم» را بزن!")
+    parts.append("💡 بعد از چند کلمه، ازت سوال می‌پرسم!")
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")],
-        [InlineKeyboardButton("✅ آماده‌ام، سوال بپرس!", callback_data="ltr_ready")],
-        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
-    ])
-
-    await render(query, "\n".join(parts), reply_markup=kb)
+    await render(query, "\n".join(parts), reply_markup=_ltr_learn_keyboard())
 
 
-async def _show_ltr_question(query, context, word, notice: str = ""):
-    """نمایش سوال چهارگزینه‌ای."""
-    correct_answer = word.german
-    if word.article:
-        correct_answer = f"{word.article} {word.german}"
+async def handle_ltr_learned(query, context):
+    """User confirms they learned the word."""
+    ltr = LTRSessionManager(context)
+    word = ltr.get_next_word_to_learn()
 
+    if not word:
+        await _route_next_action(query, context)
+        return
+
+    # Mark as learned and schedule delayed test
+    ltr.mark_word_learned(word.id)
+
+    # Route to next action (learn more or test)
+    await _route_next_action(query, context)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TEST Phase
+# ═══════════════════════════════════════════════════════════════════
+
+async def _show_test_question(query, context, word_id: int):
+    """Show a quiz question for a previously learned word."""
+    word = db.get_word_by_id(word_id)
+    if not word:
+        await _route_next_action(query, context)
+        return
+
+    # Set current question
+    context.user_data["ltr_current_question"] = word_id
     context.user_data["current_tts_text"] = word.display_german
 
+    # Generate options
+    correct_answer = word.display_german
     wrong_options = _ltr_wrong_display_german_options(word, count=3)
     options = _make_ltr_options(correct_answer, wrong_options, total=4, min_options=2)
 
     if not options or len(options) < 2 or correct_answer not in options:
-        await render(query, "❌ خطا در تولید گزینه‌ها.", reply_markup=back_inline_keyboard())
+        # Can't generate options, skip this test
+        ltr = LTRSessionManager(context)
+        ltr.record_test_result(word_id, True)  # Auto-pass
+        await _route_next_action(query, context)
         return
 
+    # Store for validation
     context.user_data["ltr_current_options"] = options
     context.user_data["ltr_current_correct_index"] = options.index(correct_answer)
     context.user_data["ltr_current_correct_text"] = correct_answer
 
-    progress = LTRSessionManager(context).get_progress_info()
+    # Check if this is a retry
+    ltr = LTRSessionManager(context)
+    retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
+    retry_label = " 🔁" if retry_count > 0 else ""
 
-    parts = []
-    if notice:
-        parts.append(notice)
-    parts.append(f"❓ <b>سوال {progress['position']} از {progress['total']}</b>")
-    parts.append(f"{progress['progress_bar']} ({progress['percentage']}%)")
-    parts.append("")
-    parts.append(f"🇮🇷 <b>{esc(word.persian)}</b>")
-    parts.append("کدام گزینه آلمانی صحیح است؟")
+    msg = (
+        f"❓ <b>آزمون{retry_label}</b>\n"
+        f"🇮🇷 <b>{esc(word.persian)}</b>\n"
+        f"کدام گزینه آلمانی صحیح است؟"
+    )
 
-    await render(query, "\n".join(parts), reply_markup=_ltr_answer_keyboard(options, with_tts=False))
+    await render(query, msg, reply_markup=_ltr_answer_keyboard(options))
 
 
 async def handle_ltr_answer(query, context, suffix: str):
-    """پردازش جواب کاربر."""
+    """Handle user's answer to LTR quiz question."""
     try:
         option_index = int(suffix)
     except (ValueError, TypeError):
         return
 
-    ltr_manager = LTRSessionManager(context)
-    word = ltr_manager.get_current_word()
+    ltr = LTRSessionManager(context)
+    word_id = context.user_data.get("ltr_current_question")
 
-    if not word:
-        await render(query, "❌ کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
+    if not word_id:
+        await render(query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard())
         return
 
     options = context.user_data.get("ltr_current_options", [])
     correct_index = context.user_data.get("ltr_current_correct_index", -1)
-    correct_text = context.user_data.get("ltr_current_correct_text", "") or word.display_german
+    correct_text = context.user_data.get("ltr_current_correct_text", "")
 
     if option_index < 0 or option_index >= len(options):
         return
 
     is_correct = option_index == correct_index
+    word = db.get_word_by_id(word_id)
 
-    ltr_manager.record_word_result(word.id, is_correct)
+    # Record result
+    ltr.record_test_result(word_id, is_correct)
 
+    # Record skill
     user_id = query.from_user.id
-    db.learning.record_skill(user_id, word.id, "ltr", is_correct)
+    db.learning.record_skill(user_id, word_id, "ltr", is_correct)
 
     if not is_correct:
         db.learning.record_mistake(
-            user_id=user_id, word_id=word.id, skill_type="ltr", quiz_type="ltr",
+            user_id=user_id, word_id=word_id,
+            skill_type="ltr", quiz_type="ltr",
             user_answer=options[option_index] if option_index < len(options) else None,
             correct_answer=correct_text,
         )
 
+    # Give feedback
     if is_correct:
         try:
             await query.answer("✅ درست بود!", show_alert=False)
         except Exception:
             pass
-        feedback = "✅ درست بود!"
+        feedback = "✅ آفرین! درست بود!"
     else:
         try:
-            await query.answer(f"❌ جواب درست: {correct_text}", show_alert=True)
+            await query.answer(f"❌ جواب: {correct_text}", show_alert=True)
         except Exception:
             pass
         feedback = f"❌ اشتباه بود. جواب درست: <b>{esc(correct_text)}</b>"
 
-    # پاک کردن state سوال فعلی
+    # Clean current question state
     context.user_data.pop("ltr_current_options", None)
     context.user_data.pop("ltr_current_correct_index", None)
     context.user_data.pop("ltr_current_correct_text", None)
 
-    await _show_ltr_result_and_continue(query, context, word, is_correct, feedback)
+    # Check if this word needs retry (was scheduled)
+    retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
+    if not is_correct and retry_count > 0:
+        feedback += f"\n⚠️ تلاش {retry_count} از {2}"
+
+    # Route to next action
+    await _route_next_action(query, context, feedback=feedback)
 
 
-async def _show_ltr_result_and_continue(query, context, word, is_correct, feedback: str = ""):
-    """نمایش نتیجه و ادامه به کلمه بعدی."""
-    ltr_manager = LTRSessionManager(context)
-    ltr_manager.finalize_word(word.id, user_id=query.from_user.id)
+# ═══════════════════════════════════════════════════════════════════
+# Router - decides what to do next
+# ═══════════════════════════════════════════════════════════════════
 
-    if ltr_manager.advance_to_next_word():
-        next_word = ltr_manager.get_current_word()
-        if next_word:
-            # ✅ FIX: به جای رفتن مستقیم به سوال، اول کلمه را یاد بده!
-            await _show_ltr_learn_phase(query, context, next_word, notice=feedback)
+async def _route_next_action(query, context, feedback: str = ""):
+    """Main router: decides whether to learn, test, or finish."""
+    ltr = LTRSessionManager(context)
+
+    next_action = ltr.get_next_action()
+
+    if next_action == "test":
+        # Get due test
+        task = ltr.get_due_test()
+        if task:
+            await _show_test_question(query, context, task["word_id"])
             return
+        # If no task found (race condition), fall through to learn
+        next_action = "learn"
 
-    await handle_ltr_summary(query, context)
+    if next_action == "learn":
+        await _show_learn_word(query, context)
+        return
+
+    # Done!
+    await _show_ltr_summary(query, context, feedback=feedback)
 
 
-async def handle_ltr_summary(query, context):
-    """خلاصه پایان جلسه."""
-    ltr_manager = LTRSessionManager(context)
-    summary = ltr_manager.get_session_summary()
+# ═══════════════════════════════════════════════════════════════════
+# Summary & Exit
+# ═══════════════════════════════════════════════════════════════════
 
-    msg = (
-        f"📊 <b>خلاصه جلسه تمرین عمیق</b>\n"
-        f"✅ کلمات صحیح: {summary['correct_words']} از {summary['total_words']}\n"
-        f"❌ کلمات غلط: {summary['wrong_words']}\n"
-        f"🎯 دقت: {summary['accuracy']}%\n"
-    )
-    if summary["wrong_word_ids"]:
-        msg += "⚠️ کلماتی که نیاز به مرور بیشتر دارند ثبت شدند.\n"
+async def _show_ltr_summary(query, context, feedback: str = ""):
+    """Show final session summary."""
+    ltr = LTRSessionManager(context)
 
-    ltr_manager.clear_session()
+    # Finalize all words (update SRS)
+    ltr.finalize_all_passed_words()
+
+    summary = ltr.get_session_summary()
+
+    parts = []
+    if feedback:
+        parts.append(feedback)
+        parts.append("")
+
+    parts.extend([
+        "📊 <b>خلاصه جلسه تمرین عمیق (LTR)</b>",
+        f"📚 کل کلمات: {summary['total_words']}",
+        f"✅ قبول: {summary['passed_words']}",
+        f"❌ نیاز به مرور: {summary['failed_words']}",
+        f"🎯 دقت: {summary['accuracy']}%",
+    ])
+
+    if summary["failed_words"] > 0:
+        parts.append("")
+        parts.append("💡 کلماتی که اشتباه زدی در SRS ثبت شدن و زودتر مرور می‌شن.")
+
+    # Clear session
+    ltr.clear_session()
 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
     ])
-    await render(query, msg, reply_markup=kb)
+    await render(query, "\n".join(parts), reply_markup=kb)
+
+
+async def handle_ltr_summary(query, context):
+    """External summary handler."""
+    await _show_ltr_summary(query, context)
 
 
 async def handle_ltr_exit(query, context):
-    """خروج از جلسه."""
+    """Exit LTR session."""
     LTRSessionManager(context).clear_session()
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
@@ -245,7 +314,20 @@ async def handle_ltr_exit(query, context):
     await render(query, "❌ جلسه تمرین عمیق لغو شد.", reply_markup=kb)
 
 
+# ═══════════════════════════════════════════════════════════════════
+# Legacy compatibility (for callback_router)
+# ═══════════════════════════════════════════════════════════════════
+
+async def handle_ltr_ready(query, context):
+    """Legacy: redirect to learn flow."""
+    await _show_learn_word(query, context)
+
+
 __all__ = [
-    "handle_study_lesson", "handle_ltr_ready", "handle_ltr_summary",
-    "handle_ltr_exit", "handle_ltr_answer",
+    "handle_study_lesson",
+    "handle_ltr_learned",
+    "handle_ltr_answer",
+    "handle_ltr_summary",
+    "handle_ltr_exit",
+    "handle_ltr_ready",
 ]
