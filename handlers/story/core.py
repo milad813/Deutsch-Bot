@@ -133,15 +133,22 @@ def _select_genre(level: str, lesson_title: str) -> Dict:
 
 def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
     """تعیین سطح تطبیقی بر اساس عملکرد کاربر."""
-    recent_stats = db.get_recent_performance(user_id, days=7)
-    if not recent_stats:
+    # استفاده از get_weekly_stats که آمار ۷ روز اخیر را برمی‌گرداند
+    recent_stats = db.get_weekly_stats(user_id)
+    
+    # اگر کاربر هیچ فعالیتی نداشته، همان سطح درس را برگردان
+    if not recent_stats or recent_stats.get("total_answers", 0) == 0:
         return lesson_level
-
-    accuracy = recent_stats.get("accuracy", 0.5)
-    if accuracy > 0.8 and lesson_level in ["A1", "A2"]:
+    
+    # get_weekly_stats دقت را به صورت درصد (0-100) برمی‌گرداند
+    accuracy = recent_stats.get("accuracy", 50)
+    
+    # تنظیم سطح بر اساس دقت کاربر
+    if accuracy > 80 and lesson_level in ["A1", "A2"]:
         return "B1"
-    elif accuracy < 0.4 and lesson_level in ["B1", "B2"]:
+    elif accuracy < 40 and lesson_level in ["B1", "B2"]:
         return "A2"
+        
     return lesson_level
 
 
