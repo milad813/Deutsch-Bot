@@ -436,13 +436,17 @@ class LearningRepository(BaseRepository):
 
     def get_today_activity_count(self, user_id: int) -> int:
         """تعداد فعالیت‌های امروز."""
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+        from datetime import datetime, timedelta, timezone
+        tz = timezone(timedelta(hours=USER_TIMEZONE_OFFSET_HOURS, minutes=USER_TIMEZONE_OFFSET_MINUTES))
+        today = datetime.now(tz).strftime("%Y-%m-%d")
         row = self.fetch_one(
             """
             SELECT SUM(correct_count + wrong_count)
             FROM word_skills
-            WHERE user_id = ? AND last_reviewed >= date('now')
+            WHERE user_id = ? AND last_reviewed >= ?
             """,
-            (user_id,),
+            (user_id, today),
         )
         return row[0] if row and row[0] else 0
 

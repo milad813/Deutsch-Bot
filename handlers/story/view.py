@@ -201,7 +201,7 @@ async def play_story_listen_only(query, context, story_id: int):
     await render(query, msg, reply_markup=kb)
     
     # Play audio
-    from handlers.callback_router import send_ephemeral_audio
+    from handlers.tts_handlers import send_ephemeral_audio
     await send_ephemeral_audio(query, context, story["text_de"])
 
 
@@ -212,7 +212,7 @@ async def play_story_audio(query, context, story_id: int):
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    from handlers.callback_router import send_ephemeral_audio
+    from handlers.tts_handlers import send_ephemeral_audio
     await send_ephemeral_audio(query, context, story["text_de"])
 
 
@@ -266,5 +266,5 @@ async def replay_story(query, context, story_id: int):
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    from handlers.callback_router import send_ephemeral_audio
+    from handlers.tts_handlers import send_ephemeral_audio
     await send_ephemeral_audio(query, context, story["text_de"])

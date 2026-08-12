@@ -1,6 +1,5 @@
 import config
 from services import get_main_menu_keyboard
-
 from . import menus
 from .learning.flashcard_session import start_flashcard_session
 
@@ -12,6 +11,13 @@ async def handle_text_input(update, context):
 
     text = update.message.text.strip()
 
+    # ✅ فیکس: بررسی جواب نوشتاری
+    if context.user_data.get("awaiting_writing_answer"):
+        from handlers.writing_handlers import handle_writing_text
+        handled = await handle_writing_text(update, context)
+        if handled:
+            return
+
     if text.startswith("🔥 مرور کلمات سخت"):
         await start_flashcard_session(update, context, hard_only=True)
         return
@@ -19,11 +25,13 @@ async def handle_text_input(update, context):
     if text.startswith("📅 مرور امروز"):
         await start_flashcard_session(update, context, only_due=True)
         return
+
     if text.startswith("🛡️ پنل مدیریت"):
         if config.ADMIN_USER_ID and user.id == config.ADMIN_USER_ID:
             from handlers.admin_handlers import show_admin_panel
             await show_admin_panel(update, context)
-        return
+            return
+
     menu_actions = {
         "📚 کتاب و درس‌ها": lambda: menus.show_books(update, context, is_message=True),
         "🎴 فلش‌کارت": lambda: start_flashcard_session(update, context),

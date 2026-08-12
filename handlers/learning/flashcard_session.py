@@ -260,8 +260,8 @@ async def _render_flashcard_front(
             now = time.time()
             
             # حذف entry های قدیمی (بیشتر از ۵ دقیقه)
-            _pending_examples = {k: v for k, v in _pending_examples.items() if now - v < 300}
-            
+            global _pending_examples
+            _pending_examples = {k: v for k, v in _pending_examples.items() if now - v < 300}            
             if pending_key not in _pending_examples:
                 _pending_examples[pending_key] = now
                 asyncio.create_task(

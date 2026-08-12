@@ -23,6 +23,7 @@ from handlers.story import (
     start_story_quiz,
     handle_story_answer,
 )
+from handlers.story.quiz import handle_story_next_question
 from handlers.learning import (FlashcardSessionManager, handle_flip_card,
                                handle_next_flashcard, handle_rate_card,
                                handle_skip_flashcard, start_flashcard_session)
@@ -232,19 +233,9 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "ltr_ready": handle_ltr_ready,
     "ltr_summary": handle_ltr_summary,
     "ltr_exit": handle_ltr_exit,
-    "next_flashcard": handle_next_flashcard,
     "flashcard_due": lambda q, c: start_flashcard_session(q, c, only_due=True),
     "flashcard_hard": lambda q, c: start_flashcard_session(q, c, hard_only=True),
-    "ltr_summary": lambda q, c: handle_ltr_summary(q, c),
-    "ltr_exit": lambda q, c: handle_ltr_exit(q, c),
-    "flashcard_due": lambda q, c: start_flashcard_session(
-        q, c, only_due=True
-    ),
-    "flashcard_hard": lambda q, c: start_flashcard_session(
-        q, c, hard_only=True
-    ),
 }
-
 # Type-safe callback routing using CallbackPrefix enum
 PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.QUIZ_TYPE.value, _handle_quiz_type),
@@ -291,6 +282,7 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.STORY_REPLAY.value, lambda q, c, s: replay_story(q, c, int(s))),
     (CallbackPrefix.STORY_QUIZ.value, lambda q, c, s: start_story_quiz(q, c, int(s))),
     (CallbackPrefix.STORY_ANS.value, lambda q, c, s: handle_story_answer(q, c, s)),
+    (CallbackPrefix.STORY_NEXT_Q.value, lambda q, c, s: handle_story_next_question(q, c, s)),
     (CallbackPrefix.STORY_NEXT.value, lambda q, c, s: show_story_menu(q, c, int(s))),
     (CallbackPrefix.SET_LEVEL.value, lambda q, c, s: menus.handle_set_level(q, c, s)),
     (CallbackPrefix.SET_GOAL.value, lambda q, c, s: menus.handle_set_goal(q, c, s)),
@@ -335,7 +327,7 @@ async def inline_handler(update, context):
         return
 
     # ─── باگ‌فیکس: story_ans هم باید فیدبک toast داشته باشه ───
-    if not data.startswith(("quiz_ans:", "ltr_ans:", "grammar_ans:")):
+    if not data.startswith(("quiz_ans:", "ltr_ans:", "grammar_ans:", "story_ans:", "listening_ans:")):
         try:
             await query.answer()
         except Exception:

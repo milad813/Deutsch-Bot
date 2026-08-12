@@ -48,6 +48,7 @@ class CallbackPrefix(str, Enum):
     STORY_QUIZ = "story_quiz:"
     STORY_ANS = "story_ans:"
     STORY_NEXT = "story_next:"
+    STORY_NEXT_Q = "story_next_q:"
     SET_LEVEL = "set_level:"
     SET_GOAL = "set_goal:"
     WRITING_START = "writing_start:"

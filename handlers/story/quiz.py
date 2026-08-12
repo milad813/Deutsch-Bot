@@ -28,7 +28,7 @@ async def start_story_quiz(query, context, story_id: int):
         return
 
     questions = _safe_json_list(story.get("questions_json"))
-    questions = [q for q in questions if isinstance(q, dict) and q.get("question")]
+    questions = [q for q in questions if isinstance(q, dict) and (q.get("question") or q.get("q"))]
 
     if not questions:
         await render(
@@ -39,7 +39,7 @@ async def start_story_quiz(query, context, story_id: int):
         )
         return
 
-    comp_qs = [q for q in questions if q.get("question_type") == "comprehension"]
+    comp_qs = [q for q in questions if q.get("question_type", "comprehension") == "comprehension"]
     vocab_qs = [q for q in questions if q.get("question_type") == "vocabulary"]
     detail_qs = [q for q in questions if q.get("question_type") == "detail"]
 
@@ -72,6 +72,11 @@ async def _show_story_question(query, context):
     q = quiz["questions"][quiz["current"]]
     options = list(q.get("options") or [])
     correct = str(q.get("correct_answer") or "").strip()
+    if not correct and "correct_index" in q:
+        idx = q["correct_index"]
+        opts = q.get("options") or []
+        if 0 <= idx < len(opts):
+            correct = str(opts[idx]).strip()
 
     if correct and correct not in options:
         options.append(correct)
@@ -96,7 +101,8 @@ async def _show_story_question(query, context):
     }
     type_label = labels.get(q_type, "📖 درک مطلب")
 
-    msg = f"❓ <b>سوال {num} از {total}</b> [{type_label}]\n{esc(q['question'])}"
+    question_text = q.get("question") or q.get("q", "")
+    msg = f"❓ <b>سوال {num} از {total}</b> [{type_label}]\n{esc(question_text)}"
 
     kb = []
     for i, opt in enumerate(options):
@@ -164,7 +170,7 @@ async def handle_story_answer(query, context, suffix: str):
     if quiz["current"] < len(quiz["questions"]) - 1:
         quiz["current"] += 1
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➡️ سوال بعدی", callback_data=f"story_ans:next")],
+            [InlineKeyboardButton("➡️ سوال بعدی", callback_data=f"story_next_q:{quiz['story_id']}")],
             [InlineKeyboardButton("🔙 خروج", callback_data=f"story_view:{quiz['story_id']}")],
         ])
         await render(query, fb_msg, reply_markup=kb)
@@ -221,3 +227,11 @@ async def _show_story_quiz_summary(query, context):
     ])
 
     await render(query, msg, reply_markup=kb)
+
+async def handle_story_next_question(query, context, suffix: str):
+    """ادامه به سوال بعدی کوییز داستان."""
+    quiz = context.user_data.get("story_quiz")
+    if not quiz:
+        await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
+        return
+    await _show_story_question(query, context)

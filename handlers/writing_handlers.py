@@ -56,8 +56,8 @@ async def _show_writing_question(query, context):
     )
     
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⏭️ رد شدن", callback_data="writing_skip")],
-        [InlineKeyboardButton("🏁 پایان", callback_data="writing_exit")],
+        [InlineKeyboardButton("⏭️ رد شدن", callback_data="writing_skip:")],
+        [InlineKeyboardButton("🏁 پایان", callback_data="writing_exit:")],
     ])
     
     await render(query, msg, reply_markup=kb)
@@ -66,10 +66,14 @@ async def _show_writing_question(query, context):
 
 async def _show_writing_question_from_message(update, context):
     """ادامه سوال بعدی از پیام متنی."""
-    query = type('FakeQuery', (), {
-        'from_user': update.effective_user,
-        'message': update.message,
-    })()
+    class FakeQuery:
+        def __init__(self, update):
+            self.from_user = update.effective_user
+            self.message = update.message
+            self.data = ""
+        async def answer(self, text=None, show_alert=False):
+            pass
+    query = FakeQuery(update)
     await _show_writing_question(query, context)
 
 
@@ -86,7 +90,7 @@ async def _show_writing_summary(query, context):
     )
     
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 تکرار", callback_data="writing_start")],
+        [InlineKeyboardButton("🔁 تکرار", callback_data="writing_start:")],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ])
     

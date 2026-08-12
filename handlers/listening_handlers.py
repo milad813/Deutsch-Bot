@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def _get_wrong_persian(word):
     """گزینه‌های غلط برای معنی فارسی."""
-    all_words = db.get_all_word_objects(limit=50)
+    all_words = db.get_all_word_objects()  # ✅ بدون limit
     wrong = [w for w in all_words if w.id != word.id]
     random.shuffle(wrong)
     return [w.persian for w in wrong[:3]]
@@ -80,8 +80,8 @@ async def _show_listening_question(query, context):
             callback_data=f"listening_ans:{i}"
         )])
     kb_rows.append([InlineKeyboardButton("🔊 پخش دوباره", callback_data=f"listening_replay:{word_id}")])
-    kb_rows.append([InlineKeyboardButton("⏭️ رد شدن", callback_data="listening_skip")])
-    kb_rows.append([InlineKeyboardButton("🏁 پایان", callback_data="listening_exit")])
+    kb_rows.append([InlineKeyboardButton("⏭️ رد شدن", callback_data="listening_skip:")])
+    kb_rows.append([InlineKeyboardButton("🏁 پایان", callback_data="listening_exit:")])
     
     if audio_path:
         try:
@@ -99,12 +99,15 @@ async def _show_listening_question(query, context):
 
 async def _show_listening_question_from_message(update, context):
     """ادامه سوال بعدی از پیام متنی."""
-    query = type('FakeQuery', (), {
-        'from_user': update.effective_user,
-        'message': update.message,
-    })()
+    class FakeQuery:
+        def __init__(self, update):
+            self.from_user = update.effective_user
+            self.message = update.message
+            self.data = ""
+        async def answer(self, text=None, show_alert=False):
+            pass
+    query = FakeQuery(update)
     await _show_listening_question(query, context)
-
 
 async def _show_listening_summary(query, context):
     session = context.user_data.pop("listening_session", {})
@@ -119,7 +122,7 @@ async def _show_listening_summary(query, context):
     )
     
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 تکرار", callback_data="listening_start")],
+        [InlineKeyboardButton("🔁 تکرار", callback_data="listening_start:")],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ])
     

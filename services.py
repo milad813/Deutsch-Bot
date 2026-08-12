@@ -18,6 +18,7 @@ SESSION_KEYS = {
     "conversation_history",
     "current_quiz",
     "quiz_session",
+    "quiz_session_obj",          # ✅ جدید
     "quiz_type",
     "quiz_lesson_id",
     "quiz_source_filter",
@@ -49,29 +50,33 @@ SESSION_KEYS = {
     "ltr_delayed_1",
     "ltr_delayed_2",
     "ltr_round",
-    # LTR جدید
     "ltr_main_index",
     "ltr_main_progress",
     "ltr_delayed_tasks",
     "ltr_retry_stage",
     "ltr_current_word_pos",
     "ltr_round2_started",
-    # راهنما
+    "ltr_wrong_in_session",      # ✅ جدید
     "fsrs_guide_shown",
     "grammar_current",
     "ltr_answer_lock",
     "flashcard_rate_lock",
-    # Story
     "current_story_id",
     "story_quiz",
     "ltr_user_id",
     "story_session_word_ids",
     "story_genre_history",
     "story_hint_level",
-    # LTR current question data
     "ltr_current_options",
     "ltr_current_correct_index",
     "ltr_current_correct_text",
+    # ✅ کلیدهای جدید Listening/Writing
+    "listening_session",
+    "listening_current",
+    "writing_session",
+    "writing_current_word",
+    "awaiting_writing_answer",
+    "quiz_answer_lock",           # ✅ جدید
 }
 
 

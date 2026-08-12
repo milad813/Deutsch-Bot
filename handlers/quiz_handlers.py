@@ -196,8 +196,8 @@ async def _start_generic_quiz(
         settings = db.get_user_settings(user_id)
         level = settings.get("preferred_level", "A1")
 
-        session = context.user_data.get("quiz_session")
-        exclude_ids = set(session.get("asked_word_ids", [])) if session else set()
+        session = context.user_data.get("quiz_session_obj")
+        exclude_ids = set(session.question_ids) if session else set()
 
         word = None
         quiz = None
@@ -208,7 +208,7 @@ async def _start_generic_quiz(
                 break
 
             if session:
-                session.setdefault("asked_word_ids", []).append(word.id)
+                session.question_ids.append(word.id)
 
             try:
                 quiz = await quiz_generator(word, user_id, level)
@@ -341,7 +341,12 @@ def _update_quiz_session(
         session.correct_count += 1
     else:
         session.wrong_count += 1
-    
+        # ✅ ردیابی کلمات اشتباه برای دکمه "فقط اشتباه‌ها"
+        if not hasattr(session, '_wrong_ids'):
+            session._wrong_ids = []
+        if word_id:
+            session._wrong_ids.append(word_id)
+
     session.question_ids.append(word_id)
 
 
@@ -379,7 +384,7 @@ async def _show_quiz_summary(query, context, header: str = ""):
         return
 
     # Get wrong word IDs from question_ids (we don't track per-question results in typed session)
-    wrong_ids = []  # Could be enhanced to track detailed results if needed
+    wrong_ids = getattr(session, '_wrong_ids', [])
 
     if wrong_ids:
         context.user_data["quiz_wrong_word_ids"] = wrong_ids
@@ -395,8 +400,8 @@ async def _show_quiz_summary(query, context, header: str = ""):
         lines.append(header)
 
     lines.append("<b>🏁 کوییز تمام شد!</b>")
-    lines.append(f"✅ درست: {session['correct']}")
-    lines.append(f"❌ اشتباه: {session['wrong']}")
+    lines.append(f"✅ درست: {session.correct_count}")
+    lines.append(f"❌ اشتباه: {session.wrong_count}")
     lines.append(f"🎯 دقت: {accuracy:.1f}%")
 
     text = "\n".join(lines)
@@ -607,7 +612,7 @@ async def start_quiz_session_with_words(query, context, word_ids):
 
 
 async def _send_next_quiz(query, context):
-    if "quiz_session" not in context.user_data:
+    if "quiz_session_obj" not in context.user_data:
         await render(
             query, "⚠️ کوییزی فعال نیست. /menu", reply_markup=back_inline_keyboard()
         )

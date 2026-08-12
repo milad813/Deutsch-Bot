@@ -55,8 +55,11 @@ async def daily_tts_cleanup(context):
 
 async def daily_reminder(context):
     """Send reminder to users with due words."""
-    user_ids = [config.ADMIN_USER_ID] if config.ADMIN_USER_ID else []
-    
+    try:
+        all_users = db.get_all_users()
+        user_ids = [u[0] for u in all_users]  # u[0] = user_id
+    except Exception:
+        user_ids = [config.ADMIN_USER_ID] if config.ADMIN_USER_ID else []    
     for uid in user_ids:
         try:
             due_count = db.get_due_word_count(uid)
