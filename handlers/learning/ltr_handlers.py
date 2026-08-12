@@ -65,9 +65,14 @@ async def _show_learn_word(query, context):
     ltr = LTRSessionManager(context)
     word = ltr.get_next_word_to_learn()
 
+    # ✅ FIX: جلوگیری از حلقه بی‌نهایت (RecursionError)
+    # اگر کلمه‌ای برای یادگیری نیست، مستقیم برو سراغ تست یا پایان
     if not word:
-        # No more words to learn, go to test or done
-        await _route_next_action(query, context)
+        task = ltr.get_due_test()
+        if task:
+            await _show_test_question(query, context, task["word_id"])
+        else:
+            await _show_ltr_summary(query, context)
         return
 
     # Set TTS text
@@ -77,33 +82,29 @@ async def _show_learn_word(query, context):
 
     # Build learn message
     parts = [
-        f"📚 <b>یادگیری کلمه {progress['learned'] + 1} از {progress['total']}</b>",
-        f"{progress['progress_bar']} ({progress['percentage']}%)",
+        f"📚 <b>یادگیری کلمه {progress.get('learned', 0) + 1} از {progress.get('total', 0)}</b>",
+        f"{progress.get('progress_bar', '')} ({progress.get('percentage', 0)}%)",
         "",
         f"🇩🇪 <b>{esc(word.display_german)}</b>",
         f"🇮🇷 {esc(word.persian)}",
     ]
 
-    if word.english_meaning:
+    if getattr(word, 'english_meaning', None):
         parts.append(f"🇬🇧 {esc(word.english_meaning)}")
 
-    if word.extra_forms_line:
+    if getattr(word, 'extra_forms_line', None):
         parts.append(f"📖 {esc(word.extra_forms_line)}")
 
-    if word.example_de:
+    if getattr(word, 'example_de', None):
         parts.append(f"📝 {esc(word.example_de)}")
-    if word.example_fa:
+    if getattr(word, 'example_fa', None):
         parts.append(f"🇮🇷 <i>{esc(word.example_fa)}</i>")
 
-    if word.collocation_line:
+    if getattr(word, 'collocation_line', None):
         parts.append(f"🔗 {esc(word.collocation_line)}")
 
-    parts.append("")
-    parts.append("👆 خوب یاد بگیر، بعد دکمه «یاد گرفتم» را بزن!")
-    parts.append("💡 بعد از چند کلمه، ازت سوال می‌پرسم!")
-
+    from handlers.learning.ltr_session import _ltr_learn_keyboard
     await render(query, "\n".join(parts), reply_markup=_ltr_learn_keyboard())
-
 
 async def handle_ltr_learned(query, context):
     """User confirms they learned the word."""
@@ -159,9 +160,8 @@ async def _show_test_question(query, context, word_id: int):
     retry_label = " 🔁" if retry_count > 0 else ""
 
     msg = (
-        f"❓ <b>آزمون{retry_label}</b>\n"
         f"🇮🇷 <b>{esc(word.persian)}</b>\n"
-        f"کدام گزینه آلمانی صحیح است؟"
+        f"معادل آلمانی این کلمه کدام است؟"
     )
 
     await render(query, msg, reply_markup=_ltr_answer_keyboard(options))
@@ -242,24 +242,28 @@ async def _route_next_action(query, context, feedback: str = ""):
     """Main router: decides whether to learn, test, or finish."""
     ltr = LTRSessionManager(context)
 
-    next_action = ltr.get_next_action()
+    # 1. Check if there's a due test
+    task = ltr.get_due_test()
+    if task:
+        await _show_test_question(query, context, task["word_id"])
+        return
 
-    if next_action == "test":
-        # Get due test
-        task = ltr.get_due_test()
-        if task:
-            await _show_test_question(query, context, task["word_id"])
-            return
-        # If no task found (race condition), fall through to learn
-        next_action = "learn"
-
-    if next_action == "learn":
+    # 2. Check if there are words left to learn
+    word = ltr.get_next_word_to_learn()
+    if word:
         await _show_learn_word(query, context)
         return
 
-    # Done!
-    await _show_ltr_summary(query, context, feedback=feedback)
+    # 3. Check if there are pending tests (not yet due but no more to learn)
+    tasks = ltr.user_data.get("ltr_delayed_tasks", [])
+    if tasks:
+        # Force the next test to avoid deadlock
+        task = tasks.pop(0)
+        await _show_test_question(query, context, task["word_id"])
+        return
 
+    # 4. Done!
+    await _show_ltr_summary(query, context, feedback=feedback)
 
 # ═══════════════════════════════════════════════════════════════════
 # Summary & Exit
