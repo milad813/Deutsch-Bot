@@ -123,7 +123,7 @@ async def handle_ltr_learned(query, context):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TEST Phase
+# TEST  Phase
 # ═══════════════════════════════════════════════════════════════════
 
 async def _show_test_question(query, context, word_id: int):
