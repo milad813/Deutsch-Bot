@@ -131,8 +131,8 @@ async def _show_learn_word(query, context):
         [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
     ])
 
-    await render(query, "\n".join(parts), reply_markup=kb)
-
+    from handlers.learning.ltr_session import _ltr_learn_keyboard
+    await render(query, "\n".join(parts), reply_markup=_ltr_learn_keyboard(word_id=word.id))
 
 async def handle_ltr_show_details(query, context, suffix: str):
     """Reveal detailed info for a word (Progressive Disclosure)."""

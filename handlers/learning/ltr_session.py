@@ -348,13 +348,26 @@ def _ltr_wrong_display_german_options(word: Word, count: int = 3) -> list:
     return _sample_unique_ltr(same_type, other, count)
 
 
-def _ltr_learn_keyboard() -> InlineKeyboardMarkup:
+def _ltr_learn_keyboard(word_id: int = None) -> InlineKeyboardMarkup:
     """Keyboard for learn phase."""
-    return InlineKeyboardMarkup([
+    rows = [
         [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")],
-        [InlineKeyboardButton("✅ یاد گرفتم، بعدی!", callback_data="ltr_learned")],
-        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
-    ])
+    ]
+
+    # ✅ دکمه جزئیات فقط وقتی word_id موجود باشد
+    if word_id:
+        rows.append(
+            [InlineKeyboardButton("💡 مثال و جزئیات", callback_data=f"ltr_details:{word_id}")]
+        )
+
+    rows.append(
+        [InlineKeyboardButton("✅ یاد گرفتم، بعدی!", callback_data="ltr_learned")]
+    )
+    rows.append(
+        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")]
+    )
+
+    return InlineKeyboardMarkup(rows)
 
 
 def _ltr_answer_keyboard(options: list) -> InlineKeyboardMarkup:
