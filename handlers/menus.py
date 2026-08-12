@@ -2,6 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 import config
+from models import CallbackPrefix
 from services import db, get_main_menu_keyboard, reset_session
 from ui import _short_label, back_inline_keyboard, esc, render
 
@@ -92,20 +93,20 @@ async def show_quiz_menu(update, context):
     keyboard = [
         [
             InlineKeyboardButton(
-                "🎯 آرتیکل (der/die/das)", callback_data="quiz_type:article"
+                "🎯 آرتیکل (der/die/das)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}article"
             )
         ],
         [
             InlineKeyboardButton(
-                "🧠 معنی (آلمانی→فارسی)", callback_data="quiz_type:meaning"
+                "🧠 معنی (آلمانی→فارسی)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}meaning"
             )
         ],
         [
             InlineKeyboardButton(
-                "🔄 معکوس (فارسی→آلمانی)", callback_data="quiz_type:reverse"
+                "🔄 معکوس (فارسی→آلمانی)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}reverse"
             )
         ],
-        [InlineKeyboardButton("📝 جای خالی", callback_data="quiz_type:cloze")],
+        [InlineKeyboardButton("📝 جای خالی", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}cloze")],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ]
     await render(
@@ -117,11 +118,11 @@ async def show_quiz_menu(update, context):
 
 async def show_quiz_source(query, context):
     keyboard = [
-        [InlineKeyboardButton("📚 کل کتابخانه من", callback_data="quiz_source:all")],
-        [InlineKeyboardButton("📖 از درس خاص", callback_data="quiz_source:lesson")],
-        [InlineKeyboardButton("❌ کلمات ضعیف", callback_data="quiz_source:weak")],
-        [InlineKeyboardButton("📅 موعد امروز", callback_data="quiz_source:due")],
-        [InlineKeyboardButton("📒 اشتباهات من", callback_data="quiz_source:mistakes")],
+        [InlineKeyboardButton("📚 کل کتابخانه من", callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}all")],
+        [InlineKeyboardButton("📖 از درس خاص", callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}lesson")],
+        [InlineKeyboardButton("❌ کلمات ضعیف", callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}weak")],
+        [InlineKeyboardButton("📅 موعد امروز", callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}due")],
+        [InlineKeyboardButton("📒 اشتباهات من", callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}mistakes")],
         [InlineKeyboardButton("🔙 مرحله قبل", callback_data="show_quiz_menu")],
     ]
     await render(
@@ -148,7 +149,7 @@ async def show_books_for_quiz(query, context):
             [
                 InlineKeyboardButton(
                     _short_label(f"📖 {name} ({level})"),
-                    callback_data=f"quiz_book:{book_id}",
+                    callback_data=f"{CallbackPrefix.QUIZ_BOOK.value}{book_id}",
                 )
             ]
         )
@@ -177,7 +178,7 @@ async def show_lessons_for_quiz(query, context, book_id):
             [
                 InlineKeyboardButton(
                     _short_label(f"📝 {_format_lesson_name(num, title or '')}"),
-                    callback_data=f"quiz_lesson:{lesson_id}",
+                    callback_data=f"{CallbackPrefix.QUIZ_LESSON.value}{lesson_id}",
                 )
             ]
         )
@@ -195,10 +196,10 @@ async def show_quiz_count(query, context):
         lesson_id = context.user_data.get("quiz_lesson_id")
         back_cb = f"lesson_{lesson_id}" if lesson_id else "back_to_main_menu"
     keyboard = [
-        [InlineKeyboardButton("⚡ ۵ سوال سریع", callback_data="quiz_count:5")],
-        [InlineKeyboardButton("🎯 ۱۰ سوال استاندارد", callback_data="quiz_count:10")],
-        [InlineKeyboardButton("💪 ۲۰ سوال جدی", callback_data="quiz_count:20")],
-        [InlineKeyboardButton("🔥 همه کلمات این منبع", callback_data="quiz_count:all")],
+        [InlineKeyboardButton("⚡ ۵ سوال سریع", callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}5")],
+        [InlineKeyboardButton("🎯 ۱۰ سوال استاندارد", callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}10")],
+        [InlineKeyboardButton("💪 ۲۰ سوال جدی", callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}20")],
+        [InlineKeyboardButton("🔥 همه کلمات این منبع", callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}all")],
         [InlineKeyboardButton("🔙 مرحله قبل", callback_data=back_cb)],
     ]
     await render(
@@ -602,7 +603,7 @@ async def show_error_notebook(query, context):
             [
                 InlineKeyboardButton(
                     "🎯 تمرین اشتباهات",
-                    callback_data="quiz_source:mistakes",
+                    callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}mistakes",
                 )
             ],
             [
