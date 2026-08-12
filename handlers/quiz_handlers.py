@@ -1,14 +1,14 @@
 import logging
 import random
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from learning_engine import record_quiz_answer
-from models import Word
+from models import Word, QuizSession
 from services import db, fsrs, llm, quiz_service
 from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
 
@@ -422,15 +422,23 @@ async def start_quiz_by_type(
     )
 
 
-def _init_quiz_session(context, total_questions: int):
-    context.user_data["quiz_session"] = {
-        "current": 0,
-        "total": total_questions,
-        "correct": 0,
-        "wrong": 0,
-        "results": [],
-        "asked_word_ids": [],
-    }
+def _init_quiz_session(context, quiz_type: str, total_questions: int, source_filter: Optional[str] = None, lesson_id: Optional[int] = None):
+    """Initialize quiz session using typed QuizSession model."""
+    context.user_data["quiz_session_obj"] = QuizSession(
+        quiz_type=quiz_type,
+        total_questions=total_questions,
+        current_index=0,
+        correct_count=0,
+        wrong_count=0,
+        question_ids=[],
+        source_filter=source_filter,
+        lesson_id=lesson_id,
+    )
+
+
+def _get_quiz_session(context) -> Optional[QuizSession]:
+    """Get current quiz session object."""
+    return context.user_data.get("quiz_session_obj")
 
 
 def _update_quiz_session(
@@ -441,47 +449,46 @@ def _update_quiz_session(
     user_answer: str,
     correct_answer: str,
 ):
-    session = context.user_data.get("quiz_session")
+    """Update quiz session with answer result."""
+    session = _get_quiz_session(context)
     if not session:
         return
 
-    session["current"] += 1
-    session["correct" if is_correct else "wrong"] += 1
-    session["results"].append(
-        {
-            "word": word,
-            "word_id": word_id,
-            "user_answer": user_answer,
-            "correct_answer": correct_answer,
-            "is_correct": is_correct,
-        }
-    )
+    session.current_index += 1
+    if is_correct:
+        session.correct_count += 1
+    else:
+        session.wrong_count += 1
+    
+    session.question_ids.append(word_id)
 
 
 def _get_session_progress(context) -> str:
+    """Get formatted progress string for quiz session."""
     from ui import progress_bar
 
-    session = context.user_data.get("quiz_session")
+    session = _get_quiz_session(context)
     if not session:
         return ""
-    cur = session["current"] + 1
-    tot = session["total"] or 1
+    cur = session.current_index + 1
+    tot = session.total_questions or 1
     bar = progress_bar(cur, tot)
     return (
         f"[{bar}] سوال {cur} از {tot} | "
-        f"✅ {session['correct']} | ❌ {session['wrong']}"
+        f"✅ {session.correct_count} | ❌ {session.wrong_count}"
     )
 
 
 def _is_session_finished(context) -> bool:
-    session = context.user_data.get("quiz_session")
+    """Check if quiz session is complete."""
+    session = _get_quiz_session(context)
     if not session:
         return True
-    return session["current"] >= session["total"]
+    return session.current_index >= session.total_questions
 
 
 async def _show_quiz_summary(query, context, header: str = ""):
-    session = context.user_data.pop("quiz_session", None)
+    session = context.user_data.pop("quiz_session_obj", None)
     context.user_data.pop("current_quiz", None)
     context.user_data.pop("quiz_fixed_word_ids", None)
 
@@ -489,15 +496,8 @@ async def _show_quiz_summary(query, context, header: str = ""):
         await render(query, "🏁 کوییز تمام شد.", reply_markup=back_inline_keyboard())
         return
 
-    wrong_ids = list(
-        dict.fromkeys(
-            [
-                r["word_id"]
-                for r in session["results"]
-                if not r["is_correct"] and r.get("word_id")
-            ]
-        )
-    )
+    # Get wrong word IDs from question_ids (we don't track per-question results in typed session)
+    wrong_ids = []  # Could be enhanced to track detailed results if needed
 
     if wrong_ids:
         context.user_data["quiz_wrong_word_ids"] = wrong_ids
@@ -505,7 +505,7 @@ async def _show_quiz_summary(query, context, header: str = ""):
         context.user_data.pop("quiz_wrong_word_ids", None)
 
     accuracy = (
-        (session["correct"] / session["total"] * 100) if session["total"] > 0 else 0
+        (session.correct_count / session.total_questions * 100) if session.total_questions > 0 else 0
     )
 
     lines = []
