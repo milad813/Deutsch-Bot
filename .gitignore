@@ -26,7 +26,8 @@ target/
 *.tmp
 *.swp
 *.swo
-
+*.pkl
+*.txt
 
 # Environment
 .env
