@@ -77,6 +77,23 @@ def _safe_id_list(raw):
             continue
     return result
 
+def _format_story_text(text: str, words: List[Dict]) -> str:
+    """پاکسازی خروجی LLM و بولد کردن دقیق کلمات با تگ HTML."""
+    # 1. حذف تمام ** های مارک‌داون که LLM اشتباهی تولید کرده
+    clean_text = text.replace("**", "")
+    
+    # 2. بولد کردن کلمات هدف با تگ <b> (پشتیبانی از صرف فعل/صفت)
+    for w in words:
+        german = w.get("german", "")
+        if not german:
+            continue
+        
+        # پیدا کردن کلمه و پسوندهای احتمالی (مثل schlechten برای schlecht)
+        # re.IGNORECASE برای حساس نبودن به حروف بزرگ/کوچک
+        pattern = re.compile(rf"\b({re.escape(german)}[a-zäöüß]*)\b", re.IGNORECASE)
+        clean_text = pattern.sub(r"<b>\1</b>", clean_text)
+        
+    return clean_text
 
 # ─── انتخاب هوشمند کلمات (Candidate Pool) ────────────────────────
 def _select_smart_words(
@@ -260,13 +277,14 @@ Du bist ein erfahrener Deutschlehrer und kreativer Geschichtenerzähler.
 
 **Anforderungen:**
 1. **Länge:** 100–150 Wörter
-2. **Stil:** Einfach, klar, natürlich – wie eine echte Alltagssituation
-3. **Struktur:**
+2. **Grammatik (WICHTIG für A1):** Verwende NUR Präsens (Gegenwart). KEIN Präteritum (z.B. wollte, musste, fuhr), KEIN Plusquamperfekt. Nutze einfache Sätze.
+3. **Stil:** Einfach, klar, natürlich – wie eine echte Alltagssituation
+4. **Struktur:**
    - Einleitung (Setting + Charaktere)
    - Hauptteil (Konflikt oder Ereignis)
    - Schluss (Lösung oder Erkenntnis)
-4. **Hervorhebung:** Markiere die Zielwörter mit **Fett**
-5. **Keine zusätzlichen schwierigen Wörter** – bleibe im Niveau {level}
+5. **Hervorhebung:** Markiere die Zielwörter mit HTML-Tags: <b>Wort</b> (NICHT mit ** Sternchen)
+6. **Keine zusätzlichen schwierigen Wörter** – bleibe im Niveau {level}
 
 **Ausgabeformat (JSON):**
 {{
@@ -374,7 +392,7 @@ async def _generate_story_for_lesson(
             ):
                 logger.warning("کلیدهای ضروری ناقص هستند (تلاش %d)", attempt + 1)
                 continue
-
+            story_data["text"] = _format_story_text(story_data["text"], target_words)
             questions = story_data.get("questions", [])
             valid_q = [
                 q for q in questions
