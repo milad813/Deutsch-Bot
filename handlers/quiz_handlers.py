@@ -314,8 +314,8 @@ async def _start_generic_quiz(
         settings = db.get_user_settings(user_id)
         level = settings.get("preferred_level", "A1")
 
-        session = context.user_data.get("quiz_session")
-        exclude_ids = set(session.get("asked_word_ids", [])) if session else set()
+        session = _get_quiz_session(context)
+        exclude_ids = set(session.question_ids) if session else set()
 
         word = None
         quiz = None
@@ -324,9 +324,6 @@ async def _start_generic_quiz(
             word = await word_fetcher(user_id, lesson_id, source_filter, exclude_ids)
             if not word:
                 break
-
-            if session:
-                session.setdefault("asked_word_ids", []).append(word.id)
 
             try:
                 quiz = await quiz_generator(word, user_id, level)
@@ -340,7 +337,7 @@ async def _start_generic_quiz(
             exclude_ids.add(word.id)
 
         if not word or not quiz:
-            if session and session.get("current", 0) > 0:
+            if session and session.current_index > 0:
                 await _show_quiz_summary(
                     query, context, header="⚠️ کلمه‌ی مناسب دیگری پیدا نشد."
                 )
@@ -739,7 +736,7 @@ async def start_quiz_session_with_words(query, context, word_ids):
 
 
 async def _send_next_quiz(query, context):
-    if "quiz_session" not in context.user_data:
+    if not _get_quiz_session(context):
         await render(
             query, "⚠️ کوییزی فعال نیست. /menu", reply_markup=back_inline_keyboard()
         )
