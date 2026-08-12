@@ -353,31 +353,12 @@ class Database:
                 row = c.fetchone()
                 return row[0]
 
-    def get_all_books(self) -> List[Tuple]:
-        with self._cursor() as c:
-            c.execute("SELECT id, name, level FROM books ORDER BY name")
-            return c.fetchall()
-
-    def get_lessons_by_book(self, book_id: int) -> List[Tuple]:
-        with self._cursor() as c:
-            c.execute(
-                "SELECT id, lesson_number, title FROM lessons WHERE book_id = ? ORDER BY lesson_number",
-                (book_id,),
-            )
-            return c.fetchall()
-
     def get_lesson(self, lesson_id: int) -> Optional[Tuple]:
         with self._cursor() as c:
             c.execute(
                 "SELECT lesson_number, title FROM lessons WHERE id = ?", (lesson_id,)
             )
             return c.fetchone()
-
-    def get_book_id_by_lesson(self, lesson_id: int) -> Optional[int]:
-        with self._cursor() as c:
-            c.execute("SELECT book_id FROM lessons WHERE id = ?", (lesson_id,))
-            row = c.fetchone()
-            return row[0] if row else None
 
     def set_lesson_title_if_empty(self, lesson_id: int, title: str):
         with self._cursor(commit=True) as c:
@@ -594,54 +575,6 @@ class Database:
             c.execute(query, tuple(params))
             return [self._row_to_word(row) for row in c.fetchall()]
 
-    def get_words_by_lesson_full(self, lesson_id: int) -> List[Dict]:
-        with self._cursor() as c:
-            c.execute(
-                """
-                SELECT id, article, german, persian, word_type,
-                       plural_form, verb_forms, comparative, example_de, example_fa,
-                       english_meaning, collocation_de, collocation_fa,
-                       cefr_estimated, topics, contexts, common_situations,
-                       story_roles, related_words, common_collocations_de,
-                       story_suitability, story_suitability_reason
-                FROM words
-                WHERE lesson_id = ?
-                ORDER BY word_type, german
-                """,
-                (lesson_id,),
-            )
-            rows = c.fetchall()
-            result = []
-            for r in rows:
-                result.append(
-                    {
-                        "id": r[0],
-                        "article": r[1],
-                        "german": r[2],
-                        "persian": r[3],
-                        "word_type": r[4],
-                        "plural": r[5],
-                        "verb_forms": r[6],
-                        "comparative": r[7],
-                        "example_de": r[8],
-                        "example_fa": r[9],
-                        "english_meaning": r[10],
-                        "collocation_de": r[11],
-                        "collocation_fa": r[12],
-                        # ─── metadata جدید ───
-                        "cefr_estimated": r[13],
-                        "topics": r[14],
-                        "contexts": r[15],
-                        "common_situations": r[16],
-                        "story_roles": r[17],
-                        "related_words": r[18],
-                        "common_collocations_de": r[19],
-                        "story_suitability": r[20],
-                        "story_suitability_reason": r[21],
-                    }
-                )
-            return result
-
     def get_words_without_collocation(self, limit: int = 200) -> List[Dict]:
         with self._cursor() as c:
             c.execute(
@@ -670,11 +603,6 @@ class Database:
                 (collocation_de, collocation_fa, word_id),
             )
 
-    def get_word_count(self) -> int:
-        with self._cursor() as c:
-            c.execute("SELECT COUNT(*) FROM words")
-            return c.fetchone()[0]
-
     def get_word_count_by_lesson(self, lesson_id: int) -> int:
         with self._cursor() as c:
             c.execute("SELECT COUNT(*) FROM words WHERE lesson_id = ?", (lesson_id,))
@@ -701,33 +629,6 @@ class Database:
             c.execute(query, tuple(params))
             row = c.fetchone()
             return self._row_to_word(row) if row else None
-
-    def get_nouns_with_article_objects(
-        self,
-        lesson_id: int = None,
-        limit: int = 100,
-        exclude_ids: Optional[Iterable[int]] = None,
-    ) -> List[Word]:
-        query = f"""
-            SELECT {self._word_columns()}
-            FROM words
-            WHERE article IS NOT NULL AND article != ''
-        """
-        params = []
-
-        if lesson_id:
-            query += " AND lesson_id = ?"
-            params.append(lesson_id)
-
-        exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "id")
-        query += exclude_sql
-        query += " ORDER BY RANDOM() LIMIT ?"
-        params.extend(exclude_params)
-        params.append(limit)
-
-        with self._cursor() as c:
-            c.execute(query, tuple(params))
-            return [self._row_to_word(row) for row in c.fetchall()]
 
     def get_words_with_example_objects(
         self,
@@ -785,36 +686,6 @@ class Database:
 
     # SRS / Review
 
-    def get_due_word_objects(
-        self,
-        user_id: int,
-        limit: int = 20,
-        lesson_id: int = None,
-        exclude_ids: Optional[Iterable[int]] = None,
-    ) -> List[Word]:
-        query = f"""
-            SELECT {self._word_columns('w')}
-            FROM words w
-            JOIN word_stats ws ON w.id = ws.word_id
-            WHERE ws.user_id = ?
-              AND ws.next_review <= datetime('now')
-        """
-        params = [user_id]
-
-        if lesson_id:
-            query += " AND w.lesson_id = ?"
-            params.append(lesson_id)
-
-        exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
-        query += exclude_sql
-        query += " ORDER BY ws.next_review ASC LIMIT ?"
-        params.extend(exclude_params)
-        params.append(limit)
-
-        with self._cursor() as c:
-            c.execute(query, tuple(params))
-            return [self._row_to_word(row) for row in c.fetchall()]
-
     def get_weak_word_objects(
         self,
         user_id: int,
@@ -867,83 +738,6 @@ class Database:
         with self._cursor() as c:
             c.execute(query, tuple(params))
             return [self._row_to_word(row) for row in c.fetchall()]
-
-    def get_flashcard_words(
-        self,
-        user_id: int,
-        limit: int = 10,
-        lesson_id: int = None,
-        include_new: bool = True,
-        new_limit: int = 5,
-        exclude_ids: Optional[Iterable[int]] = None,
-    ) -> List[Word]:
-        exclude_ids = set(exclude_ids or [])
-
-        due_words = self.get_due_word_objects(
-            user_id=user_id,
-            limit=limit,
-            lesson_id=lesson_id,
-            exclude_ids=exclude_ids,
-        )
-
-        result = list(due_words)
-        exclude_ids.update(w.id for w in result)
-
-        if include_new and len(result) < limit:
-            remaining_new = min(new_limit, limit - len(result))
-            if remaining_new > 0:
-                query = f"""
-                    SELECT {self._word_columns('w')}
-                    FROM words w
-                    LEFT JOIN word_stats ws ON ws.word_id = w.id AND ws.user_id = ?
-                    WHERE ws.word_id IS NULL
-                """
-                params = [user_id]
-
-                if lesson_id:
-                    query += " AND w.lesson_id = ?"
-                    params.append(lesson_id)
-
-                exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
-                query += exclude_sql
-                query += " ORDER BY RANDOM() LIMIT ?"
-                params.extend(exclude_params)
-                params.append(remaining_new)
-
-                with self._cursor() as c:
-                    c.execute(query, tuple(params))
-                    result.extend(self._row_to_word(row) for row in c.fetchall())
-
-        return result
-
-    def get_words_due_today(self, user_id: int) -> List[Tuple]:
-        with self._cursor() as c:
-            c.execute(
-                """
-                SELECT w.id, w.german, w.persian
-                FROM words w
-                JOIN word_stats ws ON w.id = ws.word_id
-                WHERE ws.user_id = ?
-                  AND ws.next_review <= datetime('now')
-                ORDER BY ws.next_review ASC
-                """,
-                (user_id,),
-            )
-            return c.fetchall()
-
-    def get_due_word_count(self, user_id: int) -> int:
-        with self._cursor() as c:
-            c.execute(
-                """
-                SELECT COUNT(*)
-                FROM words w
-                JOIN word_stats ws ON w.id = ws.word_id
-                WHERE ws.user_id = ?
-                  AND ws.next_review <= datetime('now')
-                """,
-                (user_id,),
-            )
-            return c.fetchone()[0]
 
     def get_weak_word_count(self, user_id: int) -> int:
         with self._cursor() as c:
@@ -1038,50 +832,7 @@ class Database:
 
     # ─── کلمات سخت معوق (جایگزین pending_reviews) ───
 
-    def get_hard_due_word_objects(self, user_id, limit=20, exclude_ids=None):
-        query = f"""
-        SELECT {self._word_columns('w')}
-        FROM words w
-        JOIN word_stats ws ON w.id = ws.word_id
-        WHERE ws.user_id = ?
-        AND ws.phase = 'learning'
-        AND ws.next_review <= datetime('now')
-        """
-        params = [user_id]
-        exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
-        query += exclude_sql
-        query += " ORDER BY ws.next_review ASC LIMIT ?"
-        params.extend(exclude_params)
-        params.append(limit)
-        with self._cursor() as c:
-            c.execute(query, tuple(params))
-            return [self._row_to_word(row) for row in c.fetchall()]
-
-    def count_hard_due_words(self, user_id):
-        with self._cursor() as c:
-            c.execute(
-                """
-            SELECT COUNT(*)
-            FROM words w
-            JOIN word_stats ws ON w.id = ws.word_id
-            WHERE ws.user_id = ?
-            AND ws.phase = 'learning'
-            AND ws.next_review <= datetime('now')
-            """,
-                (user_id,),
-            )
-            return c.fetchone()[0]
-
     # ─── تنظیمات کاربر ───
-
-    def update_user_setting(self, user_id: int, preferred_level: str):
-        with self._cursor(commit=True) as c:
-            c.execute(
-                """INSERT INTO user_settings (user_id, preferred_level)
-                VALUES (?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET preferred_level = ?""",
-                (user_id, preferred_level, preferred_level),
-            )
 
     def get_word_stats_full(self, user_id: int, word_id: int) -> Optional[Dict]:
         with self._cursor() as c:
@@ -1124,44 +875,11 @@ class Database:
                 (user_id, 1 if is_correct else 0, 1 if is_correct else 0),
             )
 
-    def get_quiz_stats(self, user_id: int) -> Tuple[int, int]:
-        with self._cursor() as c:
-            c.execute(
-                "SELECT correct_answers, total_answers FROM user_stats WHERE user_id = ?",
-                (user_id,),
-            )
-            result = c.fetchone()
-            return result if result else (0, 0)
-
-    def get_user_settings(self, user_id: int) -> Dict:
-        with self._cursor() as c:
-            c.execute(
-                "SELECT preferred_level FROM user_settings WHERE user_id = ?",
-                (user_id,),
-            )
-            result = c.fetchone()
-
-        if result:
-            return {"preferred_level": result[0] or "A1"}
-
-        return {"preferred_level": "A1"}
-
     # ---------- Gamification + Same-day review ----------
     def _today_local(self) -> str:
         from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
         tz = timezone(timedelta(hours=USER_TIMEZONE_OFFSET_HOURS, minutes=USER_TIMEZONE_OFFSET_MINUTES))
         return datetime.now(tz).strftime("%Y-%m-%d")
-
-    def get_user_progress(self, user_id: int) -> Dict:
-        with self._cursor() as c:
-            c.execute(
-                "SELECT xp, streak, last_active_date FROM user_progress WHERE user_id=?",
-                (user_id,),
-            )
-            r = c.fetchone()
-            if r:
-                return {"xp": r[0] or 0, "streak": r[1] or 0, "last_active_date": r[2]}
-            return {"xp": 0, "streak": 0, "last_active_date": None}
 
     def record_activity(self, user_id: int, xp_gain: int) -> Dict:
         today = self._today_local()

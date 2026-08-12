@@ -39,6 +39,7 @@ target/
 # System files
 .DS_Store
 Thumbs.db
+words.db
 
 # Coverage
 coverage/
