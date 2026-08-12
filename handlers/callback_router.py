@@ -7,8 +7,8 @@ import config
 # ✅ جایگزین:
 from handlers import grammar_handlers, menus, quiz_handlers, admin_handlers
 from handlers.learning.ltr_handlers import (
-    handle_study_lesson, handle_ltr_ready, handle_ltr_summary,
-    handle_ltr_exit, handle_ltr_answer, handle_ltr_learned
+    handle_study_lesson, handle_ltr_ready, handle_ltr_learned,
+    handle_ltr_summary, handle_ltr_exit, handle_ltr_answer
 )
 from handlers.story import (
     show_story_menu,
@@ -248,6 +248,7 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.QUIZ_FROM_LESSON.value, _handle_quiz_from_lesson),
     (CallbackPrefix.FLASHCARD_LESSON.value, _handle_flashcard_lesson),
     (CallbackPrefix.STUDY_LESSON.value, handle_study_lesson),
+    ("ltr_learned:", lambda q, c, s: handle_ltr_learned(q, c)),
     (CallbackPrefix.FLIP_CARD.value, lambda q, c, s: handle_flip_card(q, c, s)),
     (
         CallbackPrefix.SKIP_FLASHCARD.value,

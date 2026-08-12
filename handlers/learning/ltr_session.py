@@ -368,6 +368,9 @@ def _ltr_answer_keyboard(options: list) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")])
     return InlineKeyboardMarkup(rows)
 
+def _ltr_intro_keyboard() -> InlineKeyboardMarkup:
+    """Alias for backward compatibility - same as _ltr_learn_keyboard."""
+    return _ltr_learn_keyboard()
 
 __all__ = [
     "LTRSessionManager",
@@ -375,5 +378,6 @@ __all__ = [
     "_make_ltr_options",
     "_ltr_wrong_display_german_options",
     "_ltr_learn_keyboard",
+    "_ltr_intro_keyboard",
     "_ltr_answer_keyboard",
 ]
