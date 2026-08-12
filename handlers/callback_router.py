@@ -4,7 +4,12 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
-from handlers import grammar_handlers, learning_handlers, menus, quiz_handlers, admin_handlers
+# ✅ جایگزین:
+from handlers import grammar_handlers, menus, quiz_handlers, admin_handlers
+from handlers.learning.ltr_handlers import (
+    handle_study_lesson, handle_ltr_ready, handle_ltr_summary,
+    handle_ltr_exit, handle_ltr_answer
+)
 from handlers.story import (
     show_story_menu,
     show_story,
@@ -27,97 +32,11 @@ from models import CallbackPrefix
 from services import db, get_main_menu_keyboard, reset_session, tts
 from ui import back_inline_keyboard, render
 from handlers import writing_handlers, listening_handlers
+from handlers.tts_handlers import cleanup_tts, send_ephemeral_audio, handle_speak_current
 
 logger = logging.getLogger(__name__)
 
 _tts_jobs: Dict[int, object] = {}
-
-
-async def _cleanup_tts(context, user_id: int):
-    job = _tts_jobs.pop(user_id, None)
-    if job:
-        try:
-            job.schedule_removal()
-        except Exception:
-            pass
-    info = context.user_data.pop("tts_message", None)
-    if info:
-        try:
-            await context.bot.delete_message(chat_id=info[0], message_id=info[1])
-        except Exception:
-            pass
-
-
-async def _auto_delete_tts(context):
-    chat_id, message_id = context.job.data
-    try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except Exception:
-        pass
-
-
-async def _send_ephemeral_audio(query, context, text):
-    if not query or not query.message:
-        return
-    user_id = query.from_user.id
-    await _cleanup_tts(context, user_id)
-    audio_path = await tts.get_audio_path(text)
-    if not audio_path:
-        await query.message.reply_text("❌ قابلیت تلفظ در دسترس نیست.")
-        return
-    chat_id = query.message.chat_id
-    title = text if len(text) <= 80 else text[:77] + "..."
-    try:
-        with open(audio_path, "rb") as f:
-            if config.TTS_SEND_AS_DOCUMENT:
-                sent = await context.bot.send_document(
-                    chat_id=chat_id,
-                    document=f,
-                    caption=f"🔊 {title}",
-                    reply_to_message_id=query.message.message_id,
-                    allow_sending_without_reply=True,
-                    disable_content_type_detection=True,
-                )
-            else:
-                sent = await context.bot.send_audio(
-                    chat_id=chat_id,
-                    audio=f,
-                    title=title,
-                    performer="German Bot",
-                    reply_to_message_id=query.message.message_id,
-                    allow_sending_without_reply=True,
-                )
-    except Exception as e:
-        logger.error("Failed to send audio: %s", e)
-        await query.message.reply_text("❌ خطا در پخش صدا")
-        return
-
-    context.user_data["tts_message"] = (chat_id, sent.message_id)
-    if config.TTS_AUTO_DELETE_SECONDS > 0 and context.job_queue:
-        job = context.job_queue.run_once(
-            _auto_delete_tts,
-            config.TTS_AUTO_DELETE_SECONDS,
-            data=(chat_id, sent.message_id),
-            chat_id=chat_id,
-            user_id=user_id,
-        )
-        _tts_jobs[user_id] = job
-
-
-async def _handle_speak_current(query, context, suffix: str):
-    text = context.user_data.get("current_tts_text")
-    if not text:
-        fc = context.user_data.get("current_flashcard") or {}
-        word_id = fc.get("word_id")
-        word = db.get_word_by_id(word_id) if word_id else None
-        text = word.display_german if word else None
-    if not text:
-        try:
-            await query.answer("❌ متن تلفظ موجود نیست.", show_alert=True)
-        except Exception:
-            pass
-        return
-    await _send_ephemeral_audio(query, context, text)
 
 
 async def _handle_quiz_type(query, context, suffix: str):
@@ -140,68 +59,12 @@ async def _handle_quiz_from_lesson(query, context, suffix: str):
     context.user_data.pop("quiz_source_filter", None)
     await menus.show_quiz_menu(query, context)
 
-
 async def _handle_flashcard_lesson(query, context, suffix: str):
     try:
         lesson_id = int(suffix)
     except ValueError:
         return
-    await learning_handlers.start_flashcard_session(query, context, lesson_id=lesson_id)
-
-
-async def _handle_study_lesson(query, context, suffix: str):
-    """Handle study lesson button - start LTR session."""
-    try:
-        lesson_id = int(suffix)
-    except ValueError:
-        return
-    
-    user_id = query.from_user.id
-    
-    # Get weak and new words for this lesson
-    weak_words = db.get_weak_words_by_lesson(user_id, lesson_id, limit=20)
-    new_words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=20)    
-    if not weak_words and not new_words:
-        await render(
-            query,
-            "🎉 هیچ کلمه‌ی جدید یا ضعیفی در این درس ندارید!",
-            reply_markup=back_inline_keyboard()
-        )
-        return
-    
-    # Initialize LTR session
-    ltr_manager = LTRSessionManager(context)
-    if not ltr_manager.initialize(user_id, lesson_id, weak_words, new_words):
-        await render(
-            query,
-            "❌ خطا در شروع جلسه.",
-            reply_markup=back_inline_keyboard()
-        )
-        return
-    
-    # Show intro
-    word = ltr_manager.get_current_word()
-    if word:
-        await _show_ltr_intro(query, context, word, lesson_id)
-
-
-async def _show_ltr_intro(query, context, word, lesson_id: int):
-    """Show LTR intro screen for a word."""
-    from handlers.learning.ltr_session import _ltr_intro_keyboard
-    from ui import esc
-
-    context.user_data["current_tts_text"] = word.display_german
-
-    msg = (
-        f"🧠 <b>تمرین عمیق (LTR)</b>\n"
-        f"📚 درس: {lesson_id}\n"
-        f"🇩🇪 <b>{esc(word.display_german)}</b>\n"
-        f"🇮🇷 {esc(word.persian)}\n"
-        "در این حالت، کلمات را با روش یادگیری فعال تمرین می‌کنیم.\n"
-        "برای هر کلمه، چند سوال مختلف پرسیده می‌شود."
-    )
-
-    await render(query, msg, reply_markup=_ltr_intro_keyboard())
+    await start_flashcard_session(query, context, lesson_id=lesson_id)  # ✅ مستقیم
 
 
 async def _handle_quiz_source(query, context, suffix: str):
@@ -314,7 +177,7 @@ async def _handle_back_to_main_menu(query, context):
     except Exception:
         pass
 
-    await _cleanup_tts(context, query.from_user.id)
+    await cleanup_tts(context, query.from_user.id)  # ✅
     reset_session(context)
     try:
         if query.message:
@@ -348,7 +211,7 @@ async def _handle_back_to_main_menu(query, context):
         )
 
 EXACT_ROUTES: Dict[str, Callable] = {
-    "admin_panel": lambda q, c: admin_handlers.show_admin_panel(q, c),
+    "admin_panel": admin_handlers.show_admin_panel,
     "admin_users": lambda q, c: admin_handlers.show_admin_users(q, c),
     "reset_progress": lambda q, c: admin_handlers.handle_reset_progress(q, c),
     "reset_confirm": lambda q, c: admin_handlers.handle_reset_confirm(q, c),
@@ -357,7 +220,7 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "noop": None,
     "show_dashboard": lambda q, c: menus.show_dashboard_simple(q, c),
     "show_error_notebook": lambda q, c: menus.show_error_notebook(q, c),
-    "quiz_next": lambda q, c: quiz_handlers._send_next_quiz(q, c),
+    "quiz_next": quiz_handlers._send_next_quiz,
     "show_books_inline": lambda q, c: menus.show_books(q, c, is_message=False),
     "show_quiz_source": lambda q, c: menus.show_quiz_source(q, c),
     "show_quiz_menu": lambda q, c: menus.show_quiz_menu(q, c),
@@ -365,15 +228,19 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "show_level_select": lambda q, c: menus.show_level_select(q, c),
     "show_goal_select": lambda q, c: menus.show_goal_select(q, c),
     "quiz_retry_wrong": lambda q, c: quiz_handlers.start_wrong_quiz(q, c),
-    "next_flashcard": lambda q, c: learning_handlers.handle_next_flashcard(q, c),
-    "ltr_start": lambda q, c: learning_handlers.handle_ltr_start(q, c),
-    "ltr_ready": lambda q, c: learning_handlers.handle_ltr_ready(q, c),
-    "ltr_summary": lambda q, c: learning_handlers.handle_ltr_summary(q, c),
-    "ltr_exit": lambda q, c: learning_handlers.handle_ltr_exit(q, c),
-    "flashcard_due": lambda q, c: learning_handlers.start_flashcard_session(
+    "next_flashcard": lambda q, c: handle_next_flashcard(q, c),
+    "ltr_ready": handle_ltr_ready,
+    "ltr_summary": handle_ltr_summary,
+    "ltr_exit": handle_ltr_exit,
+    "next_flashcard": handle_next_flashcard,
+    "flashcard_due": lambda q, c: start_flashcard_session(q, c, only_due=True),
+    "flashcard_hard": lambda q, c: start_flashcard_session(q, c, hard_only=True),
+    "ltr_summary": lambda q, c: handle_ltr_summary(q, c),
+    "ltr_exit": lambda q, c: handle_ltr_exit(q, c),
+    "flashcard_due": lambda q, c: start_flashcard_session(
         q, c, only_due=True
     ),
-    "flashcard_hard": lambda q, c: learning_handlers.start_flashcard_session(
+    "flashcard_hard": lambda q, c: start_flashcard_session(
         q, c, hard_only=True
     ),
 }
@@ -388,18 +255,18 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.QUIZ_ANS.value, _handle_quiz_ans),
     (CallbackPrefix.QUIZ_FROM_LESSON.value, _handle_quiz_from_lesson),
     (CallbackPrefix.FLASHCARD_LESSON.value, _handle_flashcard_lesson),
-    (CallbackPrefix.STUDY_LESSON.value, _handle_study_lesson),
-    (CallbackPrefix.FLIP_CARD.value, lambda q, c, s: learning_handlers.handle_flip_card(q, c, s)),
+    (CallbackPrefix.STUDY_LESSON.value, handle_study_lesson),
+    (CallbackPrefix.FLIP_CARD.value, lambda q, c, s: handle_flip_card(q, c, s)),
     (
         CallbackPrefix.SKIP_FLASHCARD.value,
-        lambda q, c, s: learning_handlers.handle_skip_flashcard(q, c, s),
+        lambda q, c, s: handle_skip_flashcard(q, c, s),
     ),
-    (CallbackPrefix.RATE_CARD.value, lambda q, c, s: learning_handlers.handle_rate_card(q, c, s)),
-    (CallbackPrefix.SPEAK_CURRENT.value, _handle_speak_current),
+    (CallbackPrefix.RATE_CARD.value, lambda q, c, s: handle_rate_card(q, c, s)),
+    (CallbackPrefix.SPEAK_CURRENT.value, handle_speak_current),
     (CallbackPrefix.LESSON_WORDS.value, _handle_lesson_words),
     (CallbackPrefix.BOOK.value, _handle_book),
     (CallbackPrefix.LESSON.value, lambda q, c, s: menus.show_lesson_options(q, c, int(s))),
-    (CallbackPrefix.LTR_ANS.value, lambda q, c, s: learning_handlers.handle_ltr_answer(q, c, s)),
+    (CallbackPrefix.LTR_ANS.value, lambda q, c, s: handle_ltr_answer(q, c, s)),
     (
         CallbackPrefix.GRAMMAR_LESSON.value,
         lambda q, c, s: grammar_handlers.show_grammar_menu(q, c, int(s)),

@@ -14,110 +14,44 @@ from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
 
 logger = logging.getLogger(__name__)
 
-
-async def _get_word_for_quiz(
-    user_id: int,
-    lesson_id: Optional[int],
-    source_filter: Optional[str],
-    exclude_ids: Optional[Iterable[int]],
-) -> Optional[Word]:
-    exclude_ids = set(exclude_ids or [])
-
+async def _fetch_words_by_source(
+    user_id: int, lesson_id: Optional[int],
+    source_filter: Optional[str], exclude_ids: set, limit: int = 100
+) -> Optional[List[Word]]:
+    """منطق مشترک گرفتن کلمات بر اساس source_filter."""
     if source_filter == "weak":
-        words = db.get_weak_word_objects(user_id, limit=30, exclude_ids=exclude_ids)
-        return random.choice(words) if words else None
-
+        return db.get_weak_word_objects(user_id, limit=limit, exclude_ids=exclude_ids)
     if source_filter == "due":
-        words = db.get_due_word_objects(
-            user_id, limit=30, lesson_id=lesson_id, exclude_ids=exclude_ids
-        )
-        return random.choice(words) if words else None
-
+        return db.get_due_word_objects(user_id, limit=limit, lesson_id=lesson_id, exclude_ids=exclude_ids)
     if source_filter == "mistakes":
-        words = db.get_mistake_word_objects(
-            user_id, limit=30, exclude_ids=exclude_ids
-        )
-        return random.choice(words) if words else None
+        return db.get_mistake_word_objects(user_id, limit=limit, exclude_ids=exclude_ids)
+    return None  # → fallback
 
+
+async def _get_word_for_quiz(user_id, lesson_id, source_filter, exclude_ids):
+    words = await _fetch_words_by_source(user_id, lesson_id, source_filter, set(exclude_ids or []))
+    if words is not None:
+        return random.choice(words) if words else None
     return db.get_random_word_object(lesson_id=lesson_id, exclude_ids=exclude_ids)
 
 
-async def _get_noun_with_article(
-    user_id: int,
-    lesson_id: Optional[int],
-    source_filter: Optional[str],
-    exclude_ids: Optional[Iterable[int]],
-) -> Optional[Word]:
-    exclude_ids = set(exclude_ids or [])
-
-    if source_filter == "weak":
-        words = [
-            w
-            for w in db.get_weak_word_objects(
-                user_id, limit=100, exclude_ids=exclude_ids
-            )
-            if w.article
-        ]
+async def _get_noun_with_article(user_id, lesson_id, source_filter, exclude_ids):
+    words = await _fetch_words_by_source(user_id, lesson_id, source_filter, set(exclude_ids or []))
+    if words is not None:
+        words = [w for w in words if w.article]
         return random.choice(words) if words else None
-
-    if source_filter == "due":
-        words = [
-            w
-            for w in db.get_due_word_objects(
-                user_id, limit=100, lesson_id=lesson_id, exclude_ids=exclude_ids
-            )
-            if w.article
-        ]
-        return random.choice(words) if words else None
-
-    if source_filter == "mistakes":
-        words = [
-            w
-            for w in db.get_mistake_word_objects(
-                user_id, limit=100, exclude_ids=exclude_ids
-            )
-            if w.article
-        ]
-        return random.choice(words) if words else None
-
-    nouns = db.get_nouns_with_article_objects(
-        lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids
-    )
+    nouns = db.get_nouns_with_article_objects(lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids)
     return random.choice(nouns) if nouns else None
 
 
-async def _get_word_with_example(
-    user_id: int,
-    lesson_id: Optional[int],
-    source_filter: Optional[str],
-    exclude_ids: Optional[Iterable[int]],
-) -> Optional[Word]:
-    exclude_ids = set(exclude_ids or [])
-
-    if source_filter == "weak":
-        words = db.get_weak_word_objects(user_id, limit=100, exclude_ids=exclude_ids)
+async def _get_word_with_example(user_id, lesson_id, source_filter, exclude_ids):
+    words = await _fetch_words_by_source(user_id, lesson_id, source_filter, set(exclude_ids or []))
+    if words is not None:
         return random.choice(words) if words else None
-
-    if source_filter == "due":
-        words = db.get_due_word_objects(
-            user_id, limit=100, lesson_id=lesson_id, exclude_ids=exclude_ids
-        )
-        return random.choice(words) if words else None
-
-    if source_filter == "mistakes":
-        words = db.get_mistake_word_objects(
-            user_id, limit=100, exclude_ids=exclude_ids
-        )
-        return random.choice(words) if words else None
-
-    words = db.get_words_with_example_objects(
-        lesson_id=lesson_id, exclude_ids=exclude_ids
-    )
+    words = db.get_words_with_example_objects(lesson_id=lesson_id, exclude_ids=exclude_ids)
     if words:
         return random.choice(words)
-
     return db.get_random_word_object(lesson_id=lesson_id, exclude_ids=exclude_ids)
-
 
 def _sample_unique(primary: List[str], secondary: List[str], count: int) -> List[str]:
     random.shuffle(primary)
@@ -134,72 +68,20 @@ def _sample_unique(primary: List[str], secondary: List[str], count: int) -> List
     return result
 
 
-def _get_smart_wrong_persian_options(word: Word, count: int = 3) -> List[str]:
+def _get_smart_wrong_options(word: Word, count: int, attr_getter) -> List[str]:
+    """گزینه‌های غلط هوشمند بر اساس یک ویژگی."""
     same_type_words = (
         db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
-        if word.word_type
-        else []
+        if word.word_type else []
     )
     other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
-
-    same_type = [
-        w.persian for w in same_type_words if w.persian and w.persian != word.persian
-    ]
-    other = [
-        w.persian
-        for w in other_words
-        if w.persian
-        and w.persian != word.persian
-        and (not word.word_type or w.word_type != word.word_type)
-    ]
-
+    target_val = attr_getter(word)
+    same_type = [attr_getter(w) for w in same_type_words
+                 if attr_getter(w) and attr_getter(w) != target_val]
+    other = [attr_getter(w) for w in other_words
+             if attr_getter(w) and attr_getter(w) != target_val
+             and (not word.word_type or w.word_type != word.word_type)]
     return _sample_unique(same_type, other, count)
-
-
-def _get_smart_wrong_german_options(word: Word, count: int = 3) -> List[str]:
-    same_type_words = (
-        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
-        if word.word_type
-        else []
-    )
-    other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
-
-    same_type = [
-        w.german for w in same_type_words if w.german and w.german != word.german
-    ]
-    other = [
-        w.german
-        for w in other_words
-        if w.german
-        and w.german != word.german
-        and (not word.word_type or w.word_type != word.word_type)
-    ]
-
-    return _sample_unique(same_type, other, count)
-
-
-def _get_smart_wrong_display_german_options(word: Word, count: int = 3) -> List[str]:
-    same_type_words = (
-        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
-        if word.word_type
-        else []
-    )
-    other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
-
-    same_type = [
-        w.display_german
-        for w in same_type_words
-        if w.display_german and w.display_german != word.display_german
-    ]
-    other = [
-        w.display_german
-        for w in other_words
-        if w.display_german
-        and w.display_german != word.display_german
-        and (not word.word_type or w.word_type != word.word_type)
-    ]
-    return _sample_unique(same_type, other, count)
-
 
 async def _gen_article(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if not word.article:
@@ -219,7 +101,7 @@ async def _gen_meaning(word: Word, user_id: int, level: str) -> Optional[Dict]:
         if quiz:
             return quiz
 
-    wrong = _get_smart_wrong_persian_options(word, count=3)
+    wrong = _get_smart_wrong_options(word, count=3, attr_getter=lambda w: w.persian)
     return quiz_service.create_meaning_quiz(word.display_german, word.persian, wrong)
 
 
@@ -241,7 +123,7 @@ async def _gen_reverse(word: Word, user_id: int, level: str) -> Optional[Dict]:
         if quiz:
             return quiz
 
-    wrong = _get_smart_wrong_display_german_options(word, count=3)
+    wrong = _get_smart_wrong_options(word, count=3, attr_getter=lambda w: w.display_german)
     return quiz_service.create_reverse_quiz(word.persian, correct_german, wrong)
 
 
@@ -265,7 +147,7 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
         )
 
     if len(wrong) < 3:
-        wrong += _get_smart_wrong_german_options(word, count=3 - len(wrong))
+        wrong += _get_smart_wrong_options(word, count=3 - len(wrong), attr_getter=lambda w: w.german)
 
     return quiz_service.create_cloze_with_options(
         word.german, word.persian, ex_de, wrong
@@ -516,20 +398,6 @@ async def _show_quiz_summary(query, context, header: str = ""):
     lines.append(f"✅ درست: {session['correct']}")
     lines.append(f"❌ اشتباه: {session['wrong']}")
     lines.append(f"🎯 دقت: {accuracy:.1f}%")
-
-    details_limit = 20
-    if session["results"]:
-        lines.append("\n<b>جزئیات:</b>")
-        for i, r in enumerate(session["results"][:details_limit], 1):
-            emoji = "✅" if r["is_correct"] else "❌"
-            line = f"{i}. {emoji} <b>{esc(r['word'])}</b>"
-            if not r["is_correct"]:
-                line += f"\n   شما: {esc(r['user_answer'])}"
-                line += f"\n   درست: {esc(r['correct_answer'])}"
-            lines.append(line)
-
-        if len(session["results"]) > details_limit:
-            lines.append(f"\n... و {len(session['results']) - details_limit} مورد دیگر")
 
     text = "\n".join(lines)
 
