@@ -1,10 +1,10 @@
 """Core story generation logic."""
-
 import json
 import logging
 import random
 import re
 from typing import List, Dict, Optional, Set
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from services import db, llm, tts
@@ -12,11 +12,13 @@ from ui import _short_label, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
 
+
 # ─── تنظیمات داستان هوشمند ───────────────────────────────────────
 STORY_WORD_TYPES = ("Noun", "Verb", "Adjective")
 MAX_STORY_WORDS = 5        # کلماتی که واقعاً در داستان استفاده می‌شوند
 MAX_CANDIDATE_WORDS = 10   # کلماتی که به LLM Planning داده می‌شوند
 MIN_STORY_WORDS = 3        # حداقل کلمات برای یک داستان معنادار
+
 
 # ─── ژانرها ───────────────────────────────────────────────────────
 GENRES = [
@@ -36,7 +38,18 @@ GENRE_BY_LEVEL = {
 }
 
 
-# ─── نسبت کلمات بر اساس سطح ──────────────────────────────────────
+# ─── توابع کمکی ──────────────────────────────────────────────────
+def _get_display_german(w: dict) -> str:
+    """ساخت display_german از روی دیکشنری کلمه.
+    
+    چون خروجی db.get_words_by_lesson_full() یک dict است (نه آبجکت Word)،
+    property display_german روی آن وجود ندارد و باید دستی ساخته شود.
+    """
+    article = (w.get("article") or "").strip()
+    german = (w.get("german") or "").strip()
+    return f"{article} {german}".strip() if article else german
+
+
 def _get_word_ratios(level: str) -> tuple:
     """نسبت (new, weak, mastered) بر اساس سطح."""
     if level == "A1":
@@ -80,7 +93,6 @@ def _select_smart_words(
         if w.get("word_type") in STORY_WORD_TYPES
         and (w.get("story_suitability") or 3) >= 3
     ]
-
     if not story_friendly:
         story_friendly = [
             w for w in all_words if w.get("word_type") in STORY_WORD_TYPES
@@ -90,7 +102,6 @@ def _select_smart_words(
     new_words = []
     weak_words = []
     mastered_words = []
-
     for w in story_friendly:
         wid = w["id"]
         if wid in exclude_ids:
@@ -108,7 +119,6 @@ def _select_smart_words(
     # ─── محاسبه تعداد بر اساس نسبت ───
     new_ratio, weak_ratio, mastered_ratio = _get_word_ratios(level)
     total = min(MAX_CANDIDATE_WORDS, len(story_friendly))
-
     n_new = max(1, int(total * new_ratio))
     n_weak = max(1, int(total * weak_ratio))
     n_mastered = max(0, total - n_new - n_weak)
@@ -135,20 +145,20 @@ def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
     """تعیین سطح تطبیقی بر اساس عملکرد کاربر."""
     # استفاده از get_weekly_stats که آمار ۷ روز اخیر را برمی‌گرداند
     recent_stats = db.get_weekly_stats(user_id)
-    
+
     # اگر کاربر هیچ فعالیتی نداشته، همان سطح درس را برگردان
     if not recent_stats or recent_stats.get("total_answers", 0) == 0:
         return lesson_level
-    
+
     # get_weekly_stats دقت را به صورت درصد (0-100) برمی‌گرداند
     accuracy = recent_stats.get("accuracy", 50)
-    
+
     # تنظیم سطح بر اساس دقت کاربر
     if accuracy > 80 and lesson_level in ["A1", "A2"]:
         return "B1"
     elif accuracy < 40 and lesson_level in ["B1", "B2"]:
         return "A2"
-        
+
     return lesson_level
 
 
@@ -157,8 +167,9 @@ async def _plan_story(words: List[Dict], level: str, lesson_title: str) -> Optio
     if not words or len(words) < MIN_STORY_WORDS:
         return None
 
+    # ✅ استفاده از _get_display_german به جای w['display_german']
     word_list = "\n".join([
-        f"- {w['display_german']} ({w['persian']}) — {w.get('word_type', '')}"
+        f"- {_get_display_german(w)} ({w['persian']}) — {w.get('word_type', '')}"
         for w in words[:MAX_STORY_WORDS]
     ])
 
@@ -187,7 +198,14 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
 """.strip()
 
     try:
-        response = await llm.generate(prompt, temperature=0.7, max_tokens=500)
+        response = await llm._chat(
+            "You are a German teacher. You output only valid JSON.",
+            prompt,
+            temperature=0.7,
+            max_tokens=500,
+        )
+        if not response:
+            return None
         raw = response.strip()
 
         # ─── استخراج JSON ───
@@ -206,7 +224,6 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
             return None
 
         return plan
-
     except Exception as e:
         logger.error("خطا در برنامه‌ریزی داستان: %s", e)
         return None
@@ -222,8 +239,9 @@ def _build_enhanced_prompt(
     words: List[Dict], level: str, lesson_title: str, genre: Dict
 ) -> str:
     """ساخت پرامپت نهایی برای تولید داستان."""
+    # ✅ استفاده از _get_display_german به جای w['display_german']
     word_details = "\n".join([
-        f"- {w['display_german']} ({w['persian']}) — {w.get('word_type', '')}\n"
+        f"- {_get_display_german(w)} ({w['persian']}) — {w.get('word_type', '')}\n"
         f"  Beispiel: {w.get('example_de', 'N/A')} → {w.get('example_fa', 'N/A')}"
         for w in words
     ])
@@ -276,12 +294,12 @@ async def _validate_story_naturalness(
     """بررسی طبیعی بودن داستان."""
     if len(story_text.split()) < 50:
         return False
-
     word_count = sum(
         1 for w in words
         if w["german"].lower() in story_text.lower()
     )
     return word_count >= MIN_STORY_WORDS
+
 
 async def _generate_story_for_lesson(
     user_id: int, lesson_id: int, exclude_ids: Set[int]
@@ -290,26 +308,29 @@ async def _generate_story_for_lesson(
     lesson = db.get_lesson(lesson_id)
     if not lesson:
         return None
-    
+
     # ─── اصلاح باگ: lesson یک tuple است (lesson_number, title) ───
     lesson_title = lesson[1] or f"درس {lesson[0]}"
     book_level = db.get_book_level_by_lesson(lesson_id) or "A1"
-    
+
     level = _get_adaptive_level(user_id, book_level)
     genre = _select_genre(level, lesson_title)
+
     logger.info(
         "📖 شروع ساخت داستان: درس %d (%s)، سطح %s، ژانر %s",
         lesson_id, lesson_title, level, genre["fa"]
     )
-    
+
     # ─── انتخاب هوشمند کلمات ───
     candidate_words = _select_smart_words(user_id, lesson_id, exclude_ids, level)
     if len(candidate_words) < MIN_STORY_WORDS:
-        logger.warning("کلمات کافی یافت نشد: %d < %d", len(candidate_words), MIN_STORY_WORDS)
+        logger.warning(
+            "کلمات کافی یافت نشد: %d < %d", len(candidate_words), MIN_STORY_WORDS
+        )
         return None
 
     # ─── Planning با LLM ───
-    plan = await _plan_story(candidate_words, level, lesson_title)  # ✅ تغییر یافت
+    plan = await _plan_story(candidate_words, level, lesson_title)
     if not plan:
         logger.warning("Planning ناموفق بود")
         return None
@@ -321,14 +342,93 @@ async def _generate_story_for_lesson(
         target_words = candidate_words[:MAX_STORY_WORDS]
 
     # ─── تولید داستان نهایی ───
-    prompt = _build_enhanced_prompt(target_words, level, lesson_title, genre)  # ✅ تغییر یافت
-    
-    # ... (بقیه کد تابع یعنی حلقه max_retries را بدون تغییر نگه دارید) ...
+    prompt = _build_enhanced_prompt(target_words, level, lesson_title, genre)
+    max_retries = 3
+
+    for attempt in range(max_retries):
+        try:
+            response = await llm._chat(
+                "You are a creative German language teacher. You output only valid JSON.",
+                prompt,
+                temperature=0.7,
+                max_tokens=800,
+            )
+            if not response:
+                logger.warning("LLM پاسخی نداد (تلاش %d)", attempt + 1)
+                continue
+
+            raw = response.strip()
+
+            # ─── استخراج JSON ───
+            match = re.search(r"\{.*\}", raw, re.DOTALL)
+            if not match:
+                logger.warning("JSON پیدا نشد (تلاش %d)", attempt + 1)
+                continue
+
+            story_data = json.loads(match.group())
+
+            # ─── اعتبارسنجی ───
+            if not all(
+                k in story_data
+                for k in ["title", "text", "target_word_ids", "questions"]
+            ):
+                logger.warning("کلیدهای ضروری ناقص هستند (تلاش %d)", attempt + 1)
+                continue
+
+            questions = story_data.get("questions", [])
+            valid_q = [
+                q for q in questions
+                if isinstance(q, dict)
+                and "q" in q and "options" in q and "correct_index" in q
+                and len(q.get("options", [])) == 4
+            ]
+            if len(valid_q) < 2:
+                logger.warning(
+                    "سوالات کافی نیست: %d (تلاش %d)", len(valid_q), attempt + 1
+                )
+                continue
+
+            # ─── بررسی طبیعی بودن ───
+            is_natural = await _validate_story_naturalness(
+                story_data["text"], target_words, level
+            )
+            if not is_natural:
+                logger.warning("داستان طبیعی نیست (تلاش %d)", attempt + 1)
+                continue
+
+            # ─── ذخیره در دیتابیس (با نام فیلدهای صحیح add_story) ───
+            story_id = db.add_story(
+                lesson_id=lesson_id,
+                title_de=story_data.get("title", ""),
+                title_fa="",  # بعداً توسط مترجم پر می‌شود
+                text_de=story_data["text"],
+                text_fa="",
+                target_word_ids=json.dumps([w["id"] for w in target_words]),
+                questions_json=json.dumps(valid_q, ensure_ascii=False),
+                level=level,
+            )
+
+            logger.info(
+                "✅ داستان id=%d برای درس %d (%d کلمه، %d سوال، ژانر: %s، سری: %d/%d)",
+                story_id, lesson_id, len(target_words), len(valid_q),
+                genre["fa"], attempt + 1, max_retries,
+            )
+            return db.get_story(story_id)
+
+        except json.JSONDecodeError as e:
+            logger.warning("خطای JSON (تلاش %d): %s", attempt + 1, e)
+            continue
+        except Exception as e:
+            logger.warning("خطا در ساخت داستان (تلاش %d): %s", attempt + 1, e)
+            continue
+
+    return None
+
 
 async def show_story_menu(query, context, lesson_id: int):
     """منوی داستان - همیشه تولید داستان جدید."""
     from handlers.story.view import show_story
-    
+
     user_id = query.from_user.id
 
     if not llm.is_available():
