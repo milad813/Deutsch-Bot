@@ -8,6 +8,7 @@ __pycache__/
 # Dependencies
 .venv/
 venv/
+env/
 .env
 .env.local
 .env.*
@@ -15,28 +16,16 @@ venv/
 # Logs
 *.log
 
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Testing
-.pytest_cache/
-.mypy_cache/
-
-# Build artifacts
-dist/
-build/
-*.egg-info/
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
+# Temporary files
 *.tmp
+*.swp
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Editors
+.vscode/
+.idea/
 ```
