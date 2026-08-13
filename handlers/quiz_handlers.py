@@ -3,7 +3,7 @@ import random
 import re
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
-
+import time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
@@ -260,7 +260,7 @@ async def _start_generic_quiz(
         parts.append(quiz.get("question", ""))
 
         msg = "\n".join(parts)
-
+        context.user_data["quiz_question_sent_at"] = time.time()
         await render(
             query, msg, reply_markup=quiz_answer_keyboard(quiz.get("options", []))
         )
@@ -475,6 +475,10 @@ async def handle_quiz_answer(query, context):
         user_id = query.from_user.id
         is_correct = chosen_index == quiz_info["correct_index"]
         user_answer_text = options[chosen_index]
+        sent_at = context.user_data.pop("quiz_question_sent_at", None)
+        response_time = None
+        if sent_at:
+            response_time = time.time() - sent_at
         correct_answer = (
             quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
         )
@@ -490,6 +494,7 @@ async def handle_quiz_answer(query, context):
             update_quiz_stats=True,
             xp=10 if is_correct else 0,
             quiz_type=quiz_info.get("type", "meaning"),
+            response_time_sec=response_time,  # ← خط جدید
         )
 
         _update_quiz_session(

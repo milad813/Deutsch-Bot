@@ -59,33 +59,34 @@ def test_initialize_no_words():
 def test_mark_word_learned_schedules_test():
     context = make_context()
     ltr = LTRSessionManager(context)
-
     ltr.initialize(
         user_id=1,
         lesson_id=2,
         weak_words=[make_word(1)],
         new_words=[make_word(2)],
     )
-
     ltr.mark_word_learned(1)
-
     assert 1 in context.user_data["ltr_words_learned"]
     assert context.user_data["ltr_learn_index"] == 1
-
     tasks = context.user_data["ltr_delayed_tasks"]
     assert len(tasks) == 1
     assert tasks[0]["word_id"] == 1
-
-    # Still not due because DELAY_AFTER_LEARN is 2 and learned count is 1
+    
+    # ✅ Dynamic: due_after رو از خود task می‌گیریم
+    due_after = tasks[0]["due_after"]
+    
+    # Still not due because learned count < due_after
     assert ltr.get_due_test() is None
-
-    # Make enough words learned to make the task due
-    context.user_data["ltr_words_learned"].extend([2, 3])
-
+    
+    # Add enough words to make the task due
+    current_count = len(context.user_data["ltr_words_learned"])
+    needed = due_after - current_count
+    for i in range(needed):
+        context.user_data["ltr_words_learned"].append(100 + i)
+    
     task = ltr.get_due_test()
     assert task is not None
     assert task["word_id"] == 1
-
 
 def test_record_correct_result():
     context = make_context()
@@ -124,25 +125,22 @@ def test_record_wrong_result_schedules_retry():
     tasks = context.user_data["ltr_delayed_tasks"]
     assert any(task["word_id"] == 1 for task in tasks)
 
-
 def test_max_retries_mark_word_failed():
+    from handlers.learning.ltr_session import MAX_RETRIES
+    
     context = make_context()
     ltr = LTRSessionManager(context)
-
     ltr.initialize(
         user_id=1,
         lesson_id=2,
         weak_words=[make_word(1)],
         new_words=[],
     )
-
-    context.user_data["ltr_word_retry_count"][1] = 2
-
+    # ✅ Dynamic: به جای عدد 2، از MAX_RETRIES استفاده می‌کنیم
+    context.user_data["ltr_word_retry_count"][1] = MAX_RETRIES
     ltr.record_test_result(1, False)
-
     assert 1 in context.user_data["ltr_words_failed"]
     assert 1 not in context.user_data["ltr_words_passed"]
-
 
 def test_clear_session():
     context = make_context()

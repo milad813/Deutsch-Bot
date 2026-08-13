@@ -39,7 +39,7 @@ async def handle_study_lesson(query, context, suffix: str):
         return
 
     user_id = query.from_user.id
-    MAX_LTR_WORDS = 7  # حداکثر کلمات یک session LTR
+    MAX_LTR_WORDS = 10  # حداکثر کلمات یک session LTR
 
     weak_words = db.words.get_weak_by_lesson(user_id, lesson_id, limit=MAX_LTR_WORDS)
     remaining = MAX_LTR_WORDS - len(weak_words)

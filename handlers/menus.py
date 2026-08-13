@@ -95,13 +95,12 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=get_main_menu_keyboard(due, streak, hard, is_admin=is_admin),
     )
 
-
 async def show_quiz_menu(update, context):
     keyboard = [
         [
             InlineKeyboardButton(
-                "🎯 آرتیکل (der/die/das)",
-                callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}article",
+                "✍️ نوشتاری (توصیه‌شده)",
+                callback_data=f"{CallbackPrefix.WRITING_START.value}",
             )
         ],
         [
@@ -118,27 +117,30 @@ async def show_quiz_menu(update, context):
         ],
         [
             InlineKeyboardButton(
-                "📝 جای خالی", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}cloze"
+                "🎯 آرتیکل (der/die/das)",
+                callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}article",
             )
         ],
         [
             InlineKeyboardButton(
-                "✍️ نوشتاری", callback_data=f"{CallbackPrefix.WRITING_START.value}"
+                "📝 جای خالی",
+                callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}cloze",
             )
         ],
         [
             InlineKeyboardButton(
-                "🎧 شنیداری", callback_data=f"{CallbackPrefix.LISTENING_START.value}"
+                "🎧 شنیداری",
+                callback_data=f"{CallbackPrefix.LISTENING_START.value}",
             )
         ],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ]
     await render(
         update,
-        "🤖 نوع کوییز را انتخاب کنید:",
+        "🤖 نوع کوییز را انتخاب کنید:"
+        "💡 <i>نوشتاری = بیشترین تأثیر روی یادگیری</i>",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
-
 
 async def show_quiz_source(query, context):
     keyboard = [

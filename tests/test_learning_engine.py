@@ -39,7 +39,7 @@ def test_record_quiz_answer_correct():
 
         mock_db.users.update_quiz_stats.assert_called_once_with(1, True)
         mock_db.users.record_activity.assert_called_once_with(1, 10)
-        mock_fsrs.grade_from_correctness.assert_called_once_with(True, 1)
+        mock_fsrs.grade_from_correctness.assert_called_once_with(True, 1, None)
         mock_fsrs.review.assert_called_once_with(1, 10, 3)
         mock_db.learning.record_mistake.assert_not_called()
 

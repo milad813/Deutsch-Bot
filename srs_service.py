@@ -289,7 +289,11 @@ class FSRSService:
 
         if grade == 1:
             interval_days = 0
-            next_review = now + timedelta(minutes=10)
+            # ✅ جدید: کلمه کاملاً جدید → ۱۰ دقیقه، کلمه آشنا → ۲ ساعت
+            if is_new:
+                next_review = now + timedelta(minutes=10)
+            else:
+                next_review = now + timedelta(hours=2)
             phase = "learning"
         else:
             interval_days = self.params.next_interval(stability)
@@ -341,32 +345,32 @@ class FSRSService:
         self,
         is_correct: bool,
         consecutive_correct: int = 0,
+        response_time_sec: float = None,
     ) -> int:
         """
         تبدیل نتیجه کوییز به grade.
-
         1 = Again
         2 = Hard
         3 = Good
         4 = Easy
 
-        اگر کاربر اشتباه زد: Again
-        اگر درست زد و تعداد درست‌های متوالی واقعی زیاد بود: Easy
+        اگر اشتباه زد: Again
+        اگر درست زد ولی خیلی طول کشید (>8 ثانیه): Hard
+        اگر درست زد و ۳+ متوالی درست داشت: Easy
         در غیر این صورت: Good
         """
         if not is_correct:
             return 1
-
         try:
             consecutive_correct = int(consecutive_correct or 0)
         except Exception:
             consecutive_correct = 0
-
+        # ✅ جدید: پاسخ درست ولی کُند → Hard
+        if response_time_sec is not None and response_time_sec > 8.0:
+            return 2
         if consecutive_correct >= 3:
             return 4
-
         return 3
-
     def get_review_cards(
         self,
         user_id: int,

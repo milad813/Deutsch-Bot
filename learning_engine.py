@@ -45,6 +45,7 @@ def record_quiz_answer(
     update_quiz_stats: bool = True,
     xp: Optional[int] = None,
     quiz_type: Optional[str] = None,
+    response_time_sec: float = None,  # ← خط جدید
 ) -> None:
     """Record a normal quiz answer.
 
@@ -71,7 +72,7 @@ def record_quiz_answer(
             if s["skill_type"] == skill_type:
                 consecutive = s.get("correct_streak", 0)
                 break
-        grade = fsrs.grade_from_correctness(is_correct, consecutive)
+        grade = fsrs.grade_from_correctness(is_correct, consecutive, response_time_sec)
         fsrs.review(user_id, word_id, grade)
 
     if not is_correct:

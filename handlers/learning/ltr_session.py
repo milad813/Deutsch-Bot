@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 # ─── تنظیمات LTR ───────────────────────────────────────────────────
 WORDS_PER_BATCH = 3  # هر بار چند کلمه یاد بده قبل از تست
-DELAY_AFTER_LEARN = 2  # چند کلمه بعد، سوال بپرس
-MAX_RETRIES = 2  # اگه اشتباه زد، چند بار دوباره بپرس
+DELAY_AFTER_LEARN = 3  # چند کلمه بعد، سوال بپرس
+MAX_RETRIES = 3  # اگه اشتباه زد، چند بار دوباره بپرس
 RETRY_DELAY = 1  # تأخیر برای retry
 
 

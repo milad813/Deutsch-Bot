@@ -364,7 +364,16 @@ class ExtendedWordRepository(BaseRepository):
                 WHERE w2.lesson_id IS NOT NULL)"""
             params.append(user_id)
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
-        query += exclude_sql + " ORDER BY w.id ASC LIMIT ?"
+        query += exclude_sql + """ ORDER BY 
+            CASE w.cefr_estimated 
+                WHEN 'A1' THEN 1 
+                WHEN 'A2' THEN 2 
+                WHEN 'B1' THEN 3 
+                WHEN 'B2' THEN 4 
+                ELSE 5 
+            END, 
+            w.id ASC 
+        LIMIT ?"""
         params.extend(exclude_params)
         params.append(limit)
         return [self._row_to_word(row) for row in self.fetch_all(query, tuple(params))]
