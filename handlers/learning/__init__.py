@@ -11,7 +11,6 @@ from handlers.learning.ltr_handlers import (
     handle_ltr_exit,
     handle_ltr_learned,
     handle_ltr_ready,
-    handle_ltr_show_details,
     handle_ltr_summary,
     handle_study_lesson,
 )
@@ -38,7 +37,6 @@ __all__ = [
     "handle_study_lesson",
     "handle_ltr_ready",
     "handle_ltr_learned",
-    "handle_ltr_show_details",
     "handle_ltr_summary",
     "handle_ltr_exit",
     "handle_ltr_answer",

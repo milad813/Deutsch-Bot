@@ -25,7 +25,6 @@ from handlers.learning.ltr_handlers import (
     handle_ltr_exit,
     handle_ltr_learned,
     handle_ltr_ready,
-    handle_ltr_show_details,
     handle_ltr_summary,
     handle_study_lesson,
 )
@@ -262,7 +261,6 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.FLASHCARD_LESSON.value, _handle_flashcard_lesson),
     (CallbackPrefix.STUDY_LESSON.value, handle_study_lesson),
     ("ltr_learned:", lambda q, c, s: handle_ltr_learned(q, c)),
-    ("ltr_details:", lambda q, c, s: handle_ltr_show_details(q, c, s)),
     (CallbackPrefix.FLIP_CARD.value, lambda q, c, s: handle_flip_card(q, c, s)),
     (
         CallbackPrefix.SKIP_FLASHCARD.value,

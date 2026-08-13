@@ -125,10 +125,15 @@ async def _show_learn_word(query, context):
     parts.append(f"🇮🇷 {esc(word.persian)}")
 
     # English meaning (optional, brief)
+    # English meaning (optional, brief)
     if word.english_meaning:
         parts.append(f"🇬🇧 <i>{esc(word.english_meaning)}</i>")
 
-    # ✅ نمایش مثال در صفحه learn
+    # ✅ NEW: Extra forms (plural, verb forms, comparative)
+    if word.extra_forms_line:
+        parts.append(f"📖 {esc(word.extra_forms_line)}")
+
+    # نمایش مثال در صفحه learn
     if word.example_de:
         parts.append("")
         parts.append(f"📝 {esc(word.example_de)}")
@@ -145,47 +150,6 @@ async def _show_learn_word(query, context):
     await render(
         query, "\n".join(parts), reply_markup=_ltr_learn_keyboard(word_id=word.id)
     )
-
-
-async def handle_ltr_show_details(query, context, suffix: str):
-    """Reveal detailed info for a word (Progressive Disclosure)."""
-    try:
-        word_id = int(suffix)
-    except ValueError:
-        return
-
-    word = db.words.get_by_id(word_id)
-    if not word:
-        await query.answer("❌ کلمه پیدا نشد.", show_alert=True)
-        return
-
-    # Build detailed message
-    parts = [f"💡 <b>جزئیات: {esc(word.display_german)}</b>", ""]
-
-    # Extra forms
-    if word.extra_forms_line:
-        parts.append(f"📖 {esc(word.extra_forms_line)}")
-
-    # Example sentence
-    if word.example_de:
-        parts.append(f"📝 {esc(word.example_de)}")
-        if word.example_fa:
-            parts.append(f"   🇮🇷 <i>{esc(word.example_fa)}</i>")
-
-    # Collocation
-    if word.collocation_line:
-        parts.append(f"🔗 {esc(word.collocation_line)}")
-
-    if len(parts) <= 2:
-        parts.append("ℹ️ جزئیات بیشتری برای این کلمه ثبت نشده.")
-
-    # Answer with alert (popup)
-    detail_text = "\n".join(parts)
-    try:
-        await query.answer(detail_text, show_alert=True)
-    except Exception:
-        # If too long for alert, send as message
-        await query.message.reply_text(detail_text)
 
 
 async def handle_ltr_learned(query, context):
@@ -645,7 +609,6 @@ def _get_word_type_emoji(word_type: Optional[str]) -> str:
 __all__ = [
     "handle_study_lesson",
     "handle_ltr_learned",
-    "handle_ltr_show_details",
     "handle_ltr_answer",
     "handle_ltr_summary",
     "handle_ltr_exit",

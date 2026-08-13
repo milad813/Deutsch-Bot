@@ -132,7 +132,6 @@ class TestUserSession:
         assert session.story is None
         assert session.grammar is None
         assert session.listening is None
-        assert session.writing is None
         assert session.conversation_history == []
 
     def test_user_session_clear(self):

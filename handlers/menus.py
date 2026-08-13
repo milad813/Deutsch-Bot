@@ -131,8 +131,7 @@ async def show_quiz_menu(update, context):
     ]
     await render(
         update,
-        "🤖 نوع کوییز را انتخاب کنید:\n"
-        "💡 <i>نوشتاری = بیشترین تأثیر روی یادگیری</i>",
+        "🤖 نوع کوییز را انتخاب کنید:",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 

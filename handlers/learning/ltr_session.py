@@ -337,23 +337,9 @@ def _ltr_learn_keyboard(word_id: int = None) -> InlineKeyboardMarkup:
     """Keyboard for learn phase."""
     rows = [
         [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")],
+        [InlineKeyboardButton("✅ یاد گرفتم، بعدی!", callback_data="ltr_learned")],
+        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
     ]
-
-    # ✅ دکمه جزئیات فقط وقتی word_id موجود باشد
-    if word_id:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    "💡 مثال و جزئیات", callback_data=f"ltr_details:{word_id}"
-                )
-            ]
-        )
-
-    rows.append(
-        [InlineKeyboardButton("✅ یاد گرفتم، بعدی!", callback_data="ltr_learned")]
-    )
-    rows.append([InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")])
-
     return InlineKeyboardMarkup(rows)
 
 
