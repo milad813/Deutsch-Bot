@@ -17,8 +17,7 @@ from telegram.ext import (
 
 import config
 from handlers import handle_text_input, inline_handler, show_menu, start
-from services import db, tts
-
+from services import db, tts, run_db, get_main_menu_keyboard
 config.setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -62,20 +61,21 @@ async def daily_tts_cleanup(context):
 async def daily_reminder(context):
     """Send reminder to users with due words."""
     try:
-        all_users = db.users.get_all_users()
+        all_users = await run_db(db.users.get_all_users)
         user_ids = [u[0] for u in all_users]
     except Exception:
         user_ids = [config.ADMIN_USER_ID] if config.ADMIN_USER_ID else []
 
     for uid in user_ids:
         try:
-            due_count = db.words.get_due_count(uid)
-            hard_count = db.words.count_hard_due(uid)
+            due_count, hard_count, daily_goal, today_done = await asyncio.gather(
+                run_db(db.words.get_due_count, uid),
+                run_db(db.words.count_hard_due, uid),
+                run_db(db.learning.get_daily_goal, uid),
+                run_db(db.learning.get_today_activity_count, uid),
+            )
 
             if due_count > 0 or hard_count > 0:
-                daily_goal = db.learning.get_daily_goal(uid)
-                today_done = db.learning.get_today_activity_count(uid)
-
                 msg = "🔔 <b>یادآور مرور</b>\n"
 
                 if hard_count:
@@ -91,21 +91,19 @@ async def daily_reminder(context):
 
                 msg += "\nبیا تمرین کن! 💪"
 
-                from services import get_main_menu_keyboard
-
                 await context.bot.send_message(
                     chat_id=uid,
                     text=msg,
                     reply_markup=get_main_menu_keyboard(
-                        due_count, hard_count=hard_count
+                        due_count,
+                        hard_count=hard_count,
                     ),
                 )
 
-            await asyncio.sleep(0.05)
+                await asyncio.sleep(0.05)
 
         except Exception as e:
             logger.warning("خطا در ارسال یادآور به %s: %s", uid, e)
-
 
 def _get_reminder_utc_time() -> datetime.time:
     """Convert configured local reminder time to UTC."""

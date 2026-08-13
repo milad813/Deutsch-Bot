@@ -74,13 +74,6 @@ def sanitize_html(text: str) -> str:
 
     return escaped
 
-
-def _truncate_by_bytes(text: str, max_bytes: int) -> str:
-    while text and len(text.encode("utf-8")) > max_bytes:
-        text = text[:-1]
-    return text
-
-
 def _chunk_html_text(text: str, max_len: int = 3900) -> List[str]:
     """شکستن متن HTML به تکه‌های کوچکتر با حفظ تگ‌ها."""
     if len(text.encode("utf-8")) <= max_len:

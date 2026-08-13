@@ -230,13 +230,34 @@ class ExtendedWordRepository(BaseRepository):
             return word_id
 
     # ─── درس / آمار ───
-
     def get_by_lesson_full(self, lesson_id: int) -> List[Dict]:
         query = """
-            SELECT id, article, german, persian, word_type,
-            plural_form, verb_forms, comparative, example_de, example_fa,
-            english_meaning, collocation_de, collocation_fa
-            FROM words WHERE lesson_id = ? ORDER BY word_type, german
+            SELECT
+                id,
+                article,
+                german,
+                persian,
+                word_type,
+                plural_form,
+                verb_forms,
+                comparative,
+                example_de,
+                example_fa,
+                english_meaning,
+                collocation_de,
+                collocation_fa,
+                cefr_estimated,
+                topics,
+                contexts,
+                common_situations,
+                story_roles,
+                related_words,
+                common_collocations_de,
+                COALESCE(story_suitability, 3) AS story_suitability,
+                story_suitability_reason
+            FROM words
+            WHERE lesson_id = ?
+            ORDER BY word_type, german
         """
         rows = self.fetch_all(query, (lesson_id,))
         return [
@@ -254,33 +275,18 @@ class ExtendedWordRepository(BaseRepository):
                 "english_meaning": r[10],
                 "collocation_de": r[11],
                 "collocation_fa": r[12],
+                "cefr_estimated": r[13],
+                "topics": r[14],
+                "contexts": r[15],
+                "common_situations": r[16],
+                "story_roles": r[17],
+                "related_words": r[18],
+                "common_collocations_de": r[19],
+                "story_suitability": r[20],
+                "story_suitability_reason": r[21],
             }
             for r in rows
         ]
-
-    def get_without_collocation(self, limit: int = 200) -> List[Dict]:
-        query = """SELECT id, german, persian, article, word_type FROM words
-                   WHERE (collocation_de IS NULL OR collocation_de = '') ORDER BY id LIMIT ?"""
-        rows = self.fetch_all(query, (limit,))
-        return [
-            {
-                "id": r[0],
-                "german": r[1],
-                "persian": r[2],
-                "article": r[3],
-                "word_type": r[4],
-            }
-            for r in rows
-        ]
-
-    def update_collocation(
-        self, word_id: int, collocation_de: str, collocation_fa: str
-    ) -> None:
-        self.execute(
-            "UPDATE words SET collocation_de=?, collocation_fa=? WHERE id=?",
-            (collocation_de, collocation_fa, word_id),
-            commit=True,
-        )
 
     def get_count(self) -> int:
         row = self.fetch_one("SELECT COUNT(*) FROM words")

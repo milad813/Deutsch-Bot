@@ -3,7 +3,9 @@ from telegram.ext import ContextTypes
 
 import config
 from models import CallbackPrefix
-from services import db, get_main_menu_keyboard, reset_session
+import asyncio
+
+from services import db, get_main_menu_keyboard, reset_session, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
 
 ITEMS_PER_PAGE = 5
@@ -18,10 +20,12 @@ def _format_lesson_name(num: int, title: str) -> str:
     return f"درس {num}: {clean_title}"
 
 
-def _menu_stats(user_id: int):
-    due = db.words.get_due_count(user_id)
-    prog = db.users.get_progress(user_id)
-    hard = db.words.count_hard_due(user_id)
+async def _menu_stats(user_id: int):
+    due, prog, hard = await asyncio.gather(
+        run_db(db.words.get_due_count, user_id),
+        run_db(db.users.get_progress, user_id),
+        run_db(db.words.count_hard_due, user_id),
+    )
     return due, prog["streak"], hard
 
 
@@ -34,15 +38,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ─── ثبت کاربر ───
-    db.users.register_user(
+    await run_db(
+        db.users.register_user,
         user_id=user.id,
         username=user.username,
         first_name=user.first_name,
         last_name=user.last_name,
     )
-
     reset_session(context)
-    due, streak, hard = _menu_stats(user.id)
+
+    due, streak, hard = await _menu_stats(user.id)
     welcome = (
         f"سلام {esc(user.first_name)} عزیز! 👋\n"
         "به ربات یادگیری زبان آلمانی خوش آمدی! 🇩🇪\n"
@@ -70,15 +75,16 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ─── ثبت کاربر ───
-    db.users.register_user(
+    await run_db(
+        db.users.register_user,
         user_id=user.id,
         username=user.username,
         first_name=user.first_name,
         last_name=user.last_name,
     )
-
     reset_session(context)
-    due, streak, hard = _menu_stats(user.id)
+
+    due, streak, hard = await _menu_stats(user.id)
     msg = "🏠 <b>منوی اصلی</b>\n"
     if streak > 0:
         msg += f"🔥 streak: {streak} روز\n"

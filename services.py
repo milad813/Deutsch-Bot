@@ -1,5 +1,5 @@
 from telegram import ReplyKeyboardMarkup
-
+import asyncio
 import config
 from database import Database
 from llm_service import LLMService
@@ -13,6 +13,15 @@ llm = LLMService(db=db)
 quiz_service = QuizService()
 fsrs = FSRSService(db)
 tts = TTSService()
+
+async def run_db(func, *args, **kwargs):
+    """
+    Run a blocking database function in a worker thread.
+
+    Usage:
+        await run_db(db.words.get_due_count, user_id)
+    """
+    return await asyncio.to_thread(func, *args, **kwargs)
 
 SESSION_KEYS = {
     "conversation_history",
@@ -37,27 +46,11 @@ SESSION_KEYS = {
     "flashcard_skipped_ids",
     "flashcard_again_counts",
     "tts_message",
-    "study_words",
-    "study_index",
-    "study_lesson_id",
     "ltr_words",
-    "ltr_index",
     "ltr_lesson_id",
     "ltr_word_results",
     "ltr_current_word_id",
-    "ltr_state",
-    "ltr_correct_answer",
-    "ltr_correct_index",
-    "ltr_delayed_1",
-    "ltr_delayed_2",
-    "ltr_round",
-    "ltr_main_index",
-    "ltr_main_progress",
     "ltr_delayed_tasks",
-    "ltr_retry_stage",
-    "ltr_current_word_pos",
-    "ltr_round2_started",
-    "ltr_wrong_in_session",
     "ltr_learn_index",
     "ltr_phase",
     "ltr_word_retry_count",

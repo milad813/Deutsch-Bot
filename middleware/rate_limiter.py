@@ -25,20 +25,7 @@ class RateLimiter:
         self._requests[user_id].append(now)
         return True
 
-    def reset(self, user_id: int) -> None:
-        """Reset rate limit for a specific user."""
-        self._requests.pop(user_id, None)
-
-    def cleanup(self) -> None:
-        """Remove all expired entries to free memory."""
-        now = time.time()
-        for user_id in list(self._requests.keys()):
-            self._requests[user_id] = [
-                t for t in self._requests[user_id] if now - t < self.window
-            ]
-            if not self._requests[user_id]:
-                del self._requests[user_id]
 
 
 # Global instance
-rate_limiter = RateLimiter(max_requests=30, window_seconds=60)
+rate_limiter = RateLimiter(max_requests=80, window_seconds=60)

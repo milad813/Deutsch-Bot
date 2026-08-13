@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
-
+import asyncio
 # ✅ جایگزین:
 from handlers import (
     admin_handlers,
@@ -45,7 +45,7 @@ from handlers.story.quiz import handle_story_next_question
 from handlers.tts_handlers import cleanup_tts, handle_speak_current
 from middleware.rate_limiter import rate_limiter
 from models import CallbackPrefix
-from services import db, get_main_menu_keyboard, reset_session
+from services import db, get_main_menu_keyboard, reset_session, run_db
 from ui import back_inline_keyboard, render
 
 logger = logging.getLogger(__name__)
@@ -192,8 +192,10 @@ async def _handle_back_to_main_menu(query, context):
     reset_session(context)
 
     if query.message:
-        due_count = db.words.get_due_count(query.from_user.id)
-        hard_count = db.words.count_hard_due(query.from_user.id)
+        due_count, hard_count = await asyncio.gather(
+            run_db(db.words.get_due_count, query.from_user.id),
+            run_db(db.words.count_hard_due, query.from_user.id),
+        )
         is_admin = bool(
             config.ADMIN_USER_ID and query.from_user.id == config.ADMIN_USER_ID
         )
@@ -260,7 +262,6 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.QUIZ_FROM_LESSON.value, _handle_quiz_from_lesson),
     (CallbackPrefix.FLASHCARD_LESSON.value, _handle_flashcard_lesson),
     (CallbackPrefix.STUDY_LESSON.value, handle_study_lesson),
-    ("ltr_learned:", lambda q, c, s: handle_ltr_learned(q, c)),
     (CallbackPrefix.FLIP_CARD.value, lambda q, c, s: handle_flip_card(q, c, s)),
     (
         CallbackPrefix.SKIP_FLASHCARD.value,

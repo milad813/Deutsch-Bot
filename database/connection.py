@@ -23,7 +23,8 @@ class DatabaseConnection:
 
     def __init__(self, db_name: str = "words.db"):
         self.db_name = db_name
-        self._write_lock = threading.Lock()
+        self._write_lock = threading.RLock()
+        self._op_lock = threading.RLock()
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
         self._setup_connection()
 
@@ -35,22 +36,23 @@ class DatabaseConnection:
 
     @contextmanager
     def cursor(self, commit: bool = False):
-        if commit:
-            self._write_lock.acquire()
-        try:
-            cur = self.conn.cursor()
-            try:
-                yield cur
-                if commit:
-                    self.conn.commit()
-            except Exception:
-                self.conn.rollback()
-                raise
-            finally:
-                cur.close()
-        finally:
+        with self._op_lock:
             if commit:
-                self._write_lock.release()
+                self._write_lock.acquire()
+            try:
+                cur = self.conn.cursor()
+                try:
+                    yield cur
+                    if commit:
+                        self.conn.commit()
+                except Exception:
+                    self.conn.rollback()
+                    raise
+                finally:
+                    cur.close()
+            finally:
+                if commit:
+                    self._write_lock.release()
 
     def close(self) -> None:
         """Close database connection."""

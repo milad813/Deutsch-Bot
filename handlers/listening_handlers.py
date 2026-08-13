@@ -129,23 +129,6 @@ async def _show_listening_question(update, context):
     kb_rows.append([InlineKeyboardButton("🏁 پایان", callback_data="listening_exit:")])
     await render(update, msg, reply_markup=InlineKeyboardMarkup(kb_rows))
 
-
-async def _show_listening_question_from_message(update, context):
-    """ادامه سوال بعدی از پیام متنی."""
-
-    class FakeQuery:
-        def __init__(self, update):
-            self.from_user = update.effective_user
-            self.message = update.message
-            self.data = ""
-
-        async def answer(self, text=None, show_alert=False):
-            pass
-
-    query = FakeQuery(update)
-    await _show_listening_question(query, context)
-
-
 async def _show_listening_summary(query, context):
     session = context.user_data.pop("listening_session", {})
     total = session.get("correct", 0) + session.get("wrong", 0)
