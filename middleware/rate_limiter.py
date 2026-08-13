@@ -1,4 +1,5 @@
 """Simple in-memory rate limiter for Telegram bot."""
+
 import time
 from collections import defaultdict
 from typing import Dict, List

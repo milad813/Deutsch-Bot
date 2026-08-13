@@ -89,6 +89,7 @@ class LearningRepository(BaseRepository):
                 (now_str, user_id, word_id, skill_type),
                 commit=True,
             )
+
     def get_word_skills(self, user_id: int, word_id: int) -> List[Dict]:
         """Get all skill stats for one word."""
         rows = self.fetch_all(
@@ -120,6 +121,7 @@ class LearningRepository(BaseRepository):
             )
 
         return result
+
     def get_word_mastery(self, user_id: int, word_id: int) -> Optional[Dict]:
         """Get simple overall mastery for a word."""
         skills = self.get_word_skills(user_id, word_id)
@@ -134,9 +136,9 @@ class LearningRepository(BaseRepository):
             "skills": skills,
             "total_correct": total_correct,
             "total_answers": total_answers,
-            "accuracy": int((total_correct / total_answers) * 100)
-            if total_answers
-            else 0,
+            "accuracy": (
+                int((total_correct / total_answers) * 100) if total_answers else 0
+            ),
         }
 
     # ─────────────────────────────
@@ -462,8 +464,9 @@ class LearningRepository(BaseRepository):
 
     def get_today_activity_count(self, user_id: int) -> int:
         """تعداد فعالیت‌های امروز به وقت محلی کاربر."""
-        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
         from datetime import datetime, timedelta, timezone
+
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
 
         tz = timezone(
             timedelta(
@@ -511,9 +514,7 @@ class LearningRepository(BaseRepository):
             microsecond=0,
         )
 
-        start_utc = start_local.astimezone(timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        start_utc = start_local.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         rows = self.fetch_all(
             """
@@ -571,7 +572,7 @@ class LearningRepository(BaseRepository):
             "accuracy": int(correct_total / total * 100) if total else 0,
             "active_days": len(active_days),
         }
-    
+
     def get_mistake_word_count(self, user_id: int) -> int:
         """تعداد کلمات با اشتباه حل‌نشده."""
         row = self.fetch_one(

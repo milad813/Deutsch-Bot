@@ -52,12 +52,12 @@ class FlashcardSessionManager:
         lesson_id = self.user_data.get("active_lesson_id")
 
         if hard_only:
-            return db.get_hard_due_word_objects(
+            return db.words.get_hard_due(
                 user_id,
                 limit=limit,
             )
         elif only_due:
-            return db.get_due_word_objects(
+            return db.words.get_due(
                 user_id,
                 limit=limit,
                 lesson_id=lesson_id,
@@ -128,26 +128,38 @@ class FlashcardSessionManager:
 
 
 def _flashcard_front_keyboard(word: Word) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("👀 نمایش معنی", callback_data=f"flip_card:{word.id}")],
+    return InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:front"),
-            InlineKeyboardButton("⏭️ رد شدن", callback_data=f"skip_flashcard:{word.id}"),
-        ],
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
+            [
+                InlineKeyboardButton(
+                    "👀 نمایش معنی", callback_data=f"flip_card:{word.id}"
+                )
+            ],
+            [
+                InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:front"),
+                InlineKeyboardButton(
+                    "⏭️ رد شدن", callback_data=f"skip_flashcard:{word.id}"
+                ),
+            ],
+            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
 
 
 def _flashcard_rate_keyboard(word: Word) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:back")],
+    return InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("😵 Again", callback_data=f"rate_card:{word.id}:1"),
-            InlineKeyboardButton("😬 Hard", callback_data=f"rate_card:{word.id}:2"),
-            InlineKeyboardButton("🙂 Good", callback_data=f"rate_card:{word.id}:3"),
-            InlineKeyboardButton("😎 Easy", callback_data=f"rate_card:{word.id}:4"),
-        ],
-    ])
+            [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:back")],
+            [
+                InlineKeyboardButton(
+                    "😵 Again", callback_data=f"rate_card:{word.id}:1"
+                ),
+                InlineKeyboardButton("😬 Hard", callback_data=f"rate_card:{word.id}:2"),
+                InlineKeyboardButton("🙂 Good", callback_data=f"rate_card:{word.id}:3"),
+                InlineKeyboardButton("😎 Easy", callback_data=f"rate_card:{word.id}:4"),
+            ],
+        ]
+    )
 
 
 async def _send_or_edit(query, update, text: str, reply_markup):
@@ -164,11 +176,11 @@ def _get_level_for_context(context, user_id: int) -> str:
     )
 
     if lesson_id:
-        level = db.get_book_level_by_lesson(lesson_id)
+        level = db.books.get_level_by_lesson(lesson_id)
         if level:
             return level
 
-    settings = db.get_user_settings(user_id)
+    settings = db.users.get_settings(user_id)
     return settings.get("preferred_level", "A1")
 
 
@@ -250,10 +262,12 @@ async def _render_flashcard_front(
         if not example and user_id and llm.is_available():
             pending_key = (word.id, level)
             now = time.time()
-            
+
             # حذف entry های قدیمی (بیشتر از ۵ دقیقه)
             global _pending_examples
-            _pending_examples = {k: v for k, v in _pending_examples.items() if now - v < 300}            
+            _pending_examples = {
+                k: v for k, v in _pending_examples.items() if now - v < 300
+            }
             if pending_key not in _pending_examples:
                 _pending_examples[pending_key] = now
                 asyncio.create_task(
@@ -299,6 +313,7 @@ async def _render_flashcard_front(
         query, update, "\n".join(parts), _flashcard_front_keyboard(word)
     )
 
+
 async def handle_flip_card(query, context, suffix: str = None):
     """Handle flip card action."""
     lock_key = "flashcard_flip_lock"
@@ -327,9 +342,11 @@ async def handle_flip_card(query, context, suffix: str = None):
                 pass
             return
 
-        word = db.get_word_by_id(word_id)
+        word = db.words.get_by_id(word_id)
         if not word:
-            await render(query, "❌ کلمه پیدا نشد.", reply_markup=back_inline_keyboard())
+            await render(
+                query, "❌ کلمه پیدا نشد.", reply_markup=back_inline_keyboard()
+            )
             return
 
         fc_data = context.user_data.get("current_flashcard", {}) or {}
@@ -393,6 +410,7 @@ async def handle_flip_card(query, context, suffix: str = None):
     finally:
         context.user_data.pop(lock_key, None)
 
+
 async def handle_rate_card(query, context, suffix: str = None):
     """Handle card rating action."""
     try:
@@ -451,7 +469,7 @@ async def handle_rate_card(query, context, suffix: str = None):
 
         # ثبت مهارت فلش‌کارت
         db.learning.record_skill(user_id, word_id, "flashcard", grade >= 2)
-        db.record_activity(user_id, 5)
+        db.users.record_activity(user_id, 5)
 
         grade_names = {1: "😵 Again", 2: "😬 Hard", 3: "🙂 Good", 4: "😎 Easy"}
 
@@ -461,7 +479,9 @@ async def handle_rate_card(query, context, suffix: str = None):
             else:
                 notice = "😵 Again ثبت شد — مرور بعدی: کمی بعد."
         elif interval_days <= 0:
-            notice = f"✅ {grade_names.get(grade, grade)} ثبت شد (مرور بعدی: کمتر از ۱ روز)"
+            notice = (
+                f"✅ {grade_names.get(grade, grade)} ثبت شد (مرور بعدی: کمتر از ۱ روز)"
+            )
         elif interval_days == 1:
             notice = f"✅ {grade_names.get(grade, grade)} ثبت شد (مرور بعدی: ۱ روز)"
         else:
@@ -472,9 +492,11 @@ async def handle_rate_card(query, context, suffix: str = None):
     finally:
         context.user_data.pop("flashcard_rate_lock", None)
 
+
 async def handle_next_flashcard(query, context, suffix: str = None):
     """Handle next flashcard action."""
     await _go_next_flashcard(query, context, notice=None)
+
 
 async def handle_skip_flashcard(query, context, suffix: str = None):
     """Handle skip flashcard action."""
@@ -498,6 +520,7 @@ async def handle_skip_flashcard(query, context, suffix: str = None):
     finally:
         context.user_data.pop(lock_key, None)
 
+
 async def _go_next_flashcard(query, context, notice: Optional[str] = None):
     """Go to next flashcard or finish session."""
     user_id = query.from_user.id
@@ -507,7 +530,7 @@ async def _go_next_flashcard(query, context, notice: Optional[str] = None):
     word_id = session.pop_queue()
 
     while word_id is not None:
-        word = db.get_word_by_id(word_id)
+        word = db.words.get_by_id(word_id)
         if word:
             await _render_flashcard_front(query, None, context, word, notice=notice)
             return
@@ -522,7 +545,7 @@ async def _go_next_flashcard(query, context, notice: Optional[str] = None):
         exclude_ids = {last_word_id} if last_word_id else set()
         exclude_ids.update(skipped)
 
-        words = db.get_hard_due_word_objects(
+        words = db.words.get_hard_due(
             user_id,
             limit=config.FLASHCARD_QUEUE_LIMIT,
             exclude_ids=exclude_ids,

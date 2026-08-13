@@ -1,33 +1,28 @@
 """Story viewing and display functions."""
 
 import logging
-from typing import List, Dict, Optional
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from services import db, tts
+from services import db
 from ui import back_inline_keyboard, esc, render, sanitize_html
+from utils import safe_json_list
+
 logger = logging.getLogger(__name__)
-
-
-def _safe_json_list(raw):
-    try:
-        data = __import__('json').loads(raw or "[]")
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
 
 
 def _safe_id_list(raw):
     result = []
-    for item in _safe_json_list(raw):
+    for item in safe_json_list(raw):
         try:
             result.append(int(item))
         except Exception:
             continue
     return result
 
+
 async def show_story(query, context, story_id: int):
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -37,7 +32,7 @@ async def show_story(query, context, story_id: int):
 
     title = story.get("title_de") or story.get("title_fa") or "داستان"
     target_ids = _safe_id_list(story.get("target_word_ids"))
-    words = db.get_word_objects_by_ids(target_ids) if target_ids else []
+    words = db.words.get_by_ids(target_ids) if target_ids else []
 
     msg = f"📖 <b>{esc(title)}</b>\n{sanitize_html(story['text_de'])}"
 
@@ -45,40 +40,59 @@ async def show_story(query, context, story_id: int):
         msg += "\n🎯 <b>کلمات این داستان:</b>\n"
         user_id = query.from_user.id
         for w in words[:12]:
-            stats = db.get_word_stats_full(user_id, w.id)
+            stats = db.words.get_stats_full(user_id, w.id)
             if not stats:
                 status = "🆕"
-            elif stats.get("phase") == "learning" or stats.get("wrong", 0) > stats.get("correct", 0):
+            elif stats.get("phase") == "learning" or stats.get("wrong", 0) > stats.get(
+                "correct", 0
+            ):
                 status = "⚠️"
             else:
                 status = "✅"
             msg += f"{status} {esc(w.display_german)}\n"
 
     # ✅ گروه‌بندی: اصلی / ثانویه / ناوبری
-    kb = InlineKeyboardMarkup([
-        # ردیف ۱: اصلی‌ترین اکشن
-        [InlineKeyboardButton("🔊+📖 بخوان و بشنو", callback_data=f"story_listen_read:{story_id}")],
-        # ردیف ۲: تمرین
+    kb = InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}"),
-            InlineKeyboardButton("🧩 کلمات", callback_data=f"story_words:{story_id}"),
-        ],
-        # ردیف ۳: کمک و گوش دادن
-        [
-            InlineKeyboardButton("💡 کمک", callback_data=f"story_hint:{story_id}"),
-            InlineKeyboardButton("🎧 فقط بشنو", callback_data=f"story_listen_only:{story_id}"),
-        ],
-        # ردیف ۴: ناوبری
-        [
-            InlineKeyboardButton("📖 داستان بعدی", callback_data=f"story_next:{story['lesson_id']}"),
-            InlineKeyboardButton("🔙 بازگشت", callback_data=f"lesson_{story['lesson_id']}"),
-        ],
-    ])
+            # ردیف ۱: اصلی‌ترین اکشن
+            [
+                InlineKeyboardButton(
+                    "🔊+📖 بخوان و بشنو", callback_data=f"story_listen_read:{story_id}"
+                )
+            ],
+            # ردیف ۲: تمرین
+            [
+                InlineKeyboardButton(
+                    "❓ سوالات", callback_data=f"story_quiz:{story_id}"
+                ),
+                InlineKeyboardButton(
+                    "🧩 کلمات", callback_data=f"story_words:{story_id}"
+                ),
+            ],
+            # ردیف ۳: کمک و گوش دادن
+            [
+                InlineKeyboardButton("💡 کمک", callback_data=f"story_hint:{story_id}"),
+                InlineKeyboardButton(
+                    "🎧 فقط بشنو", callback_data=f"story_listen_only:{story_id}"
+                ),
+            ],
+            # ردیف ۴: ناوبری
+            [
+                InlineKeyboardButton(
+                    "📖 داستان بعدی", callback_data=f"story_next:{story['lesson_id']}"
+                ),
+                InlineKeyboardButton(
+                    "🔙 بازگشت", callback_data=f"lesson_{story['lesson_id']}"
+                ),
+            ],
+        ]
+    )
     await render(query, msg, reply_markup=kb)
+
 
 async def show_story_hint(query, context, story_id: int):
     """Show progressive hints for the story."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -88,11 +102,11 @@ async def show_story_hint(query, context, story_id: int):
 
     if hint_level == 0:
         target_ids = _safe_id_list(story.get("target_word_ids"))
-        words = db.get_word_objects_by_ids(target_ids) if target_ids else []
+        words = db.words.get_by_ids(target_ids) if target_ids else []
 
         weak_in_story = []
         for w in words:
-            stats = db.get_word_stats_full(user_id, w.id)
+            stats = db.words.get_stats_full(user_id, w.id)
             if not stats:
                 weak_in_story.append(w)
             elif stats.get("wrong", 0) > stats.get("correct", 0):
@@ -108,10 +122,20 @@ async def show_story_hint(query, context, story_id: int):
 
         context.user_data["story_hint_level"] = 1
 
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{story_id}")],
-            [InlineKeyboardButton("💡 کمک بیشتر", callback_data=f"story_hint:{story_id}")],
-        ])
+        kb = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "📖 بازگشت به داستان", callback_data=f"story_view:{story_id}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "💡 کمک بیشتر", callback_data=f"story_hint:{story_id}"
+                    )
+                ],
+            ]
+        )
         await render(query, msg, reply_markup=kb)
 
     elif hint_level == 1:
@@ -130,10 +154,20 @@ async def show_story_hint(query, context, story_id: int):
 
         context.user_data["story_hint_level"] = 2
 
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{story_id}")],
-            [InlineKeyboardButton("💡 ترجمه کامل", callback_data=f"story_hint:{story_id}")],
-        ])
+        kb = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "📖 بازگشت به داستان", callback_data=f"story_view:{story_id}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "💡 ترجمه کامل", callback_data=f"story_hint:{story_id}"
+                    )
+                ],
+            ]
+        )
         await render(query, msg, reply_markup=kb)
 
     else:
@@ -146,15 +180,21 @@ async def show_story_hint(query, context, story_id: int):
             f"{esc(text_fa)}"
         )
 
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{story_id}")],
-        ])
+        kb = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "📖 بازگشت به داستان", callback_data=f"story_view:{story_id}"
+                    )
+                ],
+            ]
+        )
         await render(query, msg, reply_markup=kb)
 
 
 async def show_story_translation(query, context, story_id: int):
     """Show full Persian translation of the story."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -164,32 +204,39 @@ async def show_story_translation(query, context, story_id: int):
 
     msg = f"🇮🇷 <b>{esc(title_fa)}</b>\n\n{esc(text_fa)}"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{story_id}")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📖 بازگشت به داستان", callback_data=f"story_view:{story_id}"
+                )
+            ],
+        ]
+    )
     await render(query, msg, reply_markup=kb)
 
 
 async def play_story_listen_read(query, context, story_id: int):
     """Play audio while showing text (listen and read)."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
     context.user_data["current_tts_text"] = story["text_de"]
-    
+
     # Show story first
     await show_story(query, context, story_id)
-    
+
     # Then play audio
     from handlers.tts_handlers import send_ephemeral_audio
+
     await send_ephemeral_audio(query, context, story["text_de"])
 
 
 async def play_story_listen_only(query, context, story_id: int):
     """Play audio without showing text (listening only)."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -197,40 +244,56 @@ async def play_story_listen_only(query, context, story_id: int):
     title = story.get("title_de") or story.get("title_fa") or "داستان"
     msg = f"🎧 <b>فقط گوش کن: {esc(title)}</b>\n\nبه داستان گوش بده و سعی کن بفهمی."
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 تکرار", callback_data=f"story_replay:{story_id}")],
-        [InlineKeyboardButton("📖 نمایش متن", callback_data=f"story_view:{story_id}")],
-        [InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}")],
-        [InlineKeyboardButton("🔙 بازگشت", callback_data=f"lesson_{story['lesson_id']}")],
-    ])
-    
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🔁 تکرار", callback_data=f"story_replay:{story_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📖 نمایش متن", callback_data=f"story_view:{story_id}"
+                )
+            ],
+            [InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}")],
+            [
+                InlineKeyboardButton(
+                    "🔙 بازگشت", callback_data=f"lesson_{story['lesson_id']}"
+                )
+            ],
+        ]
+    )
+
     await render(query, msg, reply_markup=kb)
-    
+
     # Play audio
     from handlers.tts_handlers import send_ephemeral_audio
+
     await send_ephemeral_audio(query, context, story["text_de"])
 
 
 async def play_story_audio(query, context, story_id: int):
     """Send story as audio message."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
     from handlers.tts_handlers import send_ephemeral_audio
+
     await send_ephemeral_audio(query, context, story["text_de"])
 
 
 async def show_story_words(query, context, story_id: int):
     """Show vocabulary from the story."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
     target_ids = _safe_id_list(story.get("target_word_ids"))
-    words = db.get_word_objects_by_ids(target_ids) if target_ids else []
+    words = db.words.get_by_ids(target_ids) if target_ids else []
 
     if not words:
         await render(query, "❌ کلمه‌ای یافت نشد.", reply_markup=back_inline_keyboard())
@@ -238,9 +301,9 @@ async def show_story_words(query, context, story_id: int):
 
     user_id = query.from_user.id
     msg = f"🧩 <b>کلمات داستان</b>\n\n"
-    
+
     for w in words:
-        stats = db.get_word_stats_full(user_id, w.id)
+        stats = db.words.get_stats_full(user_id, w.id)
         if not stats:
             status = "🆕 جدید"
         elif stats.get("phase") == "learning":
@@ -249,7 +312,7 @@ async def show_story_words(query, context, story_id: int):
             status = "🔴 ضعیف"
         else:
             status = "✅ مسلط"
-        
+
         msg += f"{status} • <b>{esc(w.display_german)}</b>\n"
         msg += f"  → {esc(w.persian)}\n"
         if w.extra_forms_line:
@@ -258,19 +321,30 @@ async def show_story_words(query, context, story_id: int):
             msg += f"  → {esc(w.collocation_line)}\n"
         msg += "\n"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{story_id}")],
-        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{story['lesson_id']}")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📖 بازگشت به داستان", callback_data=f"story_view:{story_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔙 بازگشت به درس", callback_data=f"lesson_{story['lesson_id']}"
+                )
+            ],
+        ]
+    )
     await render(query, msg, reply_markup=kb)
 
 
 async def replay_story(query, context, story_id: int):
     """Replay story audio."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
     from handlers.tts_handlers import send_ephemeral_audio
+
     await send_ephemeral_audio(query, context, story["text_de"])

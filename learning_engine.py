@@ -58,7 +58,7 @@ def record_quiz_answer(
     quiz_type = quiz_type or skill_type
 
     if update_quiz_stats:
-        db.update_quiz_stats(user_id, is_correct)
+        db.users.update_quiz_stats(user_id, is_correct)
 
     if word_id:
         db.learning.record_skill(user_id, word_id, skill_type, is_correct)
@@ -85,4 +85,4 @@ def record_quiz_answer(
         )
 
     if xp is not None:
-        db.record_activity(user_id, xp)
+        db.users.record_activity(user_id, xp)

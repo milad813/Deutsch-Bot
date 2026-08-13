@@ -1,6 +1,6 @@
 """LTR (Learn-Test-Review) session management - CORRECT implementation."""
+
 import logging
-import random
 from typing import Any, Dict, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -12,10 +12,10 @@ from ui import _short_label, progress_bar
 logger = logging.getLogger(__name__)
 
 # ─── تنظیمات LTR ───────────────────────────────────────────────────
-WORDS_PER_BATCH = 3          # هر بار چند کلمه یاد بده قبل از تست
-DELAY_AFTER_LEARN = 2        # چند کلمه بعد، سوال بپرس
-MAX_RETRIES = 2              # اگه اشتباه زد، چند بار دوباره بپرس
-RETRY_DELAY = 1              # تأخیر برای retry
+WORDS_PER_BATCH = 3  # هر بار چند کلمه یاد بده قبل از تست
+DELAY_AFTER_LEARN = 2  # چند کلمه بعد، سوال بپرس
+MAX_RETRIES = 2  # اگه اشتباه زد، چند بار دوباره بپرس
+RETRY_DELAY = 1  # تأخیر برای retry
 
 
 class LTRSessionManager:
@@ -44,20 +44,25 @@ class LTRSessionManager:
         self.user_data["ltr_user_id"] = user_id
         self.user_data["ltr_lesson_id"] = lesson_id
         self.user_data["ltr_words"] = [w.id for w in all_words]
-        self.user_data["ltr_learn_index"] = 0       # کلمه‌ای که الان یاد میدیم
-        self.user_data["ltr_phase"] = "learn"        # learn | test | review | done
-        self.user_data["ltr_delayed_tasks"] = []     # تسک‌های تست تأخیری
-        self.user_data["ltr_word_results"] = {}      # word_id → [True/False, ...]
+        self.user_data["ltr_learn_index"] = 0  # کلمه‌ای که الان یاد میدیم
+        self.user_data["ltr_phase"] = "learn"  # learn | test | review | done
+        self.user_data["ltr_delayed_tasks"] = []  # تسک‌های تست تأخیری
+        self.user_data["ltr_word_results"] = {}  # word_id → [True/False, ...]
         self.user_data["ltr_word_retry_count"] = {}  # word_id → تعداد retry
-        self.user_data["ltr_words_learned"] = []     # کلماتی که یاد داده شدن
-        self.user_data["ltr_words_tested"] = []      # کلماتی که تست شدن
-        self.user_data["ltr_words_passed"] = []      # کلماتی که قبول شدن
-        self.user_data["ltr_words_failed"] = []      # کلماتی که رد شدن
-        self.user_data["ltr_current_question"] = None  # کلمه‌ای که الان ازش سوال می‌پرسیم
+        self.user_data["ltr_words_learned"] = []  # کلماتی که یاد داده شدن
+        self.user_data["ltr_words_tested"] = []  # کلماتی که تست شدن
+        self.user_data["ltr_words_passed"] = []  # کلماتی که قبول شدن
+        self.user_data["ltr_words_failed"] = []  # کلماتی که رد شدن
+        self.user_data["ltr_current_question"] = (
+            None  # کلمه‌ای که الان ازش سوال می‌پرسیم
+        )
 
         logger.info(
             "LTR session initialized: lesson=%d, %d weak + %d new = %d words",
-            lesson_id, len(weak_words), len(new_words), len(all_words)
+            lesson_id,
+            len(weak_words),
+            len(new_words),
+            len(all_words),
         )
         return True
 
@@ -78,7 +83,7 @@ class LTRSessionManager:
             self.user_data["ltr_learn_index"] = learn_index + 1
             return self.get_next_word_to_learn()
 
-        return db.get_word_by_id(word_id)
+        return db.words.get_by_id(word_id)
 
     def mark_word_learned(self, word_id: int):
         """Mark a word as learned and schedule delayed test."""
@@ -94,18 +99,22 @@ class LTRSessionManager:
 
     # ─── Test Phase ──────────────────────────────────────────────────
 
-    def _schedule_test(self, word_id: int, due_after_progress: int, is_retry: bool = False):
+    def _schedule_test(
+        self, word_id: int, due_after_progress: int, is_retry: bool = False
+    ):
         """Schedule a test question for a word."""
         tasks = self.user_data.setdefault("ltr_delayed_tasks", [])
 
         # Remove existing task for same word (replace)
         tasks[:] = [t for t in tasks if t.get("word_id") != word_id]
 
-        tasks.append({
-            "word_id": word_id,
-            "due_after": due_after_progress,
-            "is_retry": is_retry,
-        })
+        tasks.append(
+            {
+                "word_id": word_id,
+                "due_after": due_after_progress,
+                "is_retry": is_retry,
+            }
+        )
         # Sort by due time
         tasks.sort(key=lambda t: t.get("due_after", 0))
 
@@ -124,7 +133,7 @@ class LTRSessionManager:
         """Get the word currently being quizzed."""
         word_id = self.user_data.get("ltr_current_question")
         if word_id:
-            return db.get_word_by_id(word_id)
+            return db.words.get_by_id(word_id)
         return None
 
     def record_test_result(self, word_id: int, is_correct: bool):
@@ -151,9 +160,15 @@ class LTRSessionManager:
             # ❌ Failed - schedule retry if allowed
             retry_count = self.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
             if retry_count < MAX_RETRIES:
-                self.user_data.setdefault("ltr_word_retry_count", {})[word_id] = retry_count + 1
+                self.user_data.setdefault("ltr_word_retry_count", {})[word_id] = (
+                    retry_count + 1
+                )
                 learned_count = len(self.user_data.get("ltr_words_learned", []))
-                self._schedule_test(word_id, due_after_progress=learned_count + RETRY_DELAY, is_retry=True)
+                self._schedule_test(
+                    word_id,
+                    due_after_progress=learned_count + RETRY_DELAY,
+                    is_retry=True,
+                )
             else:
                 # Max retries reached - mark as failed
                 failed = self.user_data.setdefault("ltr_words_failed", [])
@@ -220,9 +235,9 @@ class LTRSessionManager:
         # Record activity
         correct_count = sum(1 for r in results if r)
         if all(results):
-            db.record_activity(uid, 20)
+            db.users.record_activity(uid, 20)
         else:
-            db.record_activity(uid, 5 * correct_count)
+            db.users.record_activity(uid, 5 * correct_count)
 
     def finalize_all_passed_words(self):
         """Finalize all words that passed."""
@@ -244,6 +259,7 @@ class LTRSessionManager:
         for word_id, word_results in results.items():
             if word_results:
                 self.finalize_word(word_id, user_id=uid)
+
     # ─── Summary & Progress ──────────────────────────────────────────
 
     def get_progress_info(self) -> Dict[str, Any]:
@@ -281,18 +297,33 @@ class LTRSessionManager:
 
     def clear_session(self) -> None:
         keys_to_clear = [
-            "ltr_user_id", "ltr_lesson_id", "ltr_words",
-            "ltr_learn_index", "ltr_phase", "ltr_delayed_tasks",
-            "ltr_word_results", "ltr_word_retry_count",
-            "ltr_words_learned", "ltr_words_tested",
-            "ltr_words_passed", "ltr_words_failed",
-            "ltr_current_question", "ltr_current_options",
-            "ltr_current_correct_index", "ltr_current_correct_text",
+            "ltr_user_id",
+            "ltr_lesson_id",
+            "ltr_words",
+            "ltr_learn_index",
+            "ltr_phase",
+            "ltr_delayed_tasks",
+            "ltr_word_results",
+            "ltr_word_retry_count",
+            "ltr_words_learned",
+            "ltr_words_tested",
+            "ltr_words_passed",
+            "ltr_words_failed",
+            "ltr_current_question",
+            "ltr_current_options",
+            "ltr_current_correct_index",
+            "ltr_current_correct_text",
             "ltr_question_type",
             # Legacy keys
-            "ltr_index", "ltr_main_index", "ltr_main_progress",
-            "ltr_retry_stage", "ltr_wrong_in_session", "ltr_round",
-            "ltr_round2_started", "ltr_delayed_1", "ltr_delayed_2",
+            "ltr_index",
+            "ltr_main_index",
+            "ltr_main_progress",
+            "ltr_retry_stage",
+            "ltr_wrong_in_session",
+            "ltr_round",
+            "ltr_round2_started",
+            "ltr_delayed_1",
+            "ltr_delayed_2",
         ]
 
         for key in keys_to_clear:
@@ -300,64 +331,6 @@ class LTRSessionManager:
 
 
 # ─── Helper Functions ────────────────────────────────────────────────
-
-def _sample_unique_ltr(primary: list, secondary: list, count: int) -> list:
-    """Sample unique items from primary and secondary lists."""
-    random.shuffle(primary)
-    random.shuffle(secondary)
-    result = []
-    for item in primary + secondary:
-        item = str(item or "").strip()
-        if item and item not in result:
-            result.append(item)
-        if len(result) == count:
-            break
-    return result
-
-
-def _make_ltr_options(
-    correct: str, wrongs: list, total: int = 4, min_options: int = 2
-) -> Optional[list]:
-    """Create multiple choice options."""
-    correct = str(correct or "").strip()
-    if not correct:
-        return None
-
-    options = [correct]
-    for wrong in wrongs or []:
-        wrong = str(wrong or "").strip()
-        if not wrong or wrong in options:
-            continue
-        options.append(wrong)
-        if len(options) == total:
-            break
-
-    if len(options) < min_options:
-        return None
-
-    random.shuffle(options)
-    return options
-
-
-def _ltr_wrong_display_german_options(word: Word, count: int = 3) -> list:
-    """Get wrong German display options for a word."""
-    same_type_words = (
-        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
-        if word.word_type else []
-    )
-    other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
-
-    same_type = [
-        w.display_german for w in same_type_words
-        if w.display_german and w.display_german != word.display_german
-    ]
-    other = [
-        w.display_german for w in other_words
-        if w.display_german and w.display_german != word.display_german
-        and (not word.word_type or w.word_type != word.word_type)
-    ]
-
-    return _sample_unique_ltr(same_type, other, count)
 
 
 def _ltr_learn_keyboard(word_id: int = None) -> InlineKeyboardMarkup:
@@ -369,15 +342,17 @@ def _ltr_learn_keyboard(word_id: int = None) -> InlineKeyboardMarkup:
     # ✅ دکمه جزئیات فقط وقتی word_id موجود باشد
     if word_id:
         rows.append(
-            [InlineKeyboardButton("💡 مثال و جزئیات", callback_data=f"ltr_details:{word_id}")]
+            [
+                InlineKeyboardButton(
+                    "💡 مثال و جزئیات", callback_data=f"ltr_details:{word_id}"
+                )
+            ]
         )
 
     rows.append(
         [InlineKeyboardButton("✅ یاد گرفتم، بعدی!", callback_data="ltr_learned")]
     )
-    rows.append(
-        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")]
-    )
+    rows.append([InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")])
 
     return InlineKeyboardMarkup(rows)
 
@@ -387,21 +362,24 @@ def _ltr_answer_keyboard(options: list) -> InlineKeyboardMarkup:
     rows = []
     for i, opt in enumerate(options):
         label = f"{chr(65 + i)}) {opt}"
-        rows.append([
-            InlineKeyboardButton(_short_label(label, 64), callback_data=f"ltr_ans:{i}")
-        ])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    _short_label(label, 64), callback_data=f"ltr_ans:{i}"
+                )
+            ]
+        )
     rows.append([InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")])
     return InlineKeyboardMarkup(rows)
+
 
 def _ltr_intro_keyboard() -> InlineKeyboardMarkup:
     """Alias for backward compatibility - same as _ltr_learn_keyboard."""
     return _ltr_learn_keyboard()
 
+
 __all__ = [
     "LTRSessionManager",
-    "_sample_unique_ltr",
-    "_make_ltr_options",
-    "_ltr_wrong_display_german_options",
     "_ltr_learn_keyboard",
     "_ltr_intro_keyboard",
     "_ltr_answer_keyboard",

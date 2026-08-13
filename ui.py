@@ -2,8 +2,7 @@ import re
 from html import escape, unescape
 from typing import List
 
-from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
-                      ReplyKeyboardMarkup)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.error import BadRequest
 
 
@@ -28,6 +27,7 @@ def _short_label(text: str, max_len: int = 64) -> str:
 
 def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", str(text or ""))
+
 
 ALLOWED_HTML_TAGS = {"b", "i", "u", "s", "code", "pre"}
 
@@ -74,6 +74,7 @@ def sanitize_html(text: str) -> str:
 
     return escaped
 
+
 def _truncate_by_bytes(text: str, max_bytes: int) -> str:
     while text and len(text.encode("utf-8")) > max_bytes:
         text = text[:-1]
@@ -102,13 +103,13 @@ def _chunk_html_text(text: str, max_len: int = 3900) -> List[str]:
         # پیدا کردن آخرین فضای خالی قبل از محدودیت
         encoded = current.encode("utf-8")
         cut_point = max_len
-        while cut_point > 0 and encoded[cut_point - 1:cut_point] != b" ":
+        while cut_point > 0 and encoded[cut_point - 1 : cut_point] != b" ":
             cut_point -= 1
         if cut_point == 0:
             cut_point = max_len
         part = encoded[:cut_point].decode("utf-8", errors="ignore")
         chunks.append(part)
-        current = current[len(part):]
+        current = current[len(part) :]
 
     if current:
         chunks.append(current)
@@ -130,19 +131,18 @@ def _bold_word_in_sentence(sentence: str, word: str) -> str:
         return esc(sentence or "")
 
     # پشتیبانی از پسوندهای صرف (مثل schlechten برای schlecht)
-    pattern = re.compile(
-        r"\b(" + re.escape(word) + r"[a-zäöüß]*)\b", re.IGNORECASE
-    )
+    pattern = re.compile(r"\b(" + re.escape(word) + r"[a-zäöüß]*)\b", re.IGNORECASE)
 
     result = []
     last_end = 0
     for match in pattern.finditer(sentence):
-        result.append(esc(sentence[last_end:match.start()]))
+        result.append(esc(sentence[last_end : match.start()]))
         result.append(f"<b>{esc(match.group())}</b>")
         last_end = match.end()
     result.append(esc(sentence[last_end:]))
 
     return "".join(result)
+
 
 def main_menu_keyboard(
     due_count: int = 0, streak: int = 0, hard_count: int = 0, is_admin: bool = False
@@ -169,6 +169,7 @@ def main_menu_keyboard(
 
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
+
 def back_inline_keyboard(
     text: str = "🏠 منوی اصلی",
     callback_data: str = "back_to_main_menu",
@@ -176,6 +177,7 @@ def back_inline_keyboard(
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton(text, callback_data=callback_data)]]
     )
+
 
 def quiz_answer_keyboard(options: List[str]) -> InlineKeyboardMarkup:
     keyboard = []
@@ -240,7 +242,9 @@ async def render(update, text: str, reply_markup=None):
                 raise
         return
 
-    message = getattr(update, "effective_message", None) or getattr(update, "message", None)
+    message = getattr(update, "effective_message", None) or getattr(
+        update, "message", None
+    )
     if message is None and hasattr(update, "reply_text"):
         message = update
     if message:

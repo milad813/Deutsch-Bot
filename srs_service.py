@@ -224,7 +224,7 @@ class FSRSService:
         self.params = FSRSParams()
 
     def get_state(self, user_id: int, word_id: int) -> Optional[FSRSState]:
-        stats = self.db.get_word_stats_full(user_id, word_id)
+        stats = self.db.words.get_stats_full(user_id, word_id)
         if not stats:
             return None
 
@@ -310,7 +310,7 @@ class FSRSService:
         srs_level = max(0, reps - lapses)
         srs_level = min(5, srs_level)
 
-        self.db.update_word_stats_fsrs(
+        self.db.words.update_stats_fsrs(
             user_id=user_id,
             word_id=word_id,
             correct=1 if grade >= 2 else 0,
@@ -381,14 +381,14 @@ class FSRSService:
             new_limit = min(5, limit)
 
         if only_new:
-            return self.db.get_new_word_objects(
+            return self.db.words.get_new_word_objects(
                 user_id=user_id,
                 lesson_id=lesson_id,
                 limit=limit,
                 exclude_ids=exclude_ids,
             )
 
-        return self.db.get_flashcard_words(
+        return self.db.words.get_flashcard_words(
             user_id=user_id,
             limit=limit,
             lesson_id=lesson_id,

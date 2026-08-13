@@ -19,6 +19,7 @@ SEPARABLE_PREFIXES = {
     "zurück",
 }
 
+
 class QuizService:
 
     @staticmethod
@@ -28,6 +29,7 @@ class QuizService:
             if german_word.lower().startswith(article + " "):
                 return article, german_word[len(article) :].strip()
         return None, german_word
+
     @staticmethod
     def _inflection_pattern(candidate: str):
         candidate = str(candidate or "").strip()
@@ -100,7 +102,7 @@ class QuizService:
 
             for prefix in SEPARABLE_PREFIXES:
                 if stem.startswith(prefix) and len(stem) > len(prefix) + 2:
-                    rest = stem[len(prefix):]
+                    rest = stem[len(prefix) :]
 
                     if len(rest) >= 3:
                         add(rest)
@@ -109,6 +111,7 @@ class QuizService:
                         add(rest[:-2])
 
         return candidates
+
     @staticmethod
     def _unique_options(
         correct: str, wrong_options: List[str], total: int = 4
@@ -211,28 +214,6 @@ class QuizService:
         return pattern.search(sentence)
 
     @staticmethod
-    def _search_candidates(german_word: str, noun: str) -> List[str]:
-        candidates: List[str] = []
-        for item in (german_word, noun):
-            item = (item or "").strip()
-            if not item:
-                continue
-            if item not in candidates:
-                candidates.append(item)
-            parts = item.split()
-            if len(parts) > 1:
-                # حذف sich/zu
-                without_reflexive = " ".join(
-                    p for p in parts if p.lower() not in {"sich", "zu"}
-                )
-                if without_reflexive and without_reflexive not in candidates:
-                    candidates.append(without_reflexive)
-                # اضافه کردن آخرین کلمه (برای separable verbs)
-                if parts[-1] and parts[-1] not in candidates:
-                    candidates.append(parts[-1])
-        return candidates
-
-    @staticmethod
     def create_cloze_quiz(
         german_word: str,
         persian_meaning: str,
@@ -293,7 +274,7 @@ class QuizService:
             return None
 
         sentence_with_blank = (
-            sentence[: best_match.start()] + "______" + sentence[best_match.end():]
+            sentence[: best_match.start()] + "______" + sentence[best_match.end() :]
         )
 
         question = (

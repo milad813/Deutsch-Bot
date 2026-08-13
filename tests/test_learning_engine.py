@@ -1,11 +1,13 @@
 """Unit tests for learning_engine module."""
+
 from unittest.mock import patch
 
 
 def test_record_quiz_answer_correct():
     """Test recording a correct quiz answer."""
-    with patch("learning_engine.db") as mock_db, \
-         patch("learning_engine.fsrs") as mock_fsrs:
+    with patch("learning_engine.db") as mock_db, patch(
+        "learning_engine.fsrs"
+    ) as mock_fsrs:
 
         mock_db.learning.get_word_skills.return_value = [
             {
@@ -35,22 +37,18 @@ def test_record_quiz_answer_correct():
             quiz_type="meaning",
         )
 
-        mock_db.update_quiz_stats.assert_called_once_with(1, True)
-        mock_db.learning.record_skill.assert_called_once_with(
-            1, 10, "meaning", True
-        )
-
+        mock_db.users.update_quiz_stats.assert_called_once_with(1, True)
+        mock_db.users.record_activity.assert_called_once_with(1, 10)
         mock_fsrs.grade_from_correctness.assert_called_once_with(True, 1)
         mock_fsrs.review.assert_called_once_with(1, 10, 3)
-
-        mock_db.record_activity.assert_called_once_with(1, 10)
         mock_db.learning.record_mistake.assert_not_called()
 
 
 def test_record_quiz_answer_wrong():
     """Test recording a wrong quiz answer."""
-    with patch("learning_engine.db") as mock_db, \
-         patch("learning_engine.fsrs") as mock_fsrs:
+    with patch("learning_engine.db") as mock_db, patch(
+        "learning_engine.fsrs"
+    ) as mock_fsrs:
 
         mock_db.learning.get_word_skills.return_value = [
             {
@@ -80,10 +78,8 @@ def test_record_quiz_answer_wrong():
             quiz_type="meaning",
         )
 
-        mock_db.update_quiz_stats.assert_called_once_with(1, False)
-        mock_db.learning.record_skill.assert_called_once_with(
-            1, 10, "meaning", False
-        )
+        mock_db.users.update_quiz_stats.assert_called_once_with(1, False)
+        mock_db.learning.record_skill.assert_called_once_with(1, 10, "meaning", False)
 
         mock_fsrs.review.assert_called_once_with(1, 10, 1)
         mock_db.learning.record_mistake.assert_called_once()
@@ -91,8 +87,9 @@ def test_record_quiz_answer_wrong():
 
 def test_record_quiz_answer_no_word_id():
     """Test that SRS is not called when word_id is None."""
-    with patch("learning_engine.db") as mock_db, \
-         patch("learning_engine.fsrs") as mock_fsrs:
+    with patch("learning_engine.db") as mock_db, patch(
+        "learning_engine.fsrs"
+    ) as mock_fsrs:
 
         from learning_engine import record_quiz_answer
 

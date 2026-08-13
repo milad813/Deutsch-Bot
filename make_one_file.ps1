@@ -1,7 +1,7 @@
 $targetDir = "D:\IT\PythonProjects\Deutsch-Bot"
 $outFile = "$targetDir/all_project_files.txt"
 
-$excludedDirs = "venv|\.git|\.github|\.pytest_cache|__pycache__|audio_cache|backups"
+$excludedDirs = "venv|\.git|\.venv|\.github|\.pytest_cache|__pycache__|audio_cache|backups"
 $excludedFiles = "\.db$|\.csv$|\.mp3$|\.pyc$|^all_project_files\.txt$|^\.env$"
 
 Get-ChildItem -Path $targetDir -Recurse -File |

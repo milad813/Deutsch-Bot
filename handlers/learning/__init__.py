@@ -1,4 +1,3 @@
-"""Learning handlers package - modularized from learning_handlers.py."""
 from handlers.learning.flashcard_session import (
     FlashcardSessionManager,
     handle_flip_card,
@@ -7,23 +6,20 @@ from handlers.learning.flashcard_session import (
     handle_skip_flashcard,
     start_flashcard_session,
 )
+from handlers.learning.ltr_handlers import (
+    handle_ltr_answer,
+    handle_ltr_exit,
+    handle_ltr_learned,
+    handle_ltr_ready,
+    handle_ltr_show_details,
+    handle_ltr_summary,
+    handle_study_lesson,
+)
 from handlers.learning.ltr_session import (
     LTRSessionManager,
     _ltr_answer_keyboard,
     _ltr_intro_keyboard,
     _ltr_learn_keyboard,
-    _ltr_wrong_display_german_options,
-    _make_ltr_options,
-    _sample_unique_ltr,
-)
-from handlers.learning.ltr_handlers import (
-    handle_study_lesson,
-    handle_ltr_ready,
-    handle_ltr_learned,
-    handle_ltr_show_details,
-    handle_ltr_summary,
-    handle_ltr_exit,
-    handle_ltr_answer,
 )
 
 __all__ = [
@@ -36,9 +32,6 @@ __all__ = [
     "handle_skip_flashcard",
     # LTR
     "LTRSessionManager",
-    "_sample_unique_ltr",
-    "_make_ltr_options",
-    "_ltr_wrong_display_german_options",
     "_ltr_answer_keyboard",
     "_ltr_learn_keyboard",
     "_ltr_intro_keyboard",

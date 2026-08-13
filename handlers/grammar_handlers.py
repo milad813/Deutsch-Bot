@@ -32,7 +32,7 @@ def _grammar_quiz_keyboard(options, point_id):
 
 
 async def show_grammar_menu(query, context, lesson_id: int):
-    points = db.get_grammar_points_by_lesson(lesson_id)
+    points = db.grammar.get_by_lesson(lesson_id)
     if not points:
         await render(
             query,
@@ -60,7 +60,7 @@ async def show_grammar_menu(query, context, lesson_id: int):
 
 
 async def show_grammar_point(query, context, point_id: int):
-    p = db.get_grammar_point(point_id)
+    p = db.grammar.get_by_id(point_id)
     if not p:
         await render(query, "❌ نکته پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -94,7 +94,7 @@ async def show_grammar_point(query, context, point_id: int):
 
 
 async def start_grammar_quiz(query, context, point_id: int):
-    p = db.get_grammar_point(point_id)
+    p = db.grammar.get_by_id(point_id)
 
     if not p:
         await render(query, "❌ نکته پیدا نشد.", reply_markup=back_inline_keyboard())
@@ -156,8 +156,7 @@ async def start_grammar_quiz(query, context, point_id: int):
     if len(options) < 2:
         await render(
             query,
-            "📭 این تمرین گزینه‌های کافی ندارد.\n"
-            "لطفاً یک تمرین دیگر را امتحان کن.",
+            "📭 این تمرین گزینه‌های کافی ندارد.\n" "لطفاً یک تمرین دیگر را امتحان کن.",
             reply_markup=back_inline_keyboard("🔙 بازگشت", f"grammar_point:{p['id']}"),
         )
         return
@@ -177,7 +176,8 @@ async def start_grammar_quiz(query, context, point_id: int):
     msg = f"✍️ <b>تمرین گرامر</b>\n🇩 {esc(ex.get('sentence_de', ''))}"
 
     await render(query, msg, reply_markup=_grammar_quiz_keyboard(options, p["id"]))
-    
+
+
 async def handle_grammar_answer(query, context, suffix: str):
     lock_key = "grammar_answer_lock"
     if context.user_data.get(lock_key):
@@ -221,7 +221,7 @@ async def handle_grammar_answer(query, context, suffix: str):
                 correct_answer=cur["correct"],
             )
 
-        db.record_activity(user_id, 10 if is_correct else 0)
+        db.users.record_activity(user_id, 10 if is_correct else 0)
 
         if is_correct:
             try:
@@ -248,7 +248,8 @@ async def handle_grammar_answer(query, context, suffix: str):
         kb.append(
             [
                 InlineKeyboardButton(
-                    "🔙 بازگشت به نکته", callback_data=f"grammar_point:{cur['point_id']}"
+                    "🔙 بازگشت به نکته",
+                    callback_data=f"grammar_point:{cur['point_id']}",
                 )
             ]
         )

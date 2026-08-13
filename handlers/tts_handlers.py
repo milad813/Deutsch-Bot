@@ -1,6 +1,8 @@
 """TTS audio sending and cleanup handlers."""
+
 import logging
 from typing import Dict
+
 import config
 from services import db, tts
 from ui import strip_html
@@ -52,14 +54,19 @@ async def send_ephemeral_audio(query, context, text: str):
         with open(audio_path, "rb") as f:
             if config.TTS_SEND_AS_DOCUMENT:
                 sent = await context.bot.send_document(
-                    chat_id=chat_id, document=f, caption=f"🔊 {title}",
+                    chat_id=chat_id,
+                    document=f,
+                    caption=f"🔊 {title}",
                     reply_to_message_id=query.message.message_id,
                     allow_sending_without_reply=True,
                     disable_content_type_detection=True,
                 )
             else:
                 sent = await context.bot.send_audio(
-                    chat_id=chat_id, audio=f, title=title, performer="German Bot",
+                    chat_id=chat_id,
+                    audio=f,
+                    title=title,
+                    performer="German Bot",
                     reply_to_message_id=query.message.message_id,
                     allow_sending_without_reply=True,
                 )
@@ -70,8 +77,11 @@ async def send_ephemeral_audio(query, context, text: str):
     context.user_data["tts_message"] = (chat_id, sent.message_id)
     if config.TTS_AUTO_DELETE_SECONDS > 0 and context.job_queue:
         job = context.job_queue.run_once(
-            _auto_delete_tts, config.TTS_AUTO_DELETE_SECONDS,
-            data=(chat_id, sent.message_id), chat_id=chat_id, user_id=user_id,
+            _auto_delete_tts,
+            config.TTS_AUTO_DELETE_SECONDS,
+            data=(chat_id, sent.message_id),
+            chat_id=chat_id,
+            user_id=user_id,
         )
         _tts_jobs[user_id] = job
 
@@ -81,7 +91,7 @@ async def handle_speak_current(query, context, suffix: str):
     if not text:
         fc = context.user_data.get("current_flashcard") or {}
         word_id = fc.get("word_id")
-        word = db.get_word_by_id(word_id) if word_id else None
+        word = db.words.get_by_id(word_id) if word_id else None
         text = word.display_german if word else None
     if not text:
         try:

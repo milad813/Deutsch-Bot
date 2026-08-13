@@ -126,14 +126,14 @@ def main():
 
             book_key = (book_name, level)
             if book_key not in book_cache:
-                book_cache[book_key] = db.add_book(book_name, level)
+                book_cache[book_key] = db.books.create(book_name, level)
             book_id = book_cache[book_key]
 
             lesson_key = (book_id, lesson_number)
             if lesson_key not in lesson_cache:
                 lesson_title = pick(row, "lesson_title") or f"درس {lesson_number}"
-                lesson_id = db.add_lesson(book_id, lesson_number, lesson_title)
-                db.set_lesson_title_if_empty(lesson_id, lesson_title)
+                lesson_id = db.lessons.create(book_id, lesson_number, lesson_title)
+                db.lessons.update_title(lesson_id, lesson_title)
                 lesson_cache[lesson_key] = lesson_id
             lesson_id = lesson_cache[lesson_key]
 
@@ -146,7 +146,7 @@ def main():
 
             word_type = clean_word_type(pick(row, "word_type"))
 
-            db.upsert_word(
+            db.words.upsert_word(
                 german_word=german,
                 persian_meaning=persian,
                 book_id=book_id,
@@ -180,7 +180,7 @@ def main():
         print(f"⚠️ تعداد کلمات ردشده: {skipped}")
         print(f"📚 تعداد کتاب‌ها: {len(book_cache)}")
         print(f"📖 تعداد درس‌های دیده‌شده: {len(lesson_cache)}")
-        print(f"📦 تعداد کل کلمات دیتابیس: {db.get_word_count()}")
+        print(f"📦 تعداد کل کلمات دیتابیس: {db.words.get_count()}")
         print("=" * 50)
 
     except Exception as e:

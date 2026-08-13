@@ -1,4 +1,5 @@
 """Unit tests for current LTRSessionManager implementation."""
+
 from unittest.mock import Mock
 
 from handlers.learning.ltr_session import LTRSessionManager

@@ -1,8 +1,11 @@
 """Writing practice - user types the German word."""
+
 import logging
 import random
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
+
 from learning_engine import record_quiz_answer
 from services import db
 from ui import back_inline_keyboard, esc, render
@@ -14,15 +17,17 @@ async def start_writing_quiz(query, context, count: int = 5):
     """شروع کوییز نوشتاری."""
     user_id = query.from_user.id
     lesson_id = context.user_data.get("quiz_lesson_id")
-    
-    words = db.get_due_word_objects(user_id, limit=count, lesson_id=lesson_id)
+
+    words = db.words.get_due(user_id, limit=count, lesson_id=lesson_id)
     if not words:
-        words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=count)
-    
+        words = db.words.get_new_word_objects(user_id, lesson_id=lesson_id, limit=count)
+
     if not words:
-        await render(query, "📭 کلمه‌ای برای تمرین نیست.", reply_markup=back_inline_keyboard())
+        await render(
+            query, "📭 کلمه‌ای برای تمرین نیست.", reply_markup=back_inline_keyboard()
+        )
         return
-    
+
     random.shuffle(words)
     context.user_data["writing_session"] = {
         "words": [w.id for w in words],
@@ -30,7 +35,7 @@ async def start_writing_quiz(query, context, count: int = 5):
         "correct": 0,
         "wrong": 0,
     }
-    
+
     await _show_writing_question(query, context)
 
 
@@ -41,7 +46,7 @@ async def _show_writing_question(query, context):
         return
 
     word_id = session["words"][session["current"]]
-    word = db.get_word_by_id(word_id)
+    word = db.words.get_by_id(word_id)
     if not word:
         session["current"] += 1
         await _show_writing_question(query, context)
@@ -60,22 +65,28 @@ async def _show_writing_question(query, context):
         f"معادل آلمانی را تایپ کن:{article_hint}"
     )
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⏭️ رد شدن", callback_data="writing_skip:")],
-        [InlineKeyboardButton("🏁 پایان", callback_data="writing_exit:")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("⏭️ رد شدن", callback_data="writing_skip:")],
+            [InlineKeyboardButton("🏁 پایان", callback_data="writing_exit:")],
+        ]
+    )
     await render(query, msg, reply_markup=kb)
     context.user_data["awaiting_writing_answer"] = True
 
+
 async def _show_writing_question_from_message(update, context):
     """ادامه سوال بعدی از پیام متنی."""
+
     class FakeQuery:
         def __init__(self, update):
             self.from_user = update.effective_user
             self.message = update.message
             self.data = ""
+
         async def answer(self, text=None, show_alert=False):
             pass
+
     query = FakeQuery(update)
     await _show_writing_question(query, context)
 
@@ -84,20 +95,23 @@ async def _show_writing_summary(query, context):
     session = context.user_data.pop("writing_session", {})
     total = session.get("correct", 0) + session.get("wrong", 0)
     correct = session.get("correct", 0)
-    
+
     msg = (
         f"📊 <b>نتیجه تمرین نوشتاری</b>\n"
         f"✅ درست: {correct}\n"
         f"❌ غلط: {session.get('wrong', 0)}\n"
         f"🎯 دقت: {int(correct / total * 100) if total else 0}%\n"
     )
-    
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 تکرار", callback_data="writing_start:")],
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
-    
+
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔁 تکرار", callback_data="writing_start:")],
+            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
+
     await render(query, msg, reply_markup=kb)
+
 
 async def handle_writing_skip(query, context):
     lock_key = "writing_skip_lock"
@@ -118,7 +132,7 @@ async def handle_writing_skip(query, context):
             return
 
         word_id = context.user_data.get("writing_current_word")
-        word = db.get_word_by_id(word_id)
+        word = db.words.get_by_id(word_id)
 
         if word:
             session["wrong"] = session.get("wrong", 0) + 1
@@ -146,6 +160,7 @@ async def handle_writing_skip(query, context):
     finally:
         context.user_data.pop(lock_key, None)
 
+
 async def handle_writing_exit(query, context):
     context.user_data.pop("writing_session", None)
     context.user_data.pop("awaiting_writing_answer", None)
@@ -163,7 +178,7 @@ async def handle_writing_text(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_input = update.message.text.strip()
     word_id = context.user_data.get("writing_current_word")
-    word = db.get_word_by_id(word_id)
+    word = db.words.get_by_id(word_id)
 
     if not word:
         context.user_data.pop("awaiting_writing_answer", None)

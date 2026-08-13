@@ -1,87 +1,73 @@
 import logging
 import random
 import re
-from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from learning_engine import record_quiz_answer
-from models import Word, QuizSession
-from services import db, fsrs, llm, quiz_service
+from models import QuizSession, Word
+from option_generator import get_wrong_options
+from services import db, llm, quiz_service
 from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
 
 logger = logging.getLogger(__name__)
 
+
 async def _fetch_words_by_source(
-    user_id: int, lesson_id: Optional[int],
-    source_filter: Optional[str], exclude_ids: set, limit: int = 100
+    user_id: int,
+    lesson_id: Optional[int],
+    source_filter: Optional[str],
+    exclude_ids: set,
+    limit: int = 100,
 ) -> Optional[List[Word]]:
     """منطق مشترک گرفتن کلمات بر اساس source_filter."""
     if source_filter == "weak":
-        return db.get_weak_word_objects(user_id, limit=limit, exclude_ids=exclude_ids)
+        return db.words.get_weak(user_id, limit=limit, exclude_ids=exclude_ids)
     if source_filter == "due":
-        return db.get_due_word_objects(user_id, limit=limit, lesson_id=lesson_id, exclude_ids=exclude_ids)
+        return db.words.get_due(
+            user_id, limit=limit, lesson_id=lesson_id, exclude_ids=exclude_ids
+        )
     if source_filter == "mistakes":
-        return db.get_mistake_word_objects(user_id, limit=limit, exclude_ids=exclude_ids)
+        return db.words.get_mistake_words(user_id, limit=limit, exclude_ids=exclude_ids)
     return None  # → fallback
 
 
 async def _get_word_for_quiz(user_id, lesson_id, source_filter, exclude_ids):
-    words = await _fetch_words_by_source(user_id, lesson_id, source_filter, set(exclude_ids or []))
+    words = await _fetch_words_by_source(
+        user_id, lesson_id, source_filter, set(exclude_ids or [])
+    )
     if words is not None:
         return random.choice(words) if words else None
-    return db.get_random_word_object(lesson_id=lesson_id, exclude_ids=exclude_ids)
+    return db.words.get_random(lesson_id=lesson_id, exclude_ids=exclude_ids)
 
 
 async def _get_noun_with_article(user_id, lesson_id, source_filter, exclude_ids):
-    words = await _fetch_words_by_source(user_id, lesson_id, source_filter, set(exclude_ids or []))
+    words = await _fetch_words_by_source(
+        user_id, lesson_id, source_filter, set(exclude_ids or [])
+    )
     if words is not None:
         words = [w for w in words if w.article]
         return random.choice(words) if words else None
-    nouns = db.get_nouns_with_article_objects(lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids)
+    nouns = db.words.get_nouns_with_article(
+        lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids
+    )
     return random.choice(nouns) if nouns else None
 
 
 async def _get_word_with_example(user_id, lesson_id, source_filter, exclude_ids):
-    words = await _fetch_words_by_source(user_id, lesson_id, source_filter, set(exclude_ids or []))
+    words = await _fetch_words_by_source(
+        user_id, lesson_id, source_filter, set(exclude_ids or [])
+    )
     if words is not None:
         return random.choice(words) if words else None
-    words = db.get_words_with_example_objects(lesson_id=lesson_id, exclude_ids=exclude_ids)
+    words = db.words.get_with_examples(lesson_id=lesson_id, exclude_ids=exclude_ids)
     if words:
         return random.choice(words)
-    return db.get_random_word_object(lesson_id=lesson_id, exclude_ids=exclude_ids)
+    return db.words.get_random(lesson_id=lesson_id, exclude_ids=exclude_ids)
 
-def _sample_unique(primary: List[str], secondary: List[str], count: int) -> List[str]:
-    random.shuffle(primary)
-    random.shuffle(secondary)
-
-    result = []
-    for item in primary + secondary:
-        item = str(item or "").strip()
-        if item and item not in result:
-            result.append(item)
-        if len(result) == count:
-            break
-
-    return result
-
-
-def _get_smart_wrong_options(word: Word, count: int, attr_getter) -> List[str]:
-    """گزینه‌های غلط هوشمند بر اساس یک ویژگی."""
-    same_type_words = (
-        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
-        if word.word_type else []
-    )
-    other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
-    target_val = attr_getter(word)
-    same_type = [attr_getter(w) for w in same_type_words
-                 if attr_getter(w) and attr_getter(w) != target_val]
-    other = [attr_getter(w) for w in other_words
-             if attr_getter(w) and attr_getter(w) != target_val
-             and (not word.word_type or w.word_type != word.word_type)]
-    return _sample_unique(same_type, other, count)
 
 async def _gen_article(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if not word.article:
@@ -101,7 +87,7 @@ async def _gen_meaning(word: Word, user_id: int, level: str) -> Optional[Dict]:
         if quiz:
             return quiz
 
-    wrong = _get_smart_wrong_options(word, count=3, attr_getter=lambda w: w.persian)
+    wrong = get_wrong_options(db, word, count=3, attr_getter=lambda w: w.persian)
     return quiz_service.create_meaning_quiz(word.display_german, word.persian, wrong)
 
 
@@ -123,8 +109,9 @@ async def _gen_reverse(word: Word, user_id: int, level: str) -> Optional[Dict]:
         if quiz:
             return quiz
 
-    wrong = _get_smart_wrong_options(word, count=3, attr_getter=lambda w: w.display_german)
+    wrong = get_wrong_options(db, word, count=3, attr_getter=lambda w: w.display_german)
     return quiz_service.create_reverse_quiz(word.persian, correct_german, wrong)
+
 
 async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     ex_de = word.example_de
@@ -160,10 +147,8 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
         )
 
     if len(wrong) < 3:
-        wrong += _get_smart_wrong_options(
-            word,
-            count=3 - len(wrong),
-            attr_getter=lambda w: w.german,
+        wrong += get_wrong_options(
+            db, word, count=3 - len(wrong), attr_getter=lambda w: w.german
         )
 
     return quiz_service.create_cloze_with_options(
@@ -174,6 +159,7 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
         article=word.article,
         word_type=word.word_type,
     )
+
 
 @dataclass
 class QuizConfig:
@@ -214,7 +200,7 @@ async def _start_generic_quiz(
         user_id = query.from_user.id
         lesson_id = context.user_data.get("quiz_lesson_id")
 
-        settings = db.get_user_settings(user_id)
+        settings = db.users.get_settings(user_id)
         level = settings.get("preferred_level", "A1")
 
         session = context.user_data.get("quiz_session_obj")
@@ -308,7 +294,7 @@ async def start_quiz_by_type(
             exclude = set(exclude_ids or [])
             for wid in fixed_word_ids:
                 if wid not in exclude:
-                    w = db.get_word_by_id(wid)
+                    w = db.words.get_by_id(wid)
                     if w:
                         return w
             return None
@@ -325,7 +311,13 @@ async def start_quiz_by_type(
     )
 
 
-def _init_quiz_session(context, quiz_type: str, total_questions: int, source_filter: Optional[str] = None, lesson_id: Optional[int] = None):
+def _init_quiz_session(
+    context,
+    quiz_type: str,
+    total_questions: int,
+    source_filter: Optional[str] = None,
+    lesson_id: Optional[int] = None,
+):
     """Initialize quiz session using typed QuizSession model."""
     context.user_data["quiz_session_obj"] = QuizSession(
         quiz_type=quiz_type,
@@ -342,6 +334,7 @@ def _init_quiz_session(context, quiz_type: str, total_questions: int, source_fil
 def _get_quiz_session(context) -> Optional[QuizSession]:
     """Get current quiz session object."""
     return context.user_data.get("quiz_session_obj")
+
 
 def _update_quiz_session(
     context,
@@ -367,6 +360,7 @@ def _update_quiz_session(
             if word_id not in wrong_ids:
                 wrong_ids.append(word_id)
 
+
 def _get_session_progress(context) -> str:
     """Get formatted progress string for quiz session."""
     from ui import progress_bar
@@ -390,6 +384,7 @@ def _is_session_finished(context) -> bool:
         return True
     return session.current_index >= session.total_questions
 
+
 async def _show_quiz_summary(query, context, header: str = ""):
     session = context.user_data.pop("quiz_session_obj", None)
     context.user_data.pop("current_quiz", None)
@@ -406,11 +401,7 @@ async def _show_quiz_summary(query, context, header: str = ""):
 
     answered = session.correct_count + session.wrong_count
 
-    accuracy = (
-        (session.correct_count / answered * 100)
-        if answered > 0
-        else 0
-    )
+    accuracy = (session.correct_count / answered * 100) if answered > 0 else 0
 
     lines = []
 
@@ -448,6 +439,7 @@ async def _show_quiz_summary(query, context, header: str = ""):
 
     await render(query, text, reply_markup=InlineKeyboardMarkup(keyboard))
 
+
 async def handle_quiz_answer(query, context):
     # LOCK: جلوگیری از double-tap
     lock_key = "quiz_answer_lock"
@@ -458,7 +450,7 @@ async def handle_quiz_answer(query, context):
             pass
         return
     context.user_data[lock_key] = True
-    
+
     try:
         if "current_quiz" not in context.user_data:
             try:
@@ -466,9 +458,9 @@ async def handle_quiz_answer(query, context):
             except Exception:
                 pass
             return
-        
+
         quiz_info = context.user_data["current_quiz"]
-        
+
         try:
             chosen_index = int(query.data.split(":")[1])
         except (ValueError, IndexError):
@@ -584,6 +576,7 @@ async def start_quiz_session(
     context.user_data.pop("quiz_fixed_word_ids", None)
     await _send_next_quiz(query, context)
 
+
 async def start_wrong_quiz(query, context):
     wrong_ids = list(dict.fromkeys(context.user_data.get("quiz_wrong_word_ids", [])))
     if not wrong_ids:
@@ -592,7 +585,7 @@ async def start_wrong_quiz(query, context):
         )
         return
 
-    words = db.get_word_objects_by_ids(wrong_ids)
+    words = db.words.get_by_ids(wrong_ids)
     if not words:
         await render(
             query,
@@ -611,19 +604,28 @@ async def start_wrong_quiz(query, context):
     context.user_data.pop("quiz_lesson_id", None)
 
     await _send_next_quiz(query, context)
+
+
 async def start_quiz_session_with_words(query, context, word_ids):
     word_ids = list(dict.fromkeys(word_ids or []))
-    words = db.get_word_objects_by_ids(word_ids)
+    words = db.words.get_by_ids(word_ids)
     if not words:
         await render(query, "📭 کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
         return
     random.shuffle(words)
-    _init_quiz_session(context, "meaning", len(words), None, None,)
+    _init_quiz_session(
+        context,
+        "meaning",
+        len(words),
+        None,
+        None,
+    )
     context.user_data["quiz_fixed_word_ids"] = [w.id for w in words]
     context.user_data["quiz_type"] = "meaning"
     context.user_data["quiz_source_filter"] = None
     context.user_data.pop("quiz_lesson_id", None)
     await _send_next_quiz(query, context)
+
 
 async def _send_next_quiz(query, context):
     if "quiz_session_obj" not in context.user_data:

@@ -7,22 +7,19 @@ Flow:
 4. If wrong → schedule retry with contextual feedback
 5. When all words learned & tested → Summary with breakdown
 """
+
 import logging
 import random
 import re
-from typing import Optional, Dict, List
+from typing import Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from handlers.learning.ltr_session import (
-    LTRSessionManager,
-    _ltr_learn_keyboard,
-    _ltr_answer_keyboard,
-    _ltr_wrong_display_german_options,
-    _make_ltr_options,
-    _sample_unique_ltr,
-)
+# بعد:
+# قبل:
+from handlers.learning.ltr_session import LTRSessionManager, _ltr_answer_keyboard
 from models import Word
+from option_generator import get_wrong_options, make_options
 from services import db
 from ui import back_inline_keyboard, esc, render
 
@@ -32,6 +29,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════
 # Entry Point
 # ═══════════════════════════════════════════════════════════════════
+
 
 async def handle_study_lesson(query, context, suffix: str):
     """Start LTR session for a lesson."""
@@ -43,11 +41,13 @@ async def handle_study_lesson(query, context, suffix: str):
     user_id = query.from_user.id
     MAX_LTR_WORDS = 7  # حداکثر کلمات یک session LTR
 
-    weak_words = db.get_weak_words_by_lesson(user_id, lesson_id, limit=MAX_LTR_WORDS)
+    weak_words = db.words.get_weak_by_lesson(user_id, lesson_id, limit=MAX_LTR_WORDS)
     remaining = MAX_LTR_WORDS - len(weak_words)
     new_words = []
     if remaining > 0:
-        new_words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=remaining)
+        new_words = db.words.get_new_word_objects(
+            user_id, lesson_id=lesson_id, limit=remaining
+        )
     if not weak_words and not new_words:
         await render(
             query,
@@ -72,16 +72,19 @@ async def handle_study_lesson(query, context, suffix: str):
         f"۳. 🔁 اگه اشتباه زدی، دوباره می‌پرسم\n\n"
         f"بریم شروع کنیم! 👇"
     )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🚀 شروع!", callback_data="ltr_ready")],
-        [InlineKeyboardButton("🏁 انصراف", callback_data="ltr_exit")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🚀 شروع!", callback_data="ltr_ready")],
+            [InlineKeyboardButton("🏁 انصراف", callback_data="ltr_exit")],
+        ]
+    )
     await render(query, intro_msg, reply_markup=kb)
 
 
 # ═══════════════════════════════════════════════════════════════════
 # LEARN Phase - Minimal UI
 # ═══════════════════════════════════════════════════════════════════
+
 
 async def _show_learn_word(query, context):
     """Show a word MINIMALLY for the user to learn."""
@@ -137,7 +140,11 @@ async def _show_learn_word(query, context):
     # ─── Keyboard ───
 
     from handlers.learning.ltr_session import _ltr_learn_keyboard
-    await render(query, "\n".join(parts), reply_markup=_ltr_learn_keyboard(word_id=word.id))
+
+    await render(
+        query, "\n".join(parts), reply_markup=_ltr_learn_keyboard(word_id=word.id)
+    )
+
 
 async def handle_ltr_show_details(query, context, suffix: str):
     """Reveal detailed info for a word (Progressive Disclosure)."""
@@ -146,7 +153,7 @@ async def handle_ltr_show_details(query, context, suffix: str):
     except ValueError:
         return
 
-    word = db.get_word_by_id(word_id)
+    word = db.words.get_by_id(word_id)
     if not word:
         await query.answer("❌ کلمه پیدا نشد.", show_alert=True)
         return
@@ -213,9 +220,10 @@ async def handle_ltr_learned(query, context):
 # TEST Phase - Multiple Question Types
 # ═══════════════════════════════════════════════════════════════════
 
+
 async def _show_test_question(query, context, word_id: int):
     """Show a quiz question with RANDOM question type."""
-    word = db.get_word_by_id(word_id)
+    word = db.words.get_by_id(word_id)
     if not word:
         await _route_next_action(query, context)
         return
@@ -259,9 +267,10 @@ async def _render_meaning_question(query, context, word: Word):
     correct_answer = word.persian
 
     # Get wrong Persian options
-    wrong_options = _get_wrong_persian_options(word, count=3)
-    options = _make_ltr_options(correct_answer, wrong_options, total=4, min_options=2)
-
+    wrong_options = get_wrong_options(
+        db, word, count=3, attr_getter=lambda w: w.persian
+    )
+    options = make_options(correct_answer, wrong_options, total=4, min_options=2)
     if not options or len(options) < 2 or correct_answer not in options:
         # Fallback to reverse
         await _render_reverse_question(query, context, word)
@@ -272,10 +281,7 @@ async def _render_meaning_question(query, context, word: Word):
     context.user_data["ltr_current_correct_index"] = options.index(correct_answer)
     context.user_data["ltr_current_correct_text"] = correct_answer
 
-    msg = (
-        f"🧠 <b>معنی این کلمه چیست؟</b>\n\n"
-        f"🇩🇪 <b>{esc(word.display_german)}</b>"
-    )
+    msg = f"🧠 <b>معنی این کلمه چیست؟</b>\n\n" f"🇩🇪 <b>{esc(word.display_german)}</b>"
 
     await render(query, msg, reply_markup=_ltr_answer_keyboard(options))
 
@@ -284,9 +290,10 @@ async def _render_reverse_question(query, context, word: Word):
     """Question: Show Persian → Choose German word."""
     correct_answer = word.display_german
 
-    wrong_options = _ltr_wrong_display_german_options(word, count=3)
-    options = _make_ltr_options(correct_answer, wrong_options, total=4, min_options=2)
-
+    wrong_options = get_wrong_options(
+        db, word, count=3, attr_getter=lambda w: w.display_german
+    )
+    options = make_options(correct_answer, wrong_options, total=4, min_options=2)
     if not options or len(options) < 2 or correct_answer not in options:
         await _render_meaning_question(query, context, word)
         return
@@ -311,9 +318,7 @@ async def _render_cloze_question(query, context, word: Word):
         return
 
     # Try to find and blank out the word
-    pattern = re.compile(
-        rf"\b({re.escape(word.german)}[a-zäöüß]*)\b", re.IGNORECASE
-    )
+    pattern = re.compile(rf"\b({re.escape(word.german)}[a-zäöüß]*)\b", re.IGNORECASE)
     match = pattern.search(sentence)
 
     if not match:
@@ -330,14 +335,13 @@ async def _render_cloze_question(query, context, word: Word):
         return
 
     # Create sentence with blank
-    blanked = sentence[:match.start()] + "______" + sentence[match.end():]
+    blanked = sentence[: match.start()] + "______" + sentence[match.end() :]
     correct_answer = match.group(1)
 
-    # Generate wrong options
-    wrong_options = _ltr_wrong_display_german_options(word, count=3)
-    # Filter out options that don't make sense in context
-    options = _make_ltr_options(correct_answer, wrong_options, total=4, min_options=2)
-
+    wrong_options = get_wrong_options(
+        db, word, count=3, attr_getter=lambda w: w.display_german
+    )
+    options = make_options(correct_answer, wrong_options, total=4, min_options=2)
     if not options or len(options) < 2 or correct_answer not in options:
         await _render_meaning_question(query, context, word)
         return
@@ -382,6 +386,7 @@ async def _render_article_question(query, context, word: Word):
 # Answer Handling
 # ═══════════════════════════════════════════════════════════════════
 
+
 async def handle_ltr_answer(query, context, suffix: str):
     """Handle user's answer to LTR quiz question."""
     lock_key = "ltr_answer_lock"
@@ -410,7 +415,9 @@ async def handle_ltr_answer(query, context, suffix: str):
         word_id = context.user_data.get("ltr_current_question")
 
         if not word_id:
-            await render(query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard())
+            await render(
+                query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard()
+            )
             return
 
         options = context.user_data.get("ltr_current_options", [])
@@ -427,7 +434,7 @@ async def handle_ltr_answer(query, context, suffix: str):
 
         is_correct = option_index == correct_index
 
-        word = db.get_word_by_id(word_id)
+        word = db.words.get_by_id(word_id)
 
         # Record result
         ltr.record_test_result(word_id, is_correct)
@@ -442,7 +449,9 @@ async def handle_ltr_answer(query, context, suffix: str):
                 word_id=word_id,
                 skill_type="ltr",
                 quiz_type=q_type,
-                user_answer=options[option_index] if option_index < len(options) else None,
+                user_answer=(
+                    options[option_index] if option_index < len(options) else None
+                ),
                 correct_answer=correct_text,
             )
 
@@ -485,9 +494,11 @@ async def handle_ltr_answer(query, context, suffix: str):
     finally:
         context.user_data.pop(lock_key, None)
 
+
 # ═══════════════════════════════════════════════════════════════════
 # Router
 # ═══════════════════════════════════════════════════════════════════
+
 
 async def _route_next_action(query, context, feedback: str = ""):
     """Main router: decides whether to learn, test, or finish."""
@@ -520,6 +531,7 @@ async def _route_next_action(query, context, feedback: str = ""):
 # Summary & Exit
 # ═══════════════════════════════════════════════════════════════════
 
+
 async def _show_ltr_summary(query, context, feedback: str = ""):
     """Show final session summary with detailed breakdown."""
     ltr = LTRSessionManager(context)
@@ -534,21 +546,23 @@ async def _show_ltr_summary(query, context, feedback: str = ""):
         parts.append(feedback)
         parts.append("")
 
-    parts.extend([
-        "📊 <b>خلاصه جلسه تمرین عمیق (LTR)</b>",
-        "",
-        f"📚 کل کلمات: {summary['total_words']}",
-        f"✅ قبول: {summary['passed_words']}",
-        f"❌ نیاز به مرور: {summary['failed_words']}",
-        f"🎯 دقت: {summary['accuracy']}%",
-    ])
+    parts.extend(
+        [
+            "📊 <b>خلاصه جلسه تمرین عمیق (LTR)</b>",
+            "",
+            f"📚 کل کلمات: {summary['total_words']}",
+            f"✅ قبول: {summary['passed_words']}",
+            f"❌ نیاز به مرور: {summary['failed_words']}",
+            f"🎯 دقت: {summary['accuracy']}%",
+        ]
+    )
 
     # Show failed words if any
     if summary["failed_words"] > 0 and summary.get("failed_ids"):
         parts.append("")
         parts.append("📌 <b>کلماتی که نیاز به مرور دارند:</b>")
         for wid in summary["failed_ids"][:5]:
-            w = db.get_word_by_id(wid)
+            w = db.words.get_by_id(wid)
             if w:
                 parts.append(f"  • {esc(w.display_german)} = {esc(w.persian)}")
         if summary["failed_words"] > 5:
@@ -565,16 +579,19 @@ async def _show_ltr_summary(query, context, feedback: str = ""):
     # Clear session
     ltr.clear_session()
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎴 فلش‌کارت مرور", callback_data="flashcard_due")],
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🎴 فلش‌کارت مرور", callback_data="flashcard_due")],
+            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
     await render(query, "\n".join(parts), reply_markup=kb)
 
 
 async def handle_ltr_summary(query, context):
     """External summary handler."""
     await _show_ltr_summary(query, context)
+
 
 async def handle_ltr_exit(query, context):
     """Exit LTR session, but finalize already-tested words."""
@@ -588,16 +605,16 @@ async def handle_ltr_exit(query, context):
     ltr.clear_session()
 
     kb = InlineKeyboardMarkup(
-        [
-            InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")
-        ]
+        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
     )
 
     await render(query, "❌ جلسه تمرین عمیق لغو شد.", reply_markup=kb)
 
+
 # ═══════════════════════════════════════════════════════════════════
 # Legacy compatibility
 # ═══════════════════════════════════════════════════════════════════
+
 
 async def handle_ltr_ready(query, context):
     """Legacy: redirect to learn flow."""
@@ -607,6 +624,7 @@ async def handle_ltr_ready(query, context):
 # ═══════════════════════════════════════════════════════════════════
 # Helper Functions
 # ═══════════════════════════════════════════════════════════════════
+
 
 def _get_word_type_emoji(word_type: Optional[str]) -> str:
     """Get emoji for word type."""
@@ -621,27 +639,6 @@ def _get_word_type_emoji(word_type: Optional[str]) -> str:
         "Phrase": "💬",
     }
     return emojis.get(word_type, "📌")
-
-
-def _get_wrong_persian_options(word: Word, count: int = 3) -> List[str]:
-    """Get wrong Persian meaning options."""
-    same_type_words = (
-        db.get_words_by_type(word.word_type, exclude_id=word.id, limit=50)
-        if word.word_type else []
-    )
-    other_words = db.get_words_by_type(None, exclude_id=word.id, limit=50)
-
-    same_type = [
-        w.persian for w in same_type_words
-        if w.persian and w.persian != word.persian
-    ]
-    other = [
-        w.persian for w in other_words
-        if w.persian and w.persian != word.persian
-        and (not word.word_type or w.word_type != word.word_type)
-    ]
-
-    return _sample_unique_ltr(same_type, other, count)
 
 
 __all__ = [

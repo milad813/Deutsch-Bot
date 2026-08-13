@@ -83,7 +83,6 @@ SESSION_KEYS = {
     "writing_session",
     "writing_current_word",
     "awaiting_writing_answer",
-
     # Locks / Flags
     "quiz_answer_lock",
     "ltr_answer_lock",

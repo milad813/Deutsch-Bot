@@ -1,45 +1,52 @@
 """Story quiz functionality."""
 
-import json
 import logging
 import random
-from typing import List, Dict, Optional
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from services import db
 from ui import _short_label, back_inline_keyboard, esc, render
+from utils import safe_json_list
 
 logger = logging.getLogger(__name__)
 
 
-def _safe_json_list(raw):
-    try:
-        data = json.loads(raw or "[]")
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
-
-
 async def start_story_quiz(query, context, story_id: int):
     """Start a quiz based on story comprehension questions."""
-    story = db.get_story(story_id)
+    story = db.stories.get_by_id(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    questions = _safe_json_list(story.get("questions_json"))
-    questions = [q for q in questions if isinstance(q, dict) and (q.get("question") or q.get("q"))]
+    questions = safe_json_list(story.get("questions_json"))
+    questions = [
+        q
+        for q in questions
+        if isinstance(q, dict) and (q.get("question") or q.get("q"))
+    ]
 
     if not questions:
         await render(
-            query, "📭 سوالی برای این داستان ثبت نشده.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📖 بازگشت", callback_data=f"story_view:{story_id}")],
-            ]),
+            query,
+            "📭 سوالی برای این داستان ثبت نشده.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "📖 بازگشت", callback_data=f"story_view:{story_id}"
+                        )
+                    ],
+                ]
+            ),
         )
         return
 
-    comp_qs = [q for q in questions if q.get("question_type", "comprehension") == "comprehension"]
+    comp_qs = [
+        q
+        for q in questions
+        if q.get("question_type", "comprehension") == "comprehension"
+    ]
     vocab_qs = [q for q in questions if q.get("question_type") == "vocabulary"]
     detail_qs = [q for q in questions if q.get("question_type") == "detail"]
 
@@ -54,9 +61,12 @@ async def start_story_quiz(query, context, story_id: int):
         "current": 0,
         "correct": 0,
         "wrong": 0,
-        "comprehension_correct": 0, "comprehension_wrong": 0,
-        "vocabulary_correct": 0, "vocabulary_wrong": 0,
-        "detail_correct": 0, "detail_wrong": 0,
+        "comprehension_correct": 0,
+        "comprehension_wrong": 0,
+        "vocabulary_correct": 0,
+        "vocabulary_wrong": 0,
+        "detail_correct": 0,
+        "detail_wrong": 0,
     }
 
     await _show_story_question(query, context)
@@ -107,9 +117,21 @@ async def _show_story_question(query, context):
     kb = []
     for i, opt in enumerate(options):
         label = f"{chr(65 + i)}) {opt}"
-        kb.append([InlineKeyboardButton(_short_label(label, 64), callback_data=f"story_ans:{i}")])
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    _short_label(label, 64), callback_data=f"story_ans:{i}"
+                )
+            ]
+        )
 
-    kb.append([InlineKeyboardButton("🔙 خروج", callback_data=f"story_view:{quiz['story_id']}")])
+    kb.append(
+        [
+            InlineKeyboardButton(
+                "🔙 خروج", callback_data=f"story_view:{quiz['story_id']}"
+            )
+        ]
+    )
 
     await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))
 
@@ -128,27 +150,35 @@ async def handle_story_answer(query, context, suffix: str):
     try:
         quiz = context.user_data.get("story_quiz")
         if not quiz:
-            await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
+            await render(
+                query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
+            )
             return
 
         try:
             selected_idx = int(suffix)
         except ValueError:
-            await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
+            await render(
+                query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
+            )
             return
 
         current_index = quiz.get("current", 0)
         questions = quiz.get("questions", [])
 
         if current_index >= len(questions):
-            await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
+            await render(
+                query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
+            )
             return
 
         q = questions[current_index]
         options = list(quiz.get("current_options", []))
 
         if not options or selected_idx < 0 or selected_idx >= len(options):
-            await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
+            await render(
+                query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
+            )
             return
 
         correct_index = quiz.get("current_correct_index")
@@ -199,7 +229,7 @@ async def handle_story_answer(query, context, suffix: str):
                 correct_answer=correct,
             )
 
-        db.record_activity(user_id, 10 if is_correct else 0)
+        db.users.record_activity(user_id, 10 if is_correct else 0)
         db.learning.record_story_answer(user_id, story_id, is_correct)
 
         try:
@@ -224,15 +254,27 @@ async def handle_story_answer(query, context, suffix: str):
 
         if quiz["current"] < len(quiz["questions"]) - 1:
             quiz["current"] += 1
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("➡️ سوال بعدی", callback_data=f"story_next_q:{quiz['story_id']}")],
-                [InlineKeyboardButton("🔙 خروج", callback_data=f"story_view:{quiz['story_id']}")],
-            ])
+            kb = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "➡️ سوال بعدی",
+                            callback_data=f"story_next_q:{quiz['story_id']}",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "🔙 خروج", callback_data=f"story_view:{quiz['story_id']}"
+                        )
+                    ],
+                ]
+            )
             await render(query, fb_msg, reply_markup=kb)
         else:
             await _show_story_quiz_summary(query, context)
     finally:
         context.user_data.pop(lock_key, None)
+
 
 async def _show_story_quiz_summary(query, context):
     """Show quiz summary with detailed statistics."""
@@ -263,7 +305,9 @@ async def _show_story_quiz_summary(query, context):
         msg += f"🧠 واژگان: {quiz['vocabulary_correct']}/{vocab_total} ({vocab_acc:.0f}%)\n"
     if detail_total > 0:
         detail_acc = quiz["detail_correct"] / detail_total * 100
-        msg += f"🔍 جزئیات: {quiz['detail_correct']}/{detail_total} ({detail_acc:.0f}%)\n"
+        msg += (
+            f"🔍 جزئیات: {quiz['detail_correct']}/{detail_total} ({detail_acc:.0f}%)\n"
+        )
 
     # Recommendations
     if accuracy >= 80:
@@ -273,16 +317,32 @@ async def _show_story_quiz_summary(query, context):
     else:
         msg += "\n💡 پیشنهاد: داستان را دوباره بخوان و مرور کن."
 
-    story = db.get_story(quiz['story_id'])
-    lesson_id = story['lesson_id'] if story else 0
+    story = db.stories.get_by_id(quiz["story_id"])
+    lesson_id = story["lesson_id"] if story else 0
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{quiz['story_id']}")],
-        [InlineKeyboardButton("🔁 تکرار کوییز", callback_data=f"story_quiz:{quiz['story_id']}")],
-        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{lesson_id}")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📖 بازگشت به داستان",
+                    callback_data=f"story_view:{quiz['story_id']}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔁 تکرار کوییز", callback_data=f"story_quiz:{quiz['story_id']}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔙 بازگشت به درس", callback_data=f"lesson_{lesson_id}"
+                )
+            ],
+        ]
+    )
 
     await render(query, msg, reply_markup=kb)
+
 
 async def handle_story_next_question(query, context, suffix: str):
     """ادامه به سوال بعدی کوییز داستان."""

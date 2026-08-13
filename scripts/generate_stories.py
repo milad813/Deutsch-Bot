@@ -27,25 +27,16 @@ STORY_WORD_TYPES = ("Noun", "Verb", "Adjective")
 
 
 def get_lesson_words(db, lesson_id, max_words):
-    with db._cursor() as c:
-        c.execute(
-            """SELECT id, article, german, persian, word_type
-               FROM words
-               WHERE lesson_id = ?
-                 AND word_type IN ('Noun', 'Verb', 'Adjective')
-               ORDER BY
-                 CASE word_type
-                   WHEN 'Noun' THEN 1
-                   WHEN 'Verb' THEN 2
-                   WHEN 'Adjective' THEN 3
-                   ELSE 4
-                 END,
-                 german
-               LIMIT ?""",
-            (lesson_id, max_words),
-        )
-        rows = c.fetchall()
-
+    rows = db.words.fetch_all(
+        """SELECT id, article, german, persian, word_type
+        FROM words
+        WHERE lesson_id = ? AND word_type IN ('Noun', 'Verb', 'Adjective')
+        ORDER BY CASE word_type
+            WHEN 'Noun' THEN 1 WHEN 'Verb' THEN 2
+            WHEN 'Adjective' THEN 3 ELSE 4 END, german
+        LIMIT ?""",
+        (lesson_id, max_words),
+    )
     words = []
     for word_id, article, german, persian, word_type in rows:
         disp = f"{article} {german}".strip() if article else german
@@ -170,7 +161,7 @@ async def generate_story_for_lesson(llm, db, lesson_id, level, lesson_title, max
 
             target_ids = [w["id"] for w in words]
             questions_json = json.dumps(result.get("questions", []), ensure_ascii=False)
-            story_id = db.add_story(
+            story_id = db.stories.add(
                 lesson_id=lesson_id,
                 title_de=str(result.get("title_de") or "").strip(),
                 title_fa=str(result.get("title_fa") or "").strip(),
@@ -214,22 +205,22 @@ async def main():
         return
 
     if args.lesson:
-        lesson_info = db.get_lesson(args.lesson)
+        lesson_info = db.lessons.get_by_id(args.lesson)
         if not lesson_info:
             print(f"❌ درس {args.lesson} پیدا نشد.")
             db.close()
             return
-        level = db.get_book_level_by_lesson(args.lesson) or "A1"
-        title = lesson_info[1] or ""
+        level = db.books.get_level_by_lesson(args.lesson) or "A1"
+        title = lesson_info[2] or ""
         print(f"📖 درس {args.lesson} ({title or level})...")
         await generate_story_for_lesson(llm, db, args.lesson, level, title, args.words)
     else:
         total = 0
-        for book_id, book_name, level in db.get_all_books():
-            lessons = db.get_lessons_by_book(book_id)
+        for book_id, book_name, level in db.books.get_all():
+            lessons = db.lessons.get_by_book(book_id)
             print(f"\n📚 {book_name} ({level})")
             for lid, lnum, ltitle in lessons:
-                if not args.force and db.get_story_count_by_lesson(lid) > 0:
+                if not args.force and db.stories.get_count(lid) > 0:
                     print(f"  ⏭️ درس {lnum}: قبلاً داستان دارد.")
                     continue
                 print(f"  📖 درس {lnum}: {ltitle or ''}...")

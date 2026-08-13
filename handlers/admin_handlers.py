@@ -1,6 +1,9 @@
 """Admin panel and user management handlers."""
+
 import logging
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 import config
 from services import db
 from ui import back_inline_keyboard, esc, render
@@ -17,6 +20,7 @@ def _is_admin(user_id: int) -> bool:
 # پنل مدیریت
 # ─────────────────────────────
 
+
 async def show_admin_panel(update, context):
     """پنل مدیریت - فقط برای ادمین."""
     user = getattr(update, "effective_user", None) or getattr(update, "from_user", None)
@@ -24,10 +28,10 @@ async def show_admin_panel(update, context):
         await render(update, "⛔️ دسترسی ندارید.", reply_markup=back_inline_keyboard())
         return
 
-    total_users = db.get_user_count()
-    active_7d = db.get_active_user_count(days=7)
-    active_30d = db.get_active_user_count(days=30)
-    total_words = db.get_word_count()
+    total_users = db.users.get_user_count()
+    active_7d = db.users.get_active_user_count(days=7)
+    active_30d = db.users.get_active_user_count(days=30)
+    total_words = db.words.get_count()
 
     msg = (
         f"🛡️ <b>پنل مدیریت</b>\n\n"
@@ -37,16 +41,19 @@ async def show_admin_panel(update, context):
         f"📚 کل کلمات کتابخانه: <b>{total_words}</b>\n"
     )
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👥 لیست کاربران", callback_data="admin_users")],
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("👥 لیست کاربران", callback_data="admin_users")],
+            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
     await render(update, msg, reply_markup=kb)
 
 
 # ─────────────────────────────
 # لیست کاربران
 # ─────────────────────────────
+
 
 async def show_admin_users(update, context):
     """لیست کاربران با آمار - فقط برای ادمین."""
@@ -55,7 +62,7 @@ async def show_admin_users(update, context):
         await render(update, "⛔️ دسترسی ندارید.", reply_markup=back_inline_keyboard())
         return
 
-    users = db.get_all_users()
+    users = db.users.get_all_users()
     if not users:
         await render(
             update,
@@ -73,11 +80,11 @@ async def show_admin_users(update, context):
 
         # آمار کاربر
         try:
-            prog = db.get_user_progress(uid)
-            correct, total = db.get_quiz_stats(uid)
+            prog = db.users.get_progress(uid)
+            correct, total = db.users.get_quiz_stats(uid)
             accuracy = int(correct / total * 100) if total > 0 else 0
-            due = db.get_due_word_count(uid)
-            weak = db.get_weak_word_count(uid)
+            due = db.words.get_due_count(uid)
+            weak = db.words.get_weak_count(uid)
             xp = prog.get("xp", 0)
             streak = prog.get("streak", 0)
         except Exception:
@@ -100,16 +107,19 @@ async def show_admin_users(update, context):
     if len(users) > 20:
         msg += f"\n... و {len(users) - 20} کاربر دیگر"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔙 بازگشت به پنل", callback_data="admin_panel")],
-        [InlineKeyboardButton("🏠 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔙 بازگشت به پنل", callback_data="admin_panel")],
+            [InlineKeyboardButton("🏠 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
     await render(update, msg, reply_markup=kb)
 
 
 # ─────────────────────────────
 # ریست پیشرفت
 # ─────────────────────────────
+
 
 async def handle_reset_progress(update, context):
     """مرحله ۱: نمایش پیام تأیید ریست."""
@@ -130,10 +140,12 @@ async def handle_reset_progress(update, context):
         "آیا مطمئن هستید؟"
     )
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ بله، ریست کن", callback_data="reset_confirm")],
-        [InlineKeyboardButton("❌ انصراف", callback_data="reset_cancel")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("✅ بله، ریست کن", callback_data="reset_confirm")],
+            [InlineKeyboardButton("❌ انصراف", callback_data="reset_cancel")],
+        ]
+    )
     await render(update, msg, reply_markup=kb)
 
 
@@ -146,7 +158,7 @@ async def handle_reset_confirm(update, context):
     user_id = user.id
 
     try:
-        db.reset_user_progress(user_id)
+        db.users.reset_user_progress(user_id)
         logger.info("پیشرفت کاربر %d ریست شد", user_id)
 
         msg = (
@@ -159,17 +171,25 @@ async def handle_reset_confirm(update, context):
         logger.error("خطا در ریست پیشرفت کاربر %d: %s", user_id, e)
         msg = "❌ خطا در ریست پیشرفت. دوباره تلاش کنید."
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🏠 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
     await render(update, msg, reply_markup=kb)
 
 
 async def handle_reset_cancel(update, context):
     """لغو ریست."""
     msg = "❌ ریست لغو شد. هیچ چیزی پاک نشد."
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⚙️ بازگشت به تنظیمات", callback_data="show_settings")],
-        [InlineKeyboardButton("🏠 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "⚙️ بازگشت به تنظیمات", callback_data="show_settings"
+                )
+            ],
+            [InlineKeyboardButton("🏠 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
     await render(update, msg, reply_markup=kb)

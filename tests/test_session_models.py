@@ -1,19 +1,18 @@
 """Tests for session models."""
 
-import pytest
 from models import (
-    QuizType, 
-    CallbackPrefix, 
-    QuizSession, 
-    FlashcardSession, 
+    CallbackPrefix,
+    FlashcardSession,
     LTRSession,
-    UserSession
+    QuizSession,
+    QuizType,
+    UserSession,
 )
 
 
 class TestQuizType:
     """Test QuizType enum."""
-    
+
     def test_quiz_type_values(self):
         """Test that quiz types have correct values."""
         assert QuizType.ARTICLE.value == "article"
@@ -22,7 +21,7 @@ class TestQuizType:
         assert QuizType.VERB.value == "verb"
         assert QuizType.ADJECTIVE.value == "adjective"
         assert QuizType.COLLOCATION.value == "collocation"
-    
+
     def test_quiz_type_comparison(self):
         """Test that quiz types can be compared as strings."""
         assert QuizType.ARTICLE == "article"
@@ -31,7 +30,7 @@ class TestQuizType:
 
 class TestCallbackPrefix:
     """Test CallbackPrefix enum."""
-    
+
     def test_callback_prefixes_exist(self):
         """Test that common callback prefixes exist."""
         assert CallbackPrefix.QUIZ_TYPE.value == "quiz_type:"
@@ -42,14 +41,11 @@ class TestCallbackPrefix:
 
 class TestQuizSession:
     """Test QuizSession dataclass."""
-    
+
     def test_create_quiz_session(self):
         """Test creating a quiz session with required fields."""
-        session = QuizSession(
-            quiz_type="article",
-            total_questions=10
-        )
-        
+        session = QuizSession(quiz_type="article", total_questions=10)
+
         assert session.quiz_type == "article"
         assert session.total_questions == 10
         assert session.current_index == 0
@@ -58,7 +54,7 @@ class TestQuizSession:
         assert session.question_ids == []
         assert session.source_filter is None
         assert session.lesson_id is None
-    
+
     def test_quiz_session_with_optional_fields(self):
         """Test creating a quiz session with all fields."""
         session = QuizSession(
@@ -69,9 +65,9 @@ class TestQuizSession:
             wrong_count=2,
             question_ids=[1, 2, 3, 4, 5],
             source_filter="weak",
-            lesson_id=10
+            lesson_id=10,
         )
-        
+
         assert session.quiz_type == "meaning"
         assert session.total_questions == 20
         assert session.current_index == 5
@@ -84,11 +80,11 @@ class TestQuizSession:
 
 class TestFlashcardSession:
     """Test FlashcardSession dataclass."""
-    
+
     def test_create_flashcard_session(self):
         """Test creating a flashcard session."""
         session = FlashcardSession()
-        
+
         assert session.words == []
         assert session.current_index == 0
         assert session.skipped_ids == []
@@ -96,16 +92,12 @@ class TestFlashcardSession:
         assert session.only_due is False
         assert session.hard_only is False
         assert session.lesson_id is None
-    
+
     def test_flashcard_session_with_words(self):
         """Test creating a flashcard session with words."""
         words = [{"id": 1}, {"id": 2}, {"id": 3}]
-        session = FlashcardSession(
-            words=words,
-            only_due=True,
-            lesson_id=5
-        )
-        
+        session = FlashcardSession(words=words, only_due=True, lesson_id=5)
+
         assert session.words == words
         assert session.current_index == 0
         assert session.only_due is True
@@ -114,11 +106,11 @@ class TestFlashcardSession:
 
 class TestLTRSession:
     """Test LTRSession dataclass."""
-    
+
     def test_create_ltr_session(self):
         """Test creating an LTR session."""
         session = LTRSession(lesson_id=1)
-        
+
         assert session.lesson_id == 1
         assert session.weak_words == []
         assert session.new_words == []
@@ -129,11 +121,11 @@ class TestLTRSession:
 
 class TestUserSession:
     """Test UserSession dataclass."""
-    
+
     def test_create_empty_session(self):
         """Test creating an empty user session."""
         session = UserSession()
-        
+
         assert session.quiz is None
         assert session.flashcard is None
         assert session.ltr is None
@@ -142,30 +134,26 @@ class TestUserSession:
         assert session.listening is None
         assert session.writing is None
         assert session.conversation_history == []
-        assert session.answer_lock is False
-        assert session.rate_lock is False
-    
+
     def test_user_session_clear(self):
         """Test clearing user session."""
         session = UserSession()
         session.quiz = QuizSession(quiz_type="article", total_questions=10)
         session.conversation_history = ["msg1", "msg2"]
-        session.answer_lock = True
-        
+
         session.clear()
-        
+
         assert session.quiz is None
         assert session.conversation_history == []
-        assert session.answer_lock is False
-    
+
     def test_user_session_with_nested_sessions(self):
         """Test user session with nested session objects."""
         session = UserSession(
             quiz=QuizSession(quiz_type="meaning", total_questions=5),
             flashcard=FlashcardSession(only_due=True),
-            active_lesson_id=10
+            active_lesson_id=10,
         )
-        
+
         assert session.quiz is not None
         assert session.quiz.quiz_type == "meaning"
         assert session.flashcard is not None
@@ -175,38 +163,35 @@ class TestUserSession:
 
 class TestSessionIntegration:
     """Integration tests for session models."""
-    
+
     def test_quiz_workflow(self):
         """Test a typical quiz workflow."""
         # Create session
         session = QuizSession(quiz_type="article", total_questions=10)
-        
+
         # Simulate answering questions
         session.current_index = 1
         session.correct_count = 1
-        
+
         session.current_index = 2
         session.wrong_count = 1
-        
+
         session.current_index = 3
         session.correct_count = 2
-        
+
         assert session.current_index == 3
         assert session.correct_count == 2
         assert session.wrong_count == 1
         assert session.total_questions == 10
-    
+
     def test_flashcard_workflow(self):
         """Test a typical flashcard workflow."""
-        session = FlashcardSession(
-            words=[{"id": i} for i in range(10)],
-            only_due=True
-        )
-        
+        session = FlashcardSession(words=[{"id": i} for i in range(10)], only_due=True)
+
         # Simulate going through cards
         session.current_index = 5
         session.skipped_ids = [2, 4]
-        
+
         assert session.current_index == 5
         assert len(session.skipped_ids) == 2
         assert session.only_due is True

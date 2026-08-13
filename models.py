@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 
 class QuizType(str, Enum):
     """Types of quiz questions."""
+
     ARTICLE = "article"
     MEANING = "meaning"
     PLURAL = "plural"
@@ -15,6 +16,7 @@ class QuizType(str, Enum):
 
 class CallbackPrefix(str, Enum):
     """Callback data prefixes for routing."""
+
     QUIZ_TYPE = "quiz_type:"
     QUIZ_SOURCE = "quiz_source:"
     QUIZ_COUNT = "quiz_count:"
@@ -131,6 +133,7 @@ class Word:
 @dataclass
 class QuizSession:
     """State for a quiz session."""
+
     quiz_type: str
     total_questions: int
     current_index: int = 0
@@ -144,6 +147,7 @@ class QuizSession:
 @dataclass
 class FlashcardSession:
     """State for a flashcard learning session."""
+
     words: list = field(default_factory=list)
     current_index: int = 0
     skipped_ids: list = field(default_factory=list)
@@ -156,6 +160,7 @@ class FlashcardSession:
 @dataclass
 class LTRSession:
     """State for Learn-Test-Review (LTR) session."""
+
     lesson_id: int
     weak_words: list = field(default_factory=list)
     new_words: list = field(default_factory=list)
@@ -172,6 +177,7 @@ class LTRSession:
 @dataclass
 class StorySession:
     """State for story learning session."""
+
     story_id: int
     hint_level: int = 0
     genre_history: list = field(default_factory=list)
@@ -182,6 +188,7 @@ class StorySession:
 @dataclass
 class GrammarSession:
     """State for grammar learning session."""
+
     grammar_point_id: int
     current_question_index: int = 0
     correct_count: int = 0
@@ -191,6 +198,7 @@ class GrammarSession:
 @dataclass
 class ListeningSession:
     """State for listening exercise session."""
+
     word_id: int
     attempts: int = 0
     max_attempts: int = 3
@@ -199,6 +207,7 @@ class ListeningSession:
 @dataclass
 class WritingSession:
     """State for writing exercise session."""
+
     prompt: str
     examples: list = field(default_factory=list)
 
@@ -206,6 +215,7 @@ class WritingSession:
 @dataclass
 class UserSession:
     """Container for all user session state."""
+
     quiz: Optional[QuizSession] = None
     flashcard: Optional[FlashcardSession] = None
     ltr: Optional[LTRSession] = None
@@ -213,7 +223,7 @@ class UserSession:
     grammar: Optional[GrammarSession] = None
     listening: Optional[ListeningSession] = None
     writing: Optional[WritingSession] = None
-    
+
     # Additional state
     conversation_history: list = field(default_factory=list)
     active_lesson_id: Optional[int] = None
@@ -221,50 +231,10 @@ class UserSession:
     tts_message: tuple = None  # (chat_id, message_id)
     tts_delete_job: object = None
     awaiting_state: Optional[str] = None
-    
+
     # FSRS guide shown flag
     fsrs_guide_shown: bool = False
-    
-    # Answer locks to prevent double-taps
-    answer_lock: bool = False
-    rate_lock: bool = False
-    
-    # Study session
-    study_words: list = field(default_factory=list)
-    study_index: int = 0
-    study_lesson_id: Optional[int] = None
-    
-    # LTR legacy fields (for migration)
-    ltr_words: list = field(default_factory=list)
-    ltr_index: int = 0
-    ltr_lesson_id: Optional[int] = None
-    ltr_word_results: dict = field(default_factory=dict)
-    ltr_current_word_id: Optional[int] = None
-    ltr_delayed_1: Optional[int] = None
-    ltr_delayed_2: Optional[int] = None
-    ltr_round: int = 0
-    ltr_correct_index: int = 0
-    ltr_user_id: Optional[int] = None
-    
-    # Quiz flags
-    quiz_flash: bool = False
-    quiz_wrong_word_ids: list = field(default_factory=list)
-    quiz_fixed_word_ids: list = field(default_factory=list)
-    
-    # Story session
-    current_story_id: Optional[int] = None
-    story_quiz: bool = False
-    story_session_word_ids: list = field(default_factory=list)
-    story_hint_level: int = 0
-    
-    # LTR current question data
-    ltr_current_options: list = field(default_factory=list)
-    ltr_current_correct_index: int = 0
-    ltr_current_correct_text: Optional[str] = None
-    
-    # Grammar
-    grammar_current: dict = field(default_factory=dict)
-    
+
     def clear(self):
         """Clear all session state."""
         self.quiz = None
@@ -280,23 +250,3 @@ class UserSession:
         self.tts_message = None
         self.awaiting_state = None
         self.fsrs_guide_shown = False
-        self.answer_lock = False
-        self.rate_lock = False
-        self.study_words.clear()
-        self.study_index = 0
-        self.study_lesson_id = None
-        self.ltr_words.clear()
-        self.ltr_index = 0
-        self.ltr_lesson_id = None
-        self.ltr_word_results.clear()
-        self.quiz_flash = False
-        self.quiz_wrong_word_ids.clear()
-        self.quiz_fixed_word_ids.clear()
-        self.current_story_id = None
-        self.story_quiz = False
-        self.story_session_word_ids.clear()
-        self.story_hint_level = 0
-        self.ltr_current_options.clear()
-        self.ltr_current_correct_index = 0
-        self.ltr_current_correct_text = None
-        self.grammar_current.clear()

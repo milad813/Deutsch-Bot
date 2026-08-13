@@ -268,7 +268,7 @@ Example output:
         except Exception as e:
             logger.warning("خطا در تولید گزینه‌های cloze: %s", e)
             return []
-        
+
     async def generate_example_sentence(
         self, word: str, level: str = "A1"
     ) -> Optional[str]:

@@ -4,37 +4,51 @@ from typing import Callable, Dict, List, Tuple
 from telegram.error import BadRequest
 
 import config
+
 # ✅ جایگزین:
-from handlers import grammar_handlers, menus, quiz_handlers, admin_handlers
+from handlers import (
+    admin_handlers,
+    grammar_handlers,
+    listening_handlers,
+    menus,
+    quiz_handlers,
+    writing_handlers,
+)
+from handlers.learning import (
+    handle_flip_card,
+    handle_next_flashcard,
+    handle_rate_card,
+    handle_skip_flashcard,
+    start_flashcard_session,
+)
 from handlers.learning.ltr_handlers import (
-    handle_study_lesson, handle_ltr_ready, handle_ltr_learned,
+    handle_ltr_answer,
+    handle_ltr_exit,
+    handle_ltr_learned,
+    handle_ltr_ready,
     handle_ltr_show_details,
-    handle_ltr_summary, handle_ltr_exit, handle_ltr_answer
+    handle_ltr_summary,
+    handle_study_lesson,
 )
 from handlers.story import (
-    show_story_menu,
+    handle_story_answer,
+    play_story_audio,
+    play_story_listen_only,
+    play_story_listen_read,
+    replay_story,
     show_story,
+    show_story_hint,
+    show_story_menu,
     show_story_translation,
     show_story_words,
-    play_story_audio,
-    show_story_hint,
-    play_story_listen_read,
-    play_story_listen_only,
-    replay_story,
     start_story_quiz,
-    handle_story_answer,
 )
 from handlers.story.quiz import handle_story_next_question
-from handlers.learning import (FlashcardSessionManager, handle_flip_card,
-                               handle_next_flashcard, handle_rate_card,
-                               handle_skip_flashcard, start_flashcard_session)
-from handlers.learning.ltr_session import LTRSessionManager
+from handlers.tts_handlers import cleanup_tts, handle_speak_current
 from middleware.rate_limiter import rate_limiter
 from models import CallbackPrefix
-from services import db, get_main_menu_keyboard, reset_session, tts
+from services import db, get_main_menu_keyboard, reset_session
 from ui import back_inline_keyboard, render
-from handlers import writing_handlers, listening_handlers
-from handlers.tts_handlers import cleanup_tts, send_ephemeral_audio, handle_speak_current
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +74,7 @@ async def _handle_quiz_from_lesson(query, context, suffix: str):
     context.user_data["quiz_lesson_preset"] = True
     context.user_data.pop("quiz_source_filter", None)
     await menus.show_quiz_menu(query, context)
+
 
 async def _handle_flashcard_lesson(query, context, suffix: str):
     try:
@@ -99,15 +114,15 @@ async def _handle_quiz_count(query, context, suffix: str):
 
     if suffix == "all":
         if lesson_id:
-            count = db.get_word_count_by_lesson(lesson_id)
+            count = db.words.get_count_by_lesson(lesson_id)
         elif source_filter == "weak":
-            count = db.get_weak_word_count(user_id)
+            count = db.words.get_weak_count(user_id)
         elif source_filter == "due":
-            count = db.get_due_word_count(user_id)
+            count = db.words.get_due_count(user_id)
         elif source_filter == "mistakes":
-            count = db.get_mistake_word_count(user_id)
+            count = db.learning.get_mistake_word_count(user_id)
         else:
-            count = db.get_word_count()
+            count = db.words.get_count()
         count = min(count, config.MAX_QUIZ_ALL_COUNT)
     else:
         try:
@@ -125,10 +140,10 @@ async def _handle_quiz_count(query, context, suffix: str):
         return
 
     quiz_type = context.user_data.get("quiz_type", "meaning")
-    
+
     # پاک کردن quiz_lesson_preset قبل از شروع session
     context.user_data.pop("quiz_lesson_preset", None)
-    
+
     await quiz_handlers.start_quiz_session(
         query, context, quiz_type, count, source_filter
     )
@@ -182,8 +197,8 @@ async def _handle_back_to_main_menu(query, context):
     reset_session(context)
 
     if query.message:
-        due_count = db.get_due_word_count(query.from_user.id)
-        hard_count = db.count_hard_due_words(query.from_user.id)
+        due_count = db.words.get_due_count(query.from_user.id)
+        hard_count = db.words.count_hard_due(query.from_user.id)
         is_admin = bool(
             config.ADMIN_USER_ID and query.from_user.id == config.ADMIN_USER_ID
         )
@@ -261,7 +276,10 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.SPEAK_CURRENT.value, handle_speak_current),
     (CallbackPrefix.LESSON_WORDS.value, _handle_lesson_words),
     (CallbackPrefix.BOOK.value, _handle_book),
-    (CallbackPrefix.LESSON.value, lambda q, c, s: menus.show_lesson_options(q, c, int(s))),
+    (
+        CallbackPrefix.LESSON.value,
+        lambda q, c, s: menus.show_lesson_options(q, c, int(s)),
+    ),
     (CallbackPrefix.LTR_ANS.value, lambda q, c, s: handle_ltr_answer(q, c, s)),
     (
         CallbackPrefix.GRAMMAR_LESSON.value,
@@ -275,30 +293,69 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
         CallbackPrefix.GRAMMAR_QUIZ.value,
         lambda q, c, s: grammar_handlers.start_grammar_quiz(q, c, int(s)),
     ),
-    (CallbackPrefix.GRAMMAR_ANS.value, lambda q, c, s: grammar_handlers.handle_grammar_answer(q, c, s)),
+    (
+        CallbackPrefix.GRAMMAR_ANS.value,
+        lambda q, c, s: grammar_handlers.handle_grammar_answer(q, c, s),
+    ),
     (CallbackPrefix.STORY_LESSON.value, lambda q, c, s: show_story_menu(q, c, int(s))),
     (CallbackPrefix.STORY_VIEW.value, lambda q, c, s: show_story(q, c, int(s))),
-    (CallbackPrefix.STORY_FA.value, lambda q, c, s: show_story_translation(q, c, int(s))),
+    (
+        CallbackPrefix.STORY_FA.value,
+        lambda q, c, s: show_story_translation(q, c, int(s)),
+    ),
     (CallbackPrefix.STORY_WORDS.value, lambda q, c, s: show_story_words(q, c, int(s))),
     (CallbackPrefix.STORY_AUDIO.value, lambda q, c, s: play_story_audio(q, c, int(s))),
     (CallbackPrefix.STORY_HINT.value, lambda q, c, s: show_story_hint(q, c, int(s))),
-    (CallbackPrefix.STORY_LISTEN_READ.value, lambda q, c, s: play_story_listen_read(q, c, int(s))),
-    (CallbackPrefix.STORY_LISTEN_ONLY.value, lambda q, c, s: play_story_listen_only(q, c, int(s))),
+    (
+        CallbackPrefix.STORY_LISTEN_READ.value,
+        lambda q, c, s: play_story_listen_read(q, c, int(s)),
+    ),
+    (
+        CallbackPrefix.STORY_LISTEN_ONLY.value,
+        lambda q, c, s: play_story_listen_only(q, c, int(s)),
+    ),
     (CallbackPrefix.STORY_REPLAY.value, lambda q, c, s: replay_story(q, c, int(s))),
     (CallbackPrefix.STORY_QUIZ.value, lambda q, c, s: start_story_quiz(q, c, int(s))),
     (CallbackPrefix.STORY_ANS.value, lambda q, c, s: handle_story_answer(q, c, s)),
-    (CallbackPrefix.STORY_NEXT_Q.value, lambda q, c, s: handle_story_next_question(q, c, s)),
+    (
+        CallbackPrefix.STORY_NEXT_Q.value,
+        lambda q, c, s: handle_story_next_question(q, c, s),
+    ),
     (CallbackPrefix.STORY_NEXT.value, lambda q, c, s: show_story_menu(q, c, int(s))),
     (CallbackPrefix.SET_LEVEL.value, lambda q, c, s: menus.handle_set_level(q, c, s)),
     (CallbackPrefix.SET_GOAL.value, lambda q, c, s: menus.handle_set_goal(q, c, s)),
-    (CallbackPrefix.WRITING_START.value, lambda q, c, s: writing_handlers.handle_writing_start(q, c)),
-    (CallbackPrefix.WRITING_SKIP.value, lambda q, c, s: writing_handlers.handle_writing_skip(q, c)),
-    (CallbackPrefix.WRITING_EXIT.value, lambda q, c, s: writing_handlers.handle_writing_exit(q, c)),
-    (CallbackPrefix.LISTENING_START.value, lambda q, c, s: listening_handlers.handle_listening_start(q, c)),
-    (CallbackPrefix.LISTENING_ANS.value, lambda q, c, s: listening_handlers.handle_listening_answer(q, c, s)),
-    (CallbackPrefix.LISTENING_SKIP.value, lambda q, c, s: listening_handlers.handle_listening_skip(q, c)),
-    (CallbackPrefix.LISTENING_EXIT.value, lambda q, c, s: listening_handlers.handle_listening_exit(q, c)),
-    (CallbackPrefix.LISTENING_REPLAY.value, lambda q, c, s: listening_handlers.handle_listening_replay(q, c, s)),
+    (
+        CallbackPrefix.WRITING_START.value,
+        lambda q, c, s: writing_handlers.handle_writing_start(q, c),
+    ),
+    (
+        CallbackPrefix.WRITING_SKIP.value,
+        lambda q, c, s: writing_handlers.handle_writing_skip(q, c),
+    ),
+    (
+        CallbackPrefix.WRITING_EXIT.value,
+        lambda q, c, s: writing_handlers.handle_writing_exit(q, c),
+    ),
+    (
+        CallbackPrefix.LISTENING_START.value,
+        lambda q, c, s: listening_handlers.handle_listening_start(q, c),
+    ),
+    (
+        CallbackPrefix.LISTENING_ANS.value,
+        lambda q, c, s: listening_handlers.handle_listening_answer(q, c, s),
+    ),
+    (
+        CallbackPrefix.LISTENING_SKIP.value,
+        lambda q, c, s: listening_handlers.handle_listening_skip(q, c),
+    ),
+    (
+        CallbackPrefix.LISTENING_EXIT.value,
+        lambda q, c, s: listening_handlers.handle_listening_exit(q, c),
+    ),
+    (
+        CallbackPrefix.LISTENING_REPLAY.value,
+        lambda q, c, s: listening_handlers.handle_listening_replay(q, c, s),
+    ),
 ]
 
 
@@ -332,7 +389,9 @@ async def inline_handler(update, context):
         return
 
     # ─── باگ‌فیکس: story_ans هم باید فیدبک toast داشته باشه ───
-    if not data.startswith(("quiz_ans:", "ltr_ans:", "grammar_ans:", "story_ans:", "listening_ans:")):
+    if not data.startswith(
+        ("quiz_ans:", "ltr_ans:", "grammar_ans:", "story_ans:", "listening_ans:")
+    ):
         try:
             await query.answer()
         except Exception:

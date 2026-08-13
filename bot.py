@@ -1,12 +1,20 @@
+import asyncio
 import datetime
 import logging
 
 from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, Forbidden
-from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
-                          Defaults, MessageHandler, PicklePersistence, filters)
-import asyncio
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    Defaults,
+    MessageHandler,
+    PicklePersistence,
+    filters,
+)
+
 import config
 from handlers import handle_text_input, inline_handler, show_menu, start
 from services import db, tts
@@ -52,18 +60,19 @@ async def daily_tts_cleanup(context):
     tts.cleanup_cache()
     logger.info("TTS cache cleanup completed")
 
+
 async def daily_reminder(context):
     """Send reminder to users with due words."""
     try:
-        all_users = db.get_all_users()
+        all_users = db.users.get_all_users()
         user_ids = [u[0] for u in all_users]
     except Exception:
         user_ids = [config.ADMIN_USER_ID] if config.ADMIN_USER_ID else []
 
     for uid in user_ids:
         try:
-            due_count = db.get_due_word_count(uid)
-            hard_count = db.count_hard_due_words(uid)
+            due_count = db.words.get_due_count(uid)
+            hard_count = db.words.count_hard_due(uid)
 
             if due_count > 0 or hard_count > 0:
                 daily_goal = db.learning.get_daily_goal(uid)
@@ -99,6 +108,7 @@ async def daily_reminder(context):
         except Exception as e:
             logger.warning("خطا در ارسال یادآور به %s: %s", uid, e)
 
+
 def _get_reminder_utc_time() -> datetime.time:
     """Convert configured local reminder time to UTC."""
     user_tz = datetime.timezone(
@@ -118,6 +128,7 @@ def _get_reminder_utc_time() -> datetime.time:
     )
 
     return target_local.astimezone(datetime.timezone.utc).timetz()
+
 
 def main():
     config.validate_config()
@@ -152,14 +163,14 @@ def main():
             name="daily_backup",
         )
         logger.info("بکاپ روزانه فعال شد.")
-        
+
         job_queue.run_daily(
             daily_tts_cleanup,
             time=datetime.time(hour=4, minute=0, tzinfo=datetime.timezone.utc),
             name="tts_cache_cleanup",
         )
         logger.info("TTS cache cleanup job scheduled.")
-        
+
         job_queue.run_daily(
             daily_reminder,
             time=_get_reminder_utc_time(),

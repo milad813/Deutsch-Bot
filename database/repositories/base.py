@@ -1,6 +1,6 @@
 """Base repository class for common database operations."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from database.connection import DatabaseConnection
 

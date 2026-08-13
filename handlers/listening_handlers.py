@@ -1,40 +1,33 @@
 """Listening practice - play audio, user selects meaning."""
+
 import logging
 import random
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from services import db, tts
+
 from learning_engine import record_quiz_answer
+from option_generator import get_wrong_options
+from services import db, tts
 from ui import _short_label, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
-
-
-def _get_wrong_persian(word):
-    """گزینه‌های غلط بدون لود کل دیتابیس."""
-    wrong_words = db.get_words_by_type(
-        word.word_type, exclude_id=word.id, limit=50
-    )
-    if len(wrong_words) < 3:
-        wrong_words += db.get_words_by_type(None, exclude_id=word.id, limit=50)
-    wrong = [w.persian for w in wrong_words if w.persian and w.persian != word.persian]
-    wrong = list(dict.fromkeys(wrong))  # حذف تکراری
-    random.shuffle(wrong)
-    return wrong[:3]
 
 
 async def start_listening_quiz(query, context, count: int = 5):
     """شروع تمرین شنیداری."""
     user_id = query.from_user.id
     lesson_id = context.user_data.get("quiz_lesson_id")
-    
-    words = db.get_due_word_objects(user_id, limit=count, lesson_id=lesson_id)
+
+    words = db.words.get_due(user_id, limit=count, lesson_id=lesson_id)
     if not words:
-        words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=count)
-    
+        words = db.words.get_new_word_objects(user_id, lesson_id=lesson_id, limit=count)
+
     if not words:
-        await render(query, "📭 کلمه‌ای برای تمرین نیست.", reply_markup=back_inline_keyboard())
+        await render(
+            query, "📭 کلمه‌ای برای تمرین نیست.", reply_markup=back_inline_keyboard()
+        )
         return
-    
+
     random.shuffle(words)
     context.user_data["listening_session"] = {
         "words": [w.id for w in words],
@@ -42,44 +35,35 @@ async def start_listening_quiz(query, context, count: int = 5):
         "correct": 0,
         "wrong": 0,
     }
-    
+
     await _show_listening_question(query, context)
 
-async def _show_listening_question(query, context):
-    session = context.user_data.get("listening_session")
 
+async def _show_listening_question(update, context):
+    """Works with both callback query and message updates."""
+    session = context.user_data.get("listening_session")
     if not session or session["current"] >= len(session["words"]):
-        await _show_listening_summary(query, context)
+        await _show_listening_summary(update, context)
         return
 
     word_id = session["words"][session["current"]]
-    word = db.get_word_by_id(word_id)
-
+    word = db.words.get_by_id(word_id)
     if not word:
         session["current"] += 1
-        await _show_listening_question(query, context)
+        await _show_listening_question(update, context)
         return
 
-    # اول گزینه‌ها را آماده کن؛ اگر گزینه کافی نبود، سوال کلاً رد شود
-    wrong_options = _get_wrong_persian(word)
-    options = [word.persian] + wrong_options[:3]
-
-    options = list(
-        dict.fromkeys(
-            [str(o).strip() for o in options if str(o).strip()]
-        )
+    wrong_options = get_wrong_options(
+        db, word, count=3, attr_getter=lambda w: w.persian
     )
+    options = [word.persian] + wrong_options[:3]
+    options = list(dict.fromkeys([str(o).strip() for o in options if str(o).strip()]))
 
     if len(options) < 2:
         session["current"] += 1
         context.user_data.pop("listening_current", None)
-
-        try:
-            await query.answer("⚠️ گزینه کافی برای این کلمه وجود ندارد؛ سوال رد شد.", show_alert=False)
-        except Exception:
-            pass
-
-        await _show_listening_question(query, context)
+        # ✅ به‌جای query.answer، از render استفاده کن
+        await _show_listening_question(update, context)
         return
 
     random.shuffle(options)
@@ -88,30 +72,30 @@ async def _show_listening_question(query, context):
     # تولید و ارسال صدا
     audio_path = await tts.get_audio_path(word.display_german)
     audio_sent = False
-
     if audio_path:
         try:
-            with open(audio_path, "rb") as f:
-                await context.bot.send_audio(
-                    chat_id=query.message.chat_id,
-                    audio=f,
-                    title=word.display_german,
-                )
-            audio_sent = True
+            chat_id = None
+            # پشتیبانی از هر دو query و message
+            if hasattr(update, "message") and update.message:
+                chat_id = update.message.chat_id
+            elif hasattr(update, "effective_message") and update.effective_message:
+                chat_id = update.effective_message.chat_id
+
+            if chat_id:
+                with open(audio_path, "rb") as f:
+                    await context.bot.send_audio(
+                        chat_id=chat_id,
+                        audio=f,
+                        title=word.display_german,
+                    )
+                audio_sent = True
         except Exception as e:
             logger.warning("خطا در ارسال فایل صوتی: %s", e)
 
-    # اگر صدا ارسال نشد، سوال بدون صدا نمایش داده نشود
     if not audio_sent:
         session["current"] += 1
         context.user_data.pop("listening_current", None)
-
-        try:
-            await query.answer("⚠️ صدا در دسترس نیست؛ سوال رد شد.", show_alert=False)
-        except Exception:
-            pass
-
-        await _show_listening_question(query, context)
+        await _show_listening_question(update, context)
         return
 
     context.user_data["listening_current"] = {
@@ -121,64 +105,68 @@ async def _show_listening_question(query, context):
     }
 
     msg = (
-        f"🎧 <b>تمرین شنیداری</b> ({session['current']+1}/{len(session['words'])})\n"
+        f"🎧 <b>تمرین شنیداری</b> ({session['current']+1}/{len(session['words'])})"
         f"صدا را گوش بده و معنی فارسی را انتخاب کن:"
     )
-
     kb_rows = []
-
     for i, opt in enumerate(options):
-        kb_rows.append([
+        kb_rows.append(
+            [
+                InlineKeyboardButton(
+                    _short_label(f"{chr(65+i)}) {opt}", 64),
+                    callback_data=f"listening_ans:{i}",
+                )
+            ]
+        )
+    kb_rows.append(
+        [
             InlineKeyboardButton(
-                _short_label(f"{chr(65+i)}) {opt}", 64),
-                callback_data=f"listening_ans:{i}"
+                "🔊 پخش دوباره", callback_data=f"listening_replay:{word_id}"
             )
-        ])
+        ]
+    )
+    kb_rows.append([InlineKeyboardButton("⏭️ رد شدن", callback_data="listening_skip:")])
+    kb_rows.append([InlineKeyboardButton("🏁 پایان", callback_data="listening_exit:")])
+    await render(update, msg, reply_markup=InlineKeyboardMarkup(kb_rows))
 
-    kb_rows.append([
-        InlineKeyboardButton("🔊 پخش دوباره", callback_data=f"listening_replay:{word_id}")
-    ])
-
-    kb_rows.append([
-        InlineKeyboardButton("⏭️ رد شدن", callback_data="listening_skip:")
-    ])
-
-    kb_rows.append([
-        InlineKeyboardButton("🏁 پایان", callback_data="listening_exit:")
-    ])
-
-    await render(query, msg, reply_markup=InlineKeyboardMarkup(kb_rows))
 
 async def _show_listening_question_from_message(update, context):
     """ادامه سوال بعدی از پیام متنی."""
+
     class FakeQuery:
         def __init__(self, update):
             self.from_user = update.effective_user
             self.message = update.message
             self.data = ""
+
         async def answer(self, text=None, show_alert=False):
             pass
+
     query = FakeQuery(update)
     await _show_listening_question(query, context)
+
 
 async def _show_listening_summary(query, context):
     session = context.user_data.pop("listening_session", {})
     total = session.get("correct", 0) + session.get("wrong", 0)
     correct = session.get("correct", 0)
-    
+
     msg = (
         f"📊 <b>نتیجه تمرین شنیداری</b>\n"
         f"✅ درست: {correct}\n"
         f"❌ غلط: {session.get('wrong', 0)}\n"
         f"🎯 دقت: {int(correct / total * 100) if total else 0}%\n"
     )
-    
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 تکرار", callback_data="listening_start:")],
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-    ])
-    
+
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔁 تکرار", callback_data="listening_start:")],
+            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+        ]
+    )
+
     await render(query, msg, reply_markup=kb)
+
 
 async def handle_listening_answer(query, context, suffix: str):
     """پردازش جواب کاربر."""
@@ -219,7 +207,7 @@ async def handle_listening_answer(query, context, suffix: str):
             return
 
         word_id = current["word_id"]
-        word = db.get_word_by_id(word_id)
+        word = db.words.get_by_id(word_id)
 
         if not word:
             return
@@ -263,6 +251,7 @@ async def handle_listening_answer(query, context, suffix: str):
     finally:
         context.user_data.pop(lock_key, None)
 
+
 async def handle_listening_skip(query, context):
     lock_key = "listening_skip_lock"
 
@@ -285,7 +274,7 @@ async def handle_listening_skip(query, context):
 
         if current:
             word_id = current["word_id"]
-            word = db.get_word_by_id(word_id)
+            word = db.words.get_by_id(word_id)
 
             if word:
                 session["wrong"] = session.get("wrong", 0) + 1
@@ -314,6 +303,7 @@ async def handle_listening_skip(query, context):
     finally:
         context.user_data.pop(lock_key, None)
 
+
 async def handle_listening_exit(query, context):
     context.user_data.pop("listening_session", None)
     context.user_data.pop("listening_current", None)
@@ -331,7 +321,7 @@ async def handle_listening_replay(query, context, suffix: str):
     except (ValueError, TypeError):
         return
 
-    word = db.get_word_by_id(word_id)
+    word = db.words.get_by_id(word_id)
     if not word:
         return
 

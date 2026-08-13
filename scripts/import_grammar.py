@@ -57,7 +57,7 @@ def main():
         return
 
     db = Database(config.DB_PATH)
-    books = db.get_all_books()
+    books = db.books.get_all()
     if not books:
         print("⚠️ هیچ کتابی در دیتابیس نیست. اول import_csv.py را اجرا کن.")
         sys.exit(1)
@@ -72,13 +72,13 @@ def main():
             ln = int(ln)
         except Exception:
             continue
-        lesson_id = db.add_lesson(book_id, ln, None)
+        lesson_id = db.lessons.create(book_id, ln, None)
         points = lesson.get("grammar_points", []) or []
         for p in points:
             topic_key = p.get("topic_key")
             if not topic_key:
                 continue
-            db.add_grammar_point(
+            db.grammar.upsert(
                 lesson_id=lesson_id,
                 topic_key=topic_key,
                 title_fa=p.get("title_fa", ""),
