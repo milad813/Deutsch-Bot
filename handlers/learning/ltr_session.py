@@ -269,7 +269,6 @@ class LTRSessionManager:
         }
 
     def clear_session(self) -> None:
-        """Clear all LTR session data."""
         keys_to_clear = [
             "ltr_user_id", "ltr_lesson_id", "ltr_words",
             "ltr_learn_index", "ltr_phase", "ltr_delayed_tasks",
@@ -278,11 +277,13 @@ class LTRSessionManager:
             "ltr_words_passed", "ltr_words_failed",
             "ltr_current_question", "ltr_current_options",
             "ltr_current_correct_index", "ltr_current_correct_text",
+            "ltr_question_type",
             # Legacy keys
             "ltr_index", "ltr_main_index", "ltr_main_progress",
             "ltr_retry_stage", "ltr_wrong_in_session", "ltr_round",
             "ltr_round2_started", "ltr_delayed_1", "ltr_delayed_2",
         ]
+
         for key in keys_to_clear:
             self.user_data.pop(key, None)
 

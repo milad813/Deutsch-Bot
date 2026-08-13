@@ -3,6 +3,7 @@ import logging
 from typing import Dict
 import config
 from services import db, tts
+from ui import strip_html
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,10 @@ async def _auto_delete_tts(context):
 
 async def send_ephemeral_audio(query, context, text: str):
     if not query or not query.message:
+        return
+    text = strip_html(text or "").strip()
+    if not text:
+        await query.message.reply_text("❌ متنی برای خواندن وجود ندارد.")
         return
     user_id = query.from_user.id
     await cleanup_tts(context, user_id)

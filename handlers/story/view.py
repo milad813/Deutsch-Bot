@@ -5,8 +5,7 @@ from typing import List, Dict, Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from services import db, tts
-from ui import back_inline_keyboard, esc, render
-
+from ui import back_inline_keyboard, esc, render, sanitize_html
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +42,7 @@ async def show_story(query, context, story_id: int):
     target_ids = _safe_id_list(story.get("target_word_ids"))
     words = db.get_word_objects_by_ids(target_ids) if target_ids else []
 
-    msg = f"📖 <b>{esc(title)}</b>\n{esc(story['text_de'])}"
+    msg = f"📖 <b>{esc(title)}</b>\n{sanitize_html(story['text_de'])}"
 
     if words:
         msg += "\n\n🎯 <b>کلمات این داستان:</b>\n"

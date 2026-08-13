@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest, Forbidden
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           Defaults, MessageHandler, PicklePersistence, filters)
-
+import asyncio
 import config
 from handlers import handle_text_input, inline_handler, show_menu, start
 from services import db, tts
@@ -52,34 +52,72 @@ async def daily_tts_cleanup(context):
     tts.cleanup_cache()
     logger.info("TTS cache cleanup completed")
 
-
 async def daily_reminder(context):
     """Send reminder to users with due words."""
     try:
         all_users = db.get_all_users()
-        user_ids = [u[0] for u in all_users]  # u[0] = user_id
+        user_ids = [u[0] for u in all_users]
     except Exception:
-        user_ids = [config.ADMIN_USER_ID] if config.ADMIN_USER_ID else []    
+        user_ids = [config.ADMIN_USER_ID] if config.ADMIN_USER_ID else []
+
     for uid in user_ids:
         try:
             due_count = db.get_due_word_count(uid)
             hard_count = db.count_hard_due_words(uid)
+
             if due_count > 0 or hard_count > 0:
-                msg = f"🔔 <b>یادآور مرور</b>\n"
+                daily_goal = db.learning.get_daily_goal(uid)
+                today_done = db.learning.get_today_activity_count(uid)
+
+                msg = "🔔 <b>یادآور مرور</b>\n"
+
                 if hard_count:
                     msg += f"🔥 {hard_count} کلمه سخت معوق\n"
+
                 if due_count:
                     msg += f"📅 {due_count} کلمه برای مرور\n"
+
+                msg += f"🎯 امروز: {today_done}/{daily_goal}\n"
+
+                if today_done >= daily_goal:
+                    msg += "🎉 هدف امروزت کامل شده!\n"
+
                 msg += "\nبیا تمرین کن! 💪"
+
                 from services import get_main_menu_keyboard
+
                 await context.bot.send_message(
                     chat_id=uid,
                     text=msg,
-                    reply_markup=get_main_menu_keyboard(due_count, hard_count=hard_count),
+                    reply_markup=get_main_menu_keyboard(
+                        due_count, hard_count=hard_count
+                    ),
                 )
+
+            await asyncio.sleep(0.05)
+
         except Exception as e:
             logger.warning("خطا در ارسال یادآور به %s: %s", uid, e)
 
+def _get_reminder_utc_time() -> datetime.time:
+    """Convert configured local reminder time to UTC."""
+    user_tz = datetime.timezone(
+        datetime.timedelta(
+            hours=config.USER_TIMEZONE_OFFSET_HOURS,
+            minutes=config.USER_TIMEZONE_OFFSET_MINUTES,
+        )
+    )
+
+    now_local = datetime.datetime.now(user_tz)
+
+    target_local = now_local.replace(
+        hour=config.DAILY_REMINDER_HOUR_LOCAL,
+        minute=config.DAILY_REMINDER_MINUTE_LOCAL,
+        second=0,
+        microsecond=0,
+    )
+
+    return target_local.astimezone(datetime.timezone.utc).timetz()
 
 def main():
     config.validate_config()
@@ -124,7 +162,7 @@ def main():
         
         job_queue.run_daily(
             daily_reminder,
-            time=datetime.time(hour=9, minute=0, tzinfo=datetime.timezone.utc),
+            time=_get_reminder_utc_time(),
             name="daily_reminder",
         )
         logger.info("Daily reminder job scheduled.")

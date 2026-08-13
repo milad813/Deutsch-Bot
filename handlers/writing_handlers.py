@@ -3,7 +3,7 @@ import logging
 import random
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
-
+from learning_engine import record_quiz_answer
 from services import db
 from ui import back_inline_keyboard, esc, render
 
@@ -96,29 +96,52 @@ async def _show_writing_summary(query, context):
     
     await render(query, msg, reply_markup=kb)
 
-
 async def handle_writing_skip(query, context):
-    session = context.user_data.get("writing_session")
-    if not session:
-        return
-    
-    word_id = context.user_data.get("writing_current_word")
-    word = db.get_word_by_id(word_id)
-    
-    if word:
-        session["wrong"] = session.get("wrong", 0) + 1
-        user_id = query.from_user.id
-        db.learning.record_skill(user_id, word_id, "writing", False)
-        db.learning.record_mistake(
-            user_id=user_id, word_id=word_id,
-            skill_type="writing", quiz_type="writing",
-            user_answer="(skipped)", correct_answer=word.display_german,
-        )
-    
-    session["current"] = session.get("current", 0) + 1
-    context.user_data.pop("awaiting_writing_answer", None)
-    await _show_writing_question(query, context)
+    lock_key = "writing_skip_lock"
 
+    if context.user_data.get(lock_key):
+        try:
+            await query.answer()
+        except Exception:
+            pass
+        return
+
+    context.user_data[lock_key] = True
+
+    try:
+        session = context.user_data.get("writing_session")
+
+        if not session:
+            return
+
+        word_id = context.user_data.get("writing_current_word")
+        word = db.get_word_by_id(word_id)
+
+        if word:
+            session["wrong"] = session.get("wrong", 0) + 1
+
+            user_id = query.from_user.id
+
+            record_quiz_answer(
+                user_id=user_id,
+                word_id=word_id,
+                skill_type="writing",
+                is_correct=False,
+                user_answer="(skipped)",
+                correct_answer=word.display_german,
+                update_srs=True,
+                update_quiz_stats=False,
+                xp=0,
+                quiz_type="writing",
+            )
+
+        session["current"] = session.get("current", 0) + 1
+        context.user_data.pop("awaiting_writing_answer", None)
+
+        await _show_writing_question(query, context)
+
+    finally:
+        context.user_data.pop(lock_key, None)
 
 async def handle_writing_exit(query, context):
     context.user_data.pop("writing_session", None)
@@ -134,44 +157,77 @@ async def handle_writing_text(update: Update, context: ContextTypes.DEFAULT_TYPE
     """وقتی کاربر جواب نوشتاری را تایپ می‌کند."""
     if not context.user_data.get("awaiting_writing_answer"):
         return False
-    
+
     user_input = update.message.text.strip()
     word_id = context.user_data.get("writing_current_word")
     word = db.get_word_by_id(word_id)
-    
+
     if not word:
         context.user_data.pop("awaiting_writing_answer", None)
         return True
-    
-    # بررسی جواب (case-insensitive, article optional)
-    correct_variants = {word.german.lower()}
-    if word.article:
-        correct_variants.add(f"{word.article} {word.german}".lower())
-    
-    is_correct = user_input.lower() in correct_variants
-    
+
+    user_norm = " ".join(user_input.lower().split())
+
+    is_correct = False
+    feedback = ""
+
+    # ✅ حالت ملایم:
+    # برای اسم‌ها، اگر آرتیکل ننوشت، درست حساب می‌شود ولی warning می‌گیرد.
+    if word.word_type == "Noun" and word.article:
+        full_answer = f"{word.article} {word.german}".lower()
+        bare_answer = word.german.lower()
+
+        if user_norm == full_answer:
+            is_correct = True
+            feedback = "✅ آفرین! درست بود."
+        elif user_norm == bare_answer:
+            is_correct = True
+            feedback = (
+                "✅ درست بود، ولی بهتر است آرتیکل را هم بنویسی.\n"
+                f"⚠️ جواب کامل: <b>{esc(word.display_german)}</b>"
+            )
+        else:
+            feedback = f"❌ اشتباه. جواب درست: <b>{esc(word.display_german)}</b>"
+    else:
+        correct_variants = {word.german.lower()}
+
+        if word.article:
+            correct_variants.add(f"{word.article} {word.german}".lower())
+
+        if user_norm in correct_variants:
+            is_correct = True
+            feedback = "✅ آفرین! درست بود!"
+        else:
+            feedback = f"❌ اشتباه. جواب درست: <b>{esc(word.display_german)}</b>"
+
     session = context.user_data.get("writing_session", {})
+
     if is_correct:
         session["correct"] = session.get("correct", 0) + 1
-        feedback = "✅ آفرین! درست بود!"
     else:
         session["wrong"] = session.get("wrong", 0) + 1
-        feedback = f"❌ اشتباه. جواب درست: <b>{esc(word.display_german)}</b>"
-    
-    # ثبت
+
     user_id = update.effective_user.id
-    db.learning.record_skill(user_id, word_id, "writing", is_correct)
-    if not is_correct:
-        db.learning.record_mistake(
-            user_id=user_id, word_id=word_id,
-            skill_type="writing", quiz_type="writing",
-            user_answer=user_input, correct_answer=word.display_german,
-        )
-    
+
+    # ✅ ثبت مهارت + mistake + FSRS
+    record_quiz_answer(
+        user_id=user_id,
+        word_id=word_id,
+        skill_type="writing",
+        is_correct=is_correct,
+        user_answer=user_input,
+        correct_answer=word.display_german,
+        update_srs=True,
+        update_quiz_stats=True,
+        xp=5 if is_correct else 0,
+        quiz_type="writing",
+    )
+
     session["current"] = session.get("current", 0) + 1
     context.user_data.pop("awaiting_writing_answer", None)
-    
+
     await update.message.reply_text(feedback)
-    # ادامه به سوال بعدی
+
     await _show_writing_question_from_message(update, context)
+
     return True

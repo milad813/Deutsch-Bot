@@ -171,8 +171,12 @@ def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
     accuracy = recent_stats.get("accuracy", 50)
 
     # تنظیم سطح بر اساس دقت کاربر
-    if accuracy > 80 and lesson_level in ["A1", "A2"]:
-        return "B1"
+    LEVEL_ORDER = ["A1", "A2", "B1", "B2"]
+
+    if accuracy > 80:
+        idx = LEVEL_ORDER.index(lesson_level) if lesson_level in LEVEL_ORDER else 0
+        if idx < len(LEVEL_ORDER) - 1:
+            return LEVEL_ORDER[idx + 1]
     elif accuracy < 40 and lesson_level in ["B1", "B2"]:
         return "A2"
 
@@ -415,12 +419,38 @@ async def _generate_story_for_lesson(
                 continue
 
             # ─── ذخیره در دیتابیس (با نام فیلدهای صحیح add_story) ───
+            # ─── تولید ترجمه فارسی (اختیاری، اگر LLM در دسترس باشد) ───
+            title_fa = ""
+            text_fa = ""
+            try:
+                if llm.is_available():
+                    translate_prompt = f"""Translate this German story to Persian. Return ONLY JSON:
+            {{"title_fa": "...", "text_fa": "..."}}
+
+            Title: {story_data.get("title", "")}
+            Text: {story_data["text"]}"""
+                    translate_response = await llm._chat(
+                        "You translate German to Persian. Output only valid JSON.",
+                        translate_prompt,
+                        temperature=0.3,
+                        max_tokens=500,
+                    )
+                    if translate_response:
+                        import json as json_mod
+                        match = re.search(r"\{.*\}", translate_response, re.DOTALL)
+                        if match:
+                            translate_data = json_mod.loads(match.group())
+                            title_fa = str(translate_data.get("title_fa") or "").strip()
+                            text_fa = str(translate_data.get("text_fa") or "").strip()
+            except Exception as e:
+                logger.warning("خطا در ترجمه داستان: %s", e)
+
             story_id = db.add_story(
                 lesson_id=lesson_id,
                 title_de=story_data.get("title", ""),
-                title_fa="",  # بعداً توسط مترجم پر می‌شود
+                title_fa=title_fa,
                 text_de=story_data["text"],
-                text_fa="",
+                text_fa=text_fa,
                 target_word_ids=json.dumps([w["id"] for w in target_words]),
                 questions_json=json.dumps(valid_q, ensure_ascii=False),
                 level=level,
@@ -449,32 +479,46 @@ async def show_story_menu(query, context, lesson_id: int):
 
     user_id = query.from_user.id
 
+    # ✅ جلوگیری از کلیک‌های مکرر
+    if context.user_data.get("story_generating"):
+        try:
+            await query.answer("⏳ در حال ساخت داستان قبلی...", show_alert=True)
+        except Exception:
+            pass
+        return
+
     if not llm.is_available():
         await render(
             query,
-            "❌ قابلیت LLM فعال نیست.\nدر <code>.env</code> کلید <code>GROQ_API_KEY</code> را تنظیم کن.",
+            "❌ قابلیت LLM فعال نیست.\n"
+            "در <code>.env</code> کلید <code>GROQ_API_KEY</code> را تنظیم کن.",
             reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
         )
         return
 
-    session_stories = context.user_data.get("story_session_word_ids", [])
-    exclude_ids = set(session_stories)
+    context.user_data["story_generating"] = True
 
     try:
-        await query.answer("📖 در حال ساخت داستان جدید...", show_alert=False)
-    except Exception:
-        pass
+        session_stories = context.user_data.get("story_session_word_ids", [])
+        exclude_ids = set(session_stories)
 
-    story = await _generate_story_for_lesson(user_id, lesson_id, exclude_ids)
+        try:
+            await query.answer("📖 در حال ساخت داستان جدید...", show_alert=False)
+        except Exception:
+            pass
 
-    if story:
-        target_ids = _safe_id_list(story.get("target_word_ids"))
-        session_stories.extend(target_ids)
-        context.user_data["story_session_word_ids"] = session_stories
-        await show_story(query, context, story["id"])
-    else:
-        await render(
-            query,
-            "❌ ساخت داستان ناموفق بود. دوباره تلاش کن.",
-            reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
-        )
+        story = await _generate_story_for_lesson(user_id, lesson_id, exclude_ids)
+
+        if story:
+            target_ids = _safe_id_list(story.get("target_word_ids"))
+            session_stories.extend(target_ids)
+            context.user_data["story_session_word_ids"] = session_stories
+            await show_story(query, context, story["id"])
+        else:
+            await render(
+                query,
+                "❌ ساخت داستان ناموفق بود. دوباره تلاش کن.",
+                reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
+            )
+    finally:
+        context.user_data.pop("story_generating", None)

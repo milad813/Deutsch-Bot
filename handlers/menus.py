@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 import config
 from models import CallbackPrefix
 from services import db, get_main_menu_keyboard, reset_session
-from ui import _short_label, back_inline_keyboard, esc, render
+from ui import _short_label, back_inline_keyboard, esc, progress_bar, render
 
 ITEMS_PER_PAGE = 5
 
@@ -91,22 +91,12 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_quiz_menu(update, context):
     keyboard = [
-        [
-            InlineKeyboardButton(
-                "🎯 آرتیکل (der/die/das)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}article"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "🧠 معنی (آلمانی→فارسی)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}meaning"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "🔄 معکوس (فارسی→آلمانی)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}reverse"
-            )
-        ],
+        [InlineKeyboardButton("🎯 آرتیکل (der/die/das)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}article")],
+        [InlineKeyboardButton("🧠 معنی (آلمانی→فارسی)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}meaning")],
+        [InlineKeyboardButton("🔄 معکوس (فارسی→آلمانی)", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}reverse")],
         [InlineKeyboardButton("📝 جای خالی", callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}cloze")],
+        [InlineKeyboardButton("✍️ نوشتاری", callback_data=f"{CallbackPrefix.WRITING_START.value}")],
+        [InlineKeyboardButton("🎧 شنیداری", callback_data=f"{CallbackPrefix.LISTENING_START.value}")],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
     ]
     await render(
@@ -114,7 +104,6 @@ async def show_quiz_menu(update, context):
         "🤖 نوع کوییز را انتخاب کنید:",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
-
 
 async def show_quiz_source(query, context):
     keyboard = [
@@ -399,6 +388,9 @@ async def show_dashboard_simple(update, context):
     prog = db.get_user_progress(user_id)
     level, into, need = db.level_from_xp(prog["xp"])
     hard = db.count_hard_due_words(user_id)
+    daily_goal = db.learning.get_daily_goal(user_id)
+    today_done = db.learning.get_today_activity_count(user_id)
+    goal_bar = progress_bar(today_done, daily_goal)
 
     bar = progress_bar(into, need)
     msg = (
@@ -408,7 +400,11 @@ async def show_dashboard_simple(update, context):
         f"🎯 دقت کلی: {accuracy:.1f}%\n"
         f"🔥 streak: {prog['streak']} روز\n"
         f"⭐ سطح {level}  [{bar}]  {into}/{need} XP\n"
+        f"🎯 هدف امروز: {today_done}/{daily_goal}  [{goal_bar}]\n"
     )
+
+    if today_done >= daily_goal:
+        msg += "🎉 هدف امروز کامل شد!\n"
 
     keyboard = []
     if hard > 0:
@@ -575,27 +571,31 @@ async def handle_set_goal(query, context, suffix: str):
 # Error Notebook (مرحله ۳)
 # ─────────────────────────────
 async def show_error_notebook(query, context):
-    """نمایش دفترچه اشتباهات کاربر."""
+    """نمایش دفترچه اشتباهات حل‌نشده کاربر."""
     user_id = query.from_user.id
-    items = db.get_weakest_words_by_skills(user_id, limit=10)
+    items = db.learning.get_mistake_words(user_id, limit=10)
 
     if not items:
         await render(
             query,
-            "📒 <b>دفترچه اشتباهات</b>\n\nهنوز اشتباهی ثبت نشده! 🎉\n"
-            "با انجام کوییز و فلش‌کارت، اشتباهاتت ذخیره می‌شوند.",
+            "📒 <b>دفترچه اشتباهات</b>\n"
+            "هنوز اشتباه حل‌نشده‌ای نداری! 🎉\n\n"
+            "با انجام کوییز و فلش‌کارت، اشتباهاتت ذخیره می‌شوند\n"
+            "و وقتی همان مهارت را درست جواب بدهی، حل می‌شوند.",
             reply_markup=back_inline_keyboard(),
         )
         return
 
-    msg = "📒 <b>دفترچه اشتباهات</b>\n\n"
+    msg = "📒 <b>دفترچه اشتباهات حل‌نشده</b>\n"
 
     for item in items[:10]:
-        word = item["word"]
+        article = (item.get("article") or "").strip()
+        german = (item.get("german") or "").strip()
+        display = f"{article} {german}".strip()
+
         msg += (
-            f"🔸 <b>{esc(word.display_german)}</b> — {esc(word.persian)}\n"
-            f"❌ {item['wrong']} اشتباه | ✅ {item['correct']} درست | "
-            f"🎯 تسلط: {item['mastery']}%\n\n"
+            f"🔸 <b>{esc(display)}</b> — {esc(item.get('persian') or '')}\n"
+            f"❌ {item.get('wrong_count', 0)} اشتباه حل‌نشده\n"
         )
 
     kb = InlineKeyboardMarkup(

@@ -30,6 +30,10 @@ class LearningRepository(BaseRepository):
         now_str = _now_str()
         wrong_at = now_str if not is_correct else None
 
+        correct_inc = 1 if is_correct else 0
+        wrong_inc = 0 if is_correct else 1
+        streak_value = 1 if is_correct else 0
+
         query = """
         INSERT INTO word_skills (
             user_id,
@@ -38,16 +42,21 @@ class LearningRepository(BaseRepository):
             correct_count,
             wrong_count,
             last_reviewed,
-            last_wrong_at
+            last_wrong_at,
+            correct_streak
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id, word_id, skill_type) DO UPDATE SET
-            correct_count = correct_count + excluded.correct_count,
-            wrong_count = wrong_count + excluded.wrong_count,
+            correct_count = word_skills.correct_count + excluded.correct_count,
+            wrong_count = word_skills.wrong_count + excluded.wrong_count,
             last_reviewed = excluded.last_reviewed,
             last_wrong_at = CASE
                 WHEN excluded.wrong_count > 0 THEN excluded.last_wrong_at
                 ELSE word_skills.last_wrong_at
+            END,
+            correct_streak = CASE
+                WHEN excluded.correct_count > 0 THEN COALESCE(word_skills.correct_streak, 0) + 1
+                ELSE 0
             END
         """
 
@@ -57,19 +66,34 @@ class LearningRepository(BaseRepository):
                 user_id,
                 word_id,
                 skill_type,
-                1 if is_correct else 0,
-                0 if is_correct else 1,
+                correct_inc,
+                wrong_inc,
                 now_str,
                 wrong_at,
+                streak_value,
             ),
             commit=True,
         )
 
+        # ✅ اگر کاربر در همان skill درست زد، اشتباه همان skill حل شود
+        if is_correct:
+            self.execute(
+                """
+                UPDATE mistake_stats
+                SET resolved_at = ?
+                WHERE user_id = ?
+                  AND word_id = ?
+                  AND skill_type = ?
+                  AND resolved_at IS NULL
+                """,
+                (now_str, user_id, word_id, skill_type),
+                commit=True,
+            )
     def get_word_skills(self, user_id: int, word_id: int) -> List[Dict]:
         """Get all skill stats for one word."""
         rows = self.fetch_all(
             """
-            SELECT skill_type, correct_count, wrong_count
+            SELECT skill_type, correct_count, wrong_count, correct_streak
             FROM word_skills
             WHERE user_id = ? AND word_id = ?
             ORDER BY skill_type
@@ -78,10 +102,12 @@ class LearningRepository(BaseRepository):
         )
 
         result = []
-        for skill_type, correct, wrong in rows:
+        for skill_type, correct, wrong, streak in rows:
             correct = correct or 0
             wrong = wrong or 0
+            streak = streak or 0
             total = correct + wrong
+
             result.append(
                 {
                     "skill_type": skill_type,
@@ -89,11 +115,11 @@ class LearningRepository(BaseRepository):
                     "wrong": wrong,
                     "total": total,
                     "accuracy": int((correct / total) * 100) if total else 0,
+                    "correct_streak": streak,
                 }
             )
 
         return result
-
     def get_word_mastery(self, user_id: int, word_id: int) -> Optional[Dict]:
         """Get simple overall mastery for a word."""
         skills = self.get_word_skills(user_id, word_id)
@@ -435,21 +461,35 @@ class LearningRepository(BaseRepository):
         return row[0] if row and row[0] else 10
 
     def get_today_activity_count(self, user_id: int) -> int:
-        """تعداد فعالیت‌های امروز."""
+        """تعداد فعالیت‌های امروز به وقت محلی کاربر."""
         from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
         from datetime import datetime, timedelta, timezone
-        tz = timezone(timedelta(hours=USER_TIMEZONE_OFFSET_HOURS, minutes=USER_TIMEZONE_OFFSET_MINUTES))
-        today = datetime.now(tz).strftime("%Y-%m-%d")
+
+        tz = timezone(
+            timedelta(
+                hours=USER_TIMEZONE_OFFSET_HOURS,
+                minutes=USER_TIMEZONE_OFFSET_MINUTES,
+            )
+        )
+
+        now_local = datetime.now(tz)
+        today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # ✅ تبدیل درست به UTC
+        today_start_utc = today_start_local.astimezone(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
         row = self.fetch_one(
             """
             SELECT SUM(correct_count + wrong_count)
             FROM word_skills
             WHERE user_id = ? AND last_reviewed >= ?
             """,
-            (user_id, today),
+            (user_id, today_start_utc),
         )
-        return row[0] if row and row[0] else 0
 
+        return row[0] if row and row[0] else 0
     def get_weekly_stats(self, user_id: int) -> Dict:
         """آمار ۷ روز اخیر."""
         row = self.fetch_one(

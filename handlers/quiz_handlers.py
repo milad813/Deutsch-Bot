@@ -126,7 +126,6 @@ async def _gen_reverse(word: Word, user_id: int, level: str) -> Optional[Dict]:
     wrong = _get_smart_wrong_options(word, count=3, attr_getter=lambda w: w.display_german)
     return quiz_service.create_reverse_quiz(word.persian, correct_german, wrong)
 
-
 async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     ex_de = word.example_de
 
@@ -136,10 +135,24 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if not ex_de:
         return None
 
+    base_cloze = quiz_service.create_cloze_quiz(
+        word.german,
+        word.persian,
+        ex_de,
+        article=word.article,
+        word_type=word.word_type,
+    )
+
+    if not base_cloze:
+        return None
+
+    target = base_cloze.get("correct_answer") or word.german
+
     wrong = []
+
     if llm.is_available():
         wrong = await llm.generate_cloze_options(
-            word.german,
+            target,
             ex_de,
             count=3,
             user_id=user_id,
@@ -147,12 +160,20 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
         )
 
     if len(wrong) < 3:
-        wrong += _get_smart_wrong_options(word, count=3 - len(wrong), attr_getter=lambda w: w.german)
+        wrong += _get_smart_wrong_options(
+            word,
+            count=3 - len(wrong),
+            attr_getter=lambda w: w.german,
+        )
 
     return quiz_service.create_cloze_with_options(
-        word.german, word.persian, ex_de, wrong
+        word.german,
+        word.persian,
+        ex_de,
+        wrong,
+        article=word.article,
+        word_type=word.word_type,
     )
-
 
 @dataclass
 class QuizConfig:
@@ -222,7 +243,7 @@ async def _start_generic_quiz(
             exclude_ids.add(word.id)
 
         if not word or not quiz:
-            if session and session.get("current", 0) > 0:
+            if session and session.current_index > 0:
                 await _show_quiz_summary(
                     query, context, header="⚠️ کلمه‌ی مناسب دیگری پیدا نشد."
                 )
@@ -322,7 +343,6 @@ def _get_quiz_session(context) -> Optional[QuizSession]:
     """Get current quiz session object."""
     return context.user_data.get("quiz_session_obj")
 
-
 def _update_quiz_session(
     context,
     is_correct: bool,
@@ -331,24 +351,21 @@ def _update_quiz_session(
     user_answer: str,
     correct_answer: str,
 ):
-    """Update quiz session with answer result."""
     session = _get_quiz_session(context)
     if not session:
         return
-
     session.current_index += 1
     if is_correct:
         session.correct_count += 1
     else:
         session.wrong_count += 1
-        # ✅ ردیابی کلمات اشتباه برای دکمه "فقط اشتباه‌ها"
-        if not hasattr(session, '_wrong_ids'):
-            session._wrong_ids = []
-        if word_id:
-            session._wrong_ids.append(word_id)
-
-    session.question_ids.append(word_id)
-
+    if word_id:
+        session.question_ids.append(word_id)
+        # ردیابی کلمات اشتباه در context (نه روی dataclass)
+        if not is_correct:
+            wrong_ids = context.user_data.setdefault("quiz_wrong_word_ids", [])
+            if word_id not in wrong_ids:
+                wrong_ids.append(word_id)
 
 def _get_session_progress(context) -> str:
     """Get formatted progress string for quiz session."""
@@ -373,7 +390,6 @@ def _is_session_finished(context) -> bool:
         return True
     return session.current_index >= session.total_questions
 
-
 async def _show_quiz_summary(query, context, header: str = ""):
     session = context.user_data.pop("quiz_session_obj", None)
     context.user_data.pop("current_quiz", None)
@@ -383,23 +399,29 @@ async def _show_quiz_summary(query, context, header: str = ""):
         await render(query, "🏁 کوییز تمام شد.", reply_markup=back_inline_keyboard())
         return
 
-    # Get wrong word IDs from question_ids (we don't track per-question results in typed session)
-    wrong_ids = getattr(session, '_wrong_ids', [])
+    wrong_ids = context.user_data.get("quiz_wrong_word_ids", [])
 
-    if wrong_ids:
-        context.user_data["quiz_wrong_word_ids"] = wrong_ids
-    else:
+    if not wrong_ids:
         context.user_data.pop("quiz_wrong_word_ids", None)
 
+    answered = session.correct_count + session.wrong_count
+
     accuracy = (
-        (session.correct_count / session.total_questions * 100) if session.total_questions > 0 else 0
+        (session.correct_count / answered * 100)
+        if answered > 0
+        else 0
     )
 
     lines = []
+
     if header:
         lines.append(header)
 
     lines.append("<b>🏁 کوییز تمام شد!</b>")
+
+    if answered < session.total_questions:
+        lines.append(f"📊 پاسخ داده‌شده: {answered} از {session.total_questions}")
+
     lines.append(f"✅ درست: {session.correct_count}")
     lines.append(f"❌ اشتباه: {session.wrong_count}")
     lines.append(f"🎯 دقت: {accuracy:.1f}%")
@@ -410,6 +432,7 @@ async def _show_quiz_summary(query, context, header: str = ""):
         text = _safe_truncate_html(text, 4000)
 
     keyboard = []
+
     if wrong_ids:
         keyboard.append(
             [InlineKeyboardButton("🔁 فقط اشتباه‌ها", callback_data="quiz_retry_wrong")]
@@ -418,12 +441,12 @@ async def _show_quiz_summary(query, context, header: str = ""):
     keyboard.append(
         [InlineKeyboardButton("🔄 کوییز جدید", callback_data="show_quiz_menu")]
     )
+
     keyboard.append(
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
     )
 
     await render(query, text, reply_markup=InlineKeyboardMarkup(keyboard))
-
 
 async def handle_quiz_answer(query, context):
     # LOCK: جلوگیری از double-tap
@@ -554,18 +577,15 @@ async def start_quiz_session(
 ):
     if quiz_type not in QUIZ_REGISTRY:
         quiz_type = "meaning"
-
-    _init_quiz_session(context, count)
+    lesson_id = context.user_data.get("quiz_lesson_id")
+    _init_quiz_session(context, quiz_type, count, source_filter, lesson_id)
     context.user_data["quiz_type"] = quiz_type
     context.user_data["quiz_source_filter"] = source_filter
     context.user_data.pop("quiz_fixed_word_ids", None)
-
     await _send_next_quiz(query, context)
-
 
 async def start_wrong_quiz(query, context):
     wrong_ids = list(dict.fromkeys(context.user_data.get("quiz_wrong_word_ids", [])))
-
     if not wrong_ids:
         await render(
             query, "📭 لیست اشتباه‌ها موجود نیست.", reply_markup=back_inline_keyboard()
@@ -583,33 +603,27 @@ async def start_wrong_quiz(query, context):
 
     random.shuffle(words)
 
-    _init_quiz_session(context, len(words))
-    context.user_data["quiz_fixed_word_ids"] = [w.id for w in words]
-    context.user_data["quiz_type"] = context.user_data.get("quiz_type", "meaning")
-    context.user_data["quiz_source_filter"] = None
-    context.user_data.pop("quiz_lesson_id", None)
-
-    await _send_next_quiz(query, context)
-
-
-async def start_quiz_session_with_words(query, context, word_ids):
-    word_ids = list(dict.fromkeys(word_ids or []))
-    words = db.get_word_objects_by_ids(word_ids)
-
-    if not words:
-        await render(query, "📭 کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
-        return
-
-    random.shuffle(words)
-
-    _init_quiz_session(context, len(words))
+    # ✅ همیشه meaning برای retry wrong (امن برای همه نوع کلمه)
+    _init_quiz_session(context, "meaning", len(words), None, None)
     context.user_data["quiz_fixed_word_ids"] = [w.id for w in words]
     context.user_data["quiz_type"] = "meaning"
     context.user_data["quiz_source_filter"] = None
     context.user_data.pop("quiz_lesson_id", None)
 
     await _send_next_quiz(query, context)
-
+async def start_quiz_session_with_words(query, context, word_ids):
+    word_ids = list(dict.fromkeys(word_ids or []))
+    words = db.get_word_objects_by_ids(word_ids)
+    if not words:
+        await render(query, "📭 کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
+        return
+    random.shuffle(words)
+    _init_quiz_session(context, "meaning", len(words), None, None,)
+    context.user_data["quiz_fixed_word_ids"] = [w.id for w in words]
+    context.user_data["quiz_type"] = "meaning"
+    context.user_data["quiz_source_filter"] = None
+    context.user_data.pop("quiz_lesson_id", None)
+    await _send_next_quiz(query, context)
 
 async def _send_next_quiz(query, context):
     if "quiz_session_obj" not in context.user_data:

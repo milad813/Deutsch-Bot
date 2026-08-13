@@ -1,5 +1,5 @@
 import re
-from html import escape
+from html import escape, unescape
 from typing import List
 
 from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
@@ -29,6 +29,50 @@ def _short_label(text: str, max_len: int = 64) -> str:
 def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", str(text or ""))
 
+ALLOWED_HTML_TAGS = {"b", "i", "u", "s", "code", "pre"}
+
+
+def strip_html(text: str) -> str:
+    """حذف کامل تگ‌های HTML و تبدیل entityها به متن ساده."""
+    return unescape(_strip_html(text))
+
+
+def sanitize_html(text: str) -> str:
+    """
+    امن‌سازی HTML برای Telegram.
+    فقط تگ‌های ساده مجاز را نگه می‌دارد.
+    """
+    if text is None:
+        return ""
+
+    text = str(text)
+
+    # حذف کامل script/style
+    text = re.sub(
+        r"<(script|style)[^>]*>.*?</\1>",
+        "",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    escaped = escape(text)
+
+    # برگرداندن فقط تگ‌های مجاز ساده
+    for tag in ALLOWED_HTML_TAGS:
+        escaped = re.sub(
+            rf"&lt;{tag}&gt;",
+            f"<{tag}>",
+            escaped,
+            flags=re.IGNORECASE,
+        )
+        escaped = re.sub(
+            rf"&lt;/{tag}&gt;",
+            f"</{tag}>",
+            escaped,
+            flags=re.IGNORECASE,
+        )
+
+    return escaped
 
 def _truncate_by_bytes(text: str, max_bytes: int) -> str:
     while text and len(text.encode("utf-8")) > max_bytes:

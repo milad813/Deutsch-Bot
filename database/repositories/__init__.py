@@ -144,11 +144,19 @@ class UserRepository(BaseRepository):
     def get_settings(self, user_id: int) -> dict:
         """Get user settings."""
         query = """
-            SELECT preferred_level FROM user_settings
-            WHERE user_id = ?
+        SELECT preferred_level, daily_goal
+        FROM user_settings
+        WHERE user_id = ?
         """
         row = self.fetch_one(query, (user_id,))
-        return {"preferred_level": row[0]} if row else {}
+
+        if not row:
+            return {}
+
+        return {
+            "preferred_level": row[0] or "A1",
+            "daily_goal": row[1] if row[1] else 10,
+        }
 
     def update_setting(self, user_id: int, preferred_level: str) -> None:
         """Update user setting."""

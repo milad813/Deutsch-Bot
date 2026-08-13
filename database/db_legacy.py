@@ -4,7 +4,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Tuple
-
+import time
 from models import Word
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,49 @@ _DEFAULT_OWNER_ID = 1
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
+def _cleanup_old_backups(
+    backup_dir: str,
+    keep_days: int = 14,
+    keep_max: int = 30,
+):
+    """پاک‌سازی بکاپ‌های قدیمی."""
+    try:
+        from config import BACKUP_KEEP_DAYS, BACKUP_KEEP_MAX
+
+        keep_days = BACKUP_KEEP_DAYS
+        keep_max = BACKUP_KEEP_MAX
+    except Exception:
+        pass
+
+    try:
+        if not os.path.isdir(backup_dir):
+            return
+
+        files = []
+
+        for name in os.listdir(backup_dir):
+            if name.startswith("words_") and name.endswith(".db"):
+                path = os.path.join(backup_dir, name)
+
+                if os.path.isfile(path):
+                    files.append((path, os.path.getmtime(path)))
+
+        files.sort(key=lambda item: item[1], reverse=True)
+
+        now = time.time()
+
+        for index, (path, mtime) in enumerate(files):
+            too_old = (now - mtime) > (keep_days * 86400)
+
+            if index >= keep_max or too_old:
+                try:
+                    os.unlink(path)
+                    logger.info("بکاپ قدیمی حذف شد: %s", path)
+                except Exception:
+                    pass
+
+    except Exception as e:
+        logger.warning("خطا در پاک‌سازی بکاپ‌ها: %s", e)
 
 class Database:
     def __init__(self, db_name: str = "words.db"):
@@ -833,13 +876,13 @@ class Database:
     # ─── کلمات سخت معوق (جایگزین pending_reviews) ───
 
     # ─── تنظیمات کاربر ───
-
     def get_word_stats_full(self, user_id: int, word_id: int) -> Optional[Dict]:
         with self._cursor() as c:
             c.execute(
                 """
                 SELECT correct_count, wrong_count, ease_factor, interval_days,
-                       next_review, phase, stability, difficulty, srs_level
+                       next_review, phase, stability, difficulty, srs_level,
+                       last_reviewed
                 FROM word_stats
                 WHERE user_id = ? AND word_id = ?
                 """,
@@ -858,10 +901,10 @@ class Database:
                 "stability": row[6] or 0.0,
                 "difficulty": row[7] or 0.0,
                 "srs_level": row[8] or 0,
+                "last_reviewed": row[9],
             }
 
         return None
-
     def update_quiz_stats(self, user_id: int, is_correct: bool):
         with self._cursor(commit=True) as c:
             c.execute(
@@ -1106,14 +1149,18 @@ class Database:
 
     def backup(self, backup_dir: str = "backups") -> str:
         os.makedirs(backup_dir, exist_ok=True)
+
         timestamp = _utc_now().strftime("%Y%m%d_%H%M%S")
         backup_path = os.path.join(backup_dir, f"words_{timestamp}.db")
 
         dest = sqlite3.connect(backup_path)
+
         try:
             self.conn.backup(dest)
         finally:
             dest.close()
+
+        _cleanup_old_backups(backup_dir)
 
         return backup_path
 
@@ -1177,31 +1224,31 @@ class Database:
             )
             row = c.fetchone()
             return row[0] if row else 0
-
     def get_mistake_word_objects(
         self,
         user_id: int,
         limit: int = 30,
         exclude_ids=None,
     ):
-        """گرفتن کلمات اشتباه برای تمرین."""
+        """گرفتن کلمات اشتباه حل‌نشده برای تمرین."""
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
 
         query = f"""
-            SELECT {self._word_columns('w')}
-            FROM words w
-            WHERE w.id IN (
-                SELECT ws.word_id
-                FROM word_skills ws
-                WHERE ws.user_id = ?
-                  AND ws.wrong_count > 0
-                GROUP BY ws.word_id
-                ORDER BY SUM(ws.wrong_count) DESC, MAX(ws.last_wrong_at) DESC
-                LIMIT ?
-            )
-            {exclude_sql}
-            ORDER BY RANDOM()
+        SELECT {self._word_columns('w')}
+        FROM words w
+        WHERE w.id IN (
+            SELECT ms.word_id
+            FROM mistake_stats ms
+            WHERE ms.user_id = ?
+              AND ms.resolved_at IS NULL
+              AND ms.wrong_count > 0
+            GROUP BY ms.word_id
+            ORDER BY SUM(ms.wrong_count) DESC, MAX(ms.last_wrong_at) DESC
             LIMIT ?
+        )
+        {exclude_sql}
+        ORDER BY RANDOM()
+        LIMIT ?
         """
 
         params = [user_id, limit] + exclude_params + [limit]
@@ -1209,7 +1256,6 @@ class Database:
         with self._cursor() as c:
             c.execute(query, tuple(params))
             return [self._row_to_word(row) for row in c.fetchall()]
-
     def get_weakest_words_by_skills(self, user_id: int, limit: int = 10):
         """گرفتن ضعیف‌ترین کلمات برای Dashboard."""
         with self._cursor() as c:
@@ -1321,10 +1367,25 @@ class Database:
             )
             row = c.fetchone()
             return row[0] if row and row[0] else 10  # default 10
-
     def get_today_activity_count(self, user_id: int) -> int:
         """تعداد فعالیت‌های امروز (تعداد پاسخ‌ها)."""
-        today = self._today_local()
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+
+        tz = timezone(
+            timedelta(
+                hours=USER_TIMEZONE_OFFSET_HOURS,
+                minutes=USER_TIMEZONE_OFFSET_MINUTES,
+            )
+        )
+
+        now_local = datetime.now(tz)
+        today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # ✅ تبدیل درست به UTC
+        today_start_utc = today_start_local.astimezone(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
         with self._cursor() as c:
             c.execute(
                 """
@@ -1332,38 +1393,94 @@ class Database:
                 FROM word_skills
                 WHERE user_id = ? AND last_reviewed >= ?
                 """,
-                (user_id, today),
+                (user_id, today_start_utc),
             )
             row = c.fetchone()
-            return row[0] if row and row[0] else 0
+
+        return row[0] if row and row[0] else 0
 
     def get_weekly_stats(self, user_id: int) -> Dict:
-        """آمار ۷ روز اخیر."""
+        """آمار ۷ روز اخیر با روزهای فعال بر اساس وقت محلی کاربر."""
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+
+        tz = timezone(
+            timedelta(
+                hours=USER_TIMEZONE_OFFSET_HOURS,
+                minutes=USER_TIMEZONE_OFFSET_MINUTES,
+            )
+        )
+
+        now_local = datetime.now(tz)
+
+        start_local = (now_local - timedelta(days=6)).replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        start_utc = start_local.astimezone(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
         with self._cursor() as c:
             c.execute(
                 """
-                SELECT 
-                    SUM(correct_count) as correct,
-                    SUM(wrong_count) as wrong,
-                    COUNT(DISTINCT date(last_reviewed)) as active_days
+                SELECT last_reviewed, correct_count, wrong_count
                 FROM word_skills
-                WHERE user_id = ? AND last_reviewed >= datetime('now', '-7 days')
+                WHERE user_id = ? AND last_reviewed >= ?
                 """,
-                (user_id,),
+                (user_id, start_utc),
             )
-            row = c.fetchone()
-            if not row:
-                return {"total_answers": 0, "correct": 0, "wrong": 0, "accuracy": 0, "active_days": 0}
-            correct = row[0] or 0
-            wrong = row[1] or 0
-            total = correct + wrong
-            return {
-                "total_answers": total,
-                "correct": correct,
-                "wrong": wrong,
-                "accuracy": int(correct / total * 100) if total else 0,
-                "active_days": row[2] or 0,
-            }
+            rows = c.fetchall()
+
+        correct_total = 0
+        wrong_total = 0
+        active_days = set()
+
+        for last_reviewed, correct_count, wrong_count in rows:
+            correct_total += correct_count or 0
+            wrong_total += wrong_count or 0
+
+            if not last_reviewed:
+                continue
+
+            value = str(last_reviewed).strip()
+            dt = None
+
+            for fmt in (
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d %H:%M:%S.%f",
+            ):
+                try:
+                    dt = datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+                    break
+                except Exception:
+                    pass
+
+            if dt is None:
+                try:
+                    dt = datetime.fromisoformat(value.replace("Z", ""))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    dt = dt.astimezone(timezone.utc)
+                except Exception:
+                    dt = None
+
+            if dt:
+                local_dt = dt.astimezone(tz)
+                active_days.add(local_dt.date())
+
+        total = correct_total + wrong_total
+
+        return {
+            "total_answers": total,
+            "correct": correct_total,
+            "wrong": wrong_total,
+            "accuracy": int(correct_total / total * 100) if total else 0,
+            "active_days": len(active_days),
+        }
 
     # ─────────────────────────────
     # User Management

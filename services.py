@@ -18,7 +18,7 @@ SESSION_KEYS = {
     "conversation_history",
     "current_quiz",
     "quiz_session",
-    "quiz_session_obj",          # ✅ جدید
+    "quiz_session_obj",
     "quiz_type",
     "quiz_lesson_id",
     "quiz_source_filter",
@@ -35,6 +35,7 @@ SESSION_KEYS = {
     "flashcard_only_due",
     "flashcard_hard_only",
     "flashcard_skipped_ids",
+    "flashcard_again_counts",
     "tts_message",
     "study_words",
     "study_index",
@@ -56,7 +57,7 @@ SESSION_KEYS = {
     "ltr_retry_stage",
     "ltr_current_word_pos",
     "ltr_round2_started",
-    "ltr_wrong_in_session",      # ✅ جدید
+    "ltr_wrong_in_session",
     "ltr_learn_index",
     "ltr_phase",
     "ltr_word_retry_count",
@@ -67,8 +68,6 @@ SESSION_KEYS = {
     "ltr_current_question",
     "fsrs_guide_shown",
     "grammar_current",
-    "ltr_answer_lock",
-    "flashcard_rate_lock",
     "current_story_id",
     "story_quiz",
     "ltr_user_id",
@@ -79,13 +78,25 @@ SESSION_KEYS = {
     "ltr_current_correct_index",
     "ltr_current_correct_text",
     "ltr_question_type",
-    # ✅ کلیدهای جدید Listening/Writing
     "listening_session",
     "listening_current",
     "writing_session",
     "writing_current_word",
     "awaiting_writing_answer",
-    "quiz_answer_lock",           # ✅ جدید
+
+    # Locks / Flags
+    "quiz_answer_lock",
+    "ltr_answer_lock",
+    "ltr_learned_lock",
+    "flashcard_rate_lock",
+    "flashcard_flip_lock",
+    "flashcard_skip_lock",
+    "story_answer_lock",
+    "grammar_answer_lock",
+    "listening_answer_lock",
+    "listening_skip_lock",
+    "writing_skip_lock",
+    "story_generating",
 }
 
 

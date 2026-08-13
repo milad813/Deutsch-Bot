@@ -213,26 +213,45 @@ class ExtendedWordRepository(BaseRepository):
         lesson_id: int = None,
         limit: int = 20,
         exclude_ids: Optional[Iterable[int]] = None,
+        only_studied_lessons: bool = True,
     ) -> List[Word]:
-        """Get new words (not yet learned) for a user."""
+        """Get new words. If only_studied_lessons=True, only from lessons
+        where user has at least one word_stats record."""
         query = f"""
-            SELECT {self._word_columns('w')}
-            FROM words w
-            LEFT JOIN word_stats ws ON ws.word_id = w.id AND ws.user_id = ?
-            WHERE ws.word_id IS NULL
+        SELECT {self._word_columns('w')}
+        FROM words w
+        LEFT JOIN word_stats ws ON ws.word_id = w.id AND ws.user_id = ?
+        WHERE ws.word_id IS NULL
         """
-        params: List = [user_id]
 
+        if lesson_id is None and only_studied_lessons:
+            row = self.fetch_one(
+                "SELECT COUNT(*) FROM word_stats WHERE user_id = ?",
+                (user_id,),
+            )
+
+            if not row or (row[0] or 0) == 0:
+                only_studied_lessons = False
+
+        params: List = [user_id]
         if lesson_id:
             query += " AND w.lesson_id = ?"
             params.append(lesson_id)
-
+        elif only_studied_lessons:
+            # فقط از درس‌هایی که کاربر حداقل یک کلمه‌شان را دیده
+            query += """
+            AND w.lesson_id IN (
+                SELECT DISTINCT w2.lesson_id FROM words w2
+                JOIN word_stats ws2 ON ws2.word_id = w2.id AND ws2.user_id = ?
+                WHERE w2.lesson_id IS NOT NULL
+            )
+            """
+            params.append(user_id)
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
         query += exclude_sql
         query += " ORDER BY w.id ASC LIMIT ?"
         params.extend(exclude_params)
         params.append(limit)
-
         rows = self.fetch_all(query, tuple(params))
         return [self._row_to_word(row) for row in rows]
 
@@ -538,10 +557,11 @@ class ExtendedWordRepository(BaseRepository):
     def get_stats_full(self, user_id: int, word_id: int) -> Optional[Dict]:
         """Get full stats for a word."""
         query = """
-            SELECT correct_count, wrong_count, ease_factor, interval_days,
-                   next_review, phase, stability, difficulty, srs_level
-            FROM word_stats
-            WHERE user_id = ? AND word_id = ?
+        SELECT correct_count, wrong_count, ease_factor, interval_days,
+               next_review, phase, stability, difficulty, srs_level,
+               last_reviewed
+        FROM word_stats
+        WHERE user_id = ? AND word_id = ?
         """
         row = self.fetch_one(query, (user_id, word_id))
 
@@ -556,9 +576,9 @@ class ExtendedWordRepository(BaseRepository):
                 "stability": row[6] or 0.0,
                 "difficulty": row[7] or 0.0,
                 "srs_level": row[8] or 0,
+                "last_reviewed": row[9],
             }
 
         return None
-
 
 __all__ = ["ExtendedWordRepository"]

@@ -145,7 +145,11 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_story_progress_user "
                 "ON story_progress(user_id, story_id)"
             )
-
+            for migration_sql in ("ALTER TABLE word_skills ADD COLUMN correct_streak INTEGER DEFAULT 0",):
+                try:
+                    c.execute(migration_sql)
+                except Exception:
+                    pass
     def __getattr__(self, name):
         """Fallback to legacy database for missing methods."""
         return getattr(self._legacy, name)
@@ -254,6 +258,122 @@ class Database:
         needed = 100
         return level, current, needed
 
+    # ─────────────────────────────
+    # Phase C: reduce legacy fallbacks
+    # ─────────────────────────────
+
+    def get_new_word_objects(
+        self,
+        user_id: int,
+        lesson_id: int = None,
+        limit: int = 20,
+        exclude_ids=None,
+    ):
+        """Get new words via repository."""
+        return self.words.get_new_word_objects(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            limit=limit,
+            exclude_ids=exclude_ids,
+        )
+
+    def get_weak_word_objects(
+        self,
+        user_id: int,
+        limit: int = 20,
+        exclude_ids=None,
+    ):
+        """Get weak words via repository."""
+        return self.words.get_weak(
+            user_id=user_id,
+            limit=limit,
+            exclude_ids=exclude_ids,
+        )
+
+    def get_weak_word_count(self, user_id: int) -> int:
+        """Get weak word count via repository."""
+        return self.words.get_weak_count(user_id)
+
+    def get_random_word_object(
+        self,
+        lesson_id: int = None,
+        exclude_ids=None,
+    ):
+        """Get random word via repository."""
+        return self.words.get_random(
+            lesson_id=lesson_id,
+            exclude_ids=exclude_ids,
+        )
+
+    def get_words_with_example_objects(
+        self,
+        lesson_id: int = None,
+        exclude_ids=None,
+    ):
+        """Get words with examples via repository."""
+        return self.words.get_with_examples(
+            lesson_id=lesson_id,
+            exclude_ids=exclude_ids,
+        )
+
+    def get_word_count_by_lesson(self, lesson_id: int) -> int:
+        """Get word count by lesson via repository."""
+        return self.words.get_count_by_lesson(lesson_id)
+
+    def get_word_stats_full(self, user_id: int, word_id: int):
+        """Get full word stats via repository."""
+        return self.words.get_stats_full(user_id, word_id)
+
+    def update_word_stats_fsrs(
+        self,
+        user_id: int,
+        word_id: int,
+        correct: int,
+        wrong: int,
+        ease_factor: float,
+        interval_days: int,
+        srs_level: int,
+        last_review: str,
+        next_review: str,
+        phase: str = "review",
+        stability: float = 0.0,
+        difficulty: float = 0.0,
+    ):
+        """Update FSRS stats via repository."""
+        return self.words.update_stats_fsrs(
+            user_id=user_id,
+            word_id=word_id,
+            correct=correct,
+            wrong=wrong,
+            ease_factor=ease_factor,
+            interval_days=interval_days,
+            srs_level=srs_level,
+            last_review=last_review,
+            next_review=next_review,
+            phase=phase,
+            stability=stability,
+            difficulty=difficulty,
+        )
+
+    def get_weekly_stats(self, user_id: int):
+        """Get weekly stats via learning repository."""
+        return self.learning.get_weekly_stats(user_id)
+
+    def get_today_activity_count(self, user_id: int) -> int:
+        """Get today's activity count via learning repository."""
+        return self.learning.get_today_activity_count(user_id)
+
+    def get_daily_goal(self, user_id: int) -> int:
+        """Get daily goal via learning repository."""
+        return self.learning.get_daily_goal(user_id)
+
+    def set_daily_goal(self, user_id: int, goal: int) -> None:
+        """Set daily goal via learning repository."""
+        self.learning.set_daily_goal(user_id, goal)
+
+    def get_mistake_word_count(self, user_id: int) -> int:
+        """Get unresolved mistake word count via learning repository."""
+        return self.learning.get_mistake_word_count(user_id)
 
 __all__ = [
     "Database",

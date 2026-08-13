@@ -223,10 +223,21 @@ Return ONLY valid JSON:
         if not self.is_available():
             return []
 
-        prompt = f"""Generate {count} German words that could grammatically fit in this sentence but are WRONG in meaning:
+        prompt = f"""Generate {count} German words or short phrases that could grammatically fit into the blank in this sentence, but are WRONG in meaning.
+
 Sentence: "{sentence}"
-Correct word: "{correct_word}"
-Return ONLY a JSON array: ["word1", "word2", "word3"]"""
+Correct answer: "{correct_word}"
+
+Important:
+- The wrong options should have the same grammatical form as the correct answer as much as possible.
+- If the correct answer is inflected, try to produce similarly inflected wrong options.
+- Keep options short.
+- Do NOT include the correct answer.
+- Return ONLY a JSON array of strings.
+
+Example output:
+["Option1", "Option2", "Option3"]
+"""
 
         try:
             content = await self._chat("You generate JSON only.", prompt)
@@ -242,8 +253,10 @@ Return ONLY a JSON array: ["word1", "word2", "word3"]"""
                 s = str(item or "").strip()
                 if not s:
                     continue
+
                 if s.lower() == correct_lower:
                     continue
+
                 if s not in cleaned:
                     cleaned.append(s)
 
@@ -251,10 +264,11 @@ Return ONLY a JSON array: ["word1", "word2", "word3"]"""
                     break
 
             return cleaned
+
         except Exception as e:
             logger.warning("خطا در تولید گزینه‌های cloze: %s", e)
             return []
-
+        
     async def generate_example_sentence(
         self, word: str, level: str = "A1"
     ) -> Optional[str]:

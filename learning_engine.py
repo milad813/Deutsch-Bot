@@ -63,9 +63,16 @@ def record_quiz_answer(
     if word_id:
         db.learning.record_skill(user_id, word_id, skill_type, is_correct)
 
-        if update_srs and word_id:
-            grade = fsrs.grade_from_correctness(is_correct)
-            fsrs.review(user_id, word_id, grade)
+    if update_srs and word_id:
+        # گرفتن تعداد correct متوالی از skill
+        skills = db.learning.get_word_skills(user_id, word_id)
+        consecutive = 0
+        for s in skills:
+            if s["skill_type"] == skill_type:
+                consecutive = s.get("correct_streak", 0)
+                break
+        grade = fsrs.grade_from_correctness(is_correct, consecutive)
+        fsrs.review(user_id, word_id, grade)
 
     if not is_correct:
         db.learning.record_mistake(

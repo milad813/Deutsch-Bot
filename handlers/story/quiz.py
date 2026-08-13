@@ -89,7 +89,7 @@ async def _show_story_question(query, context):
     random.shuffle(options)
     quiz["current_options"] = options
     quiz["current_correct_index"] = options.index(correct) if correct in options else 0
-
+    quiz["current_correct_answer"] = correct
     num = quiz["current"] + 1
     total = len(quiz["questions"])
 
@@ -116,74 +116,127 @@ async def _show_story_question(query, context):
 
 async def handle_story_answer(query, context, suffix: str):
     """Handle user's answer to a story quiz question."""
-    quiz = context.user_data.get("story_quiz")
-    if not quiz:
-        await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
+    lock_key = "story_answer_lock"
+    if context.user_data.get(lock_key):
+        try:
+            await query.answer()
+        except Exception:
+            pass
         return
+    context.user_data[lock_key] = True
 
     try:
-        selected_idx = int(suffix)
-    except ValueError:
-        await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
-        return
+        quiz = context.user_data.get("story_quiz")
+        if not quiz:
+            await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
+            return
 
-    q = quiz["questions"][quiz["current"]]
-    correct = str(q.get("correct_answer") or "")
-    options = quiz.get("current_options", [])
+        try:
+            selected_idx = int(suffix)
+        except ValueError:
+            await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
+            return
 
-    if not options or selected_idx >= len(options):
-        await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
-        return
+        current_index = quiz.get("current", 0)
+        questions = quiz.get("questions", [])
 
-    selected = options[selected_idx]
-    is_correct = (selected == correct)
+        if current_index >= len(questions):
+            await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
+            return
 
-    # Update stats
-    q_type = q.get("question_type", "comprehension")
-    if is_correct:
-        quiz["correct"] += 1
-        if q_type == "comprehension":
-            quiz["comprehension_correct"] += 1
-        elif q_type == "vocabulary":
-            quiz["vocabulary_correct"] += 1
-        elif q_type == "detail":
-            quiz["detail_correct"] += 1
-    else:
-        quiz["wrong"] += 1
-        if q_type == "comprehension":
-            quiz["comprehension_wrong"] += 1
-        elif q_type == "vocabulary":
-            quiz["vocabulary_wrong"] += 1
-        elif q_type == "detail":
-            quiz["detail_wrong"] += 1
+        q = questions[current_index]
+        options = list(quiz.get("current_options", []))
 
-    # Show feedback
-    if is_correct:
-        fb_msg = f"✅ آفرین! پاسخ درست بود.\n\n📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
-    else:
-        fb_msg = (
-            f"❌ نادرست. پاسخ صحیح:\n<b>{esc(correct)}</b>\n\n"
-            f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
-        )
+        if not options or selected_idx < 0 or selected_idx >= len(options):
+            await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
+            return
 
-    # Next question or summary
-    if quiz["current"] < len(quiz["questions"]) - 1:
-        quiz["current"] += 1
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➡️ سوال بعدی", callback_data=f"story_next_q:{quiz['story_id']}")],
-            [InlineKeyboardButton("🔙 خروج", callback_data=f"story_view:{quiz['story_id']}")],
-        ])
-        await render(query, fb_msg, reply_markup=kb)
-        
-        # Auto-advance after delay (optional)
-        # For now, wait for user to click next
-    else:
-        await _show_story_quiz_summary(query, context)
+        correct_index = quiz.get("current_correct_index")
 
+        if correct_index is None or correct_index < 0 or correct_index >= len(options):
+            correct = str(q.get("correct_answer") or "").strip()
+            if not correct and "correct_index" in q:
+                idx = q.get("correct_index")
+                opts = q.get("options") or []
+                if isinstance(idx, int) and 0 <= idx < len(opts):
+                    correct = str(opts[idx]).strip()
+            if correct and correct not in options:
+                options.append(correct)
+            correct_index = options.index(correct) if correct in options else 0
+
+        correct = options[correct_index] if 0 <= correct_index < len(options) else ""
+        selected = options[selected_idx]
+        is_correct = selected_idx == correct_index
+
+        q_type = q.get("question_type", "comprehension")
+        if is_correct:
+            quiz["correct"] += 1
+            if q_type == "comprehension":
+                quiz["comprehension_correct"] += 1
+            elif q_type == "vocabulary":
+                quiz["vocabulary_correct"] += 1
+            elif q_type == "detail":
+                quiz["detail_correct"] += 1
+        else:
+            quiz["wrong"] += 1
+            if q_type == "comprehension":
+                quiz["comprehension_wrong"] += 1
+            elif q_type == "vocabulary":
+                quiz["vocabulary_wrong"] += 1
+            elif q_type == "detail":
+                quiz["detail_wrong"] += 1
+
+        user_id = query.from_user.id
+        story_id = quiz.get("story_id")
+
+        if not is_correct:
+            db.learning.record_mistake(
+                user_id=user_id,
+                story_id=story_id,
+                skill_type="story",
+                quiz_type="story",
+                user_answer=selected,
+                correct_answer=correct,
+            )
+
+        db.record_activity(user_id, 10 if is_correct else 0)
+        db.learning.record_story_answer(user_id, story_id, is_correct)
+
+        try:
+            await query.answer(
+                "✅ درست بود!" if is_correct else "❌ اشتباه بود",
+                show_alert=not is_correct,
+            )
+        except Exception:
+            pass
+
+        if is_correct:
+            fb_msg = (
+                f"✅ آفرین! پاسخ درست بود.\n"
+                f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
+            )
+        else:
+            fb_msg = (
+                f"❌ نادرست. پاسخ صحیح:\n"
+                f"<b>{esc(correct)}</b>\n"
+                f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
+            )
+
+        if quiz["current"] < len(quiz["questions"]) - 1:
+            quiz["current"] += 1
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➡️ سوال بعدی", callback_data=f"story_next_q:{quiz['story_id']}")],
+                [InlineKeyboardButton("🔙 خروج", callback_data=f"story_view:{quiz['story_id']}")],
+            ])
+            await render(query, fb_msg, reply_markup=kb)
+        else:
+            await _show_story_quiz_summary(query, context)
+    finally:
+        context.user_data.pop(lock_key, None)
 
 async def _show_story_quiz_summary(query, context):
     """Show quiz summary with detailed statistics."""
-    quiz = context.user_data.get("story_quiz")
+    quiz = context.user_data.pop("story_quiz", None)
     if not quiz:
         await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
         return
@@ -220,10 +273,13 @@ async def _show_story_quiz_summary(query, context):
     else:
         msg += "\n💡 پیشنهاد: داستان را دوباره بخوان و مرور کن."
 
+    story = db.get_story(quiz['story_id'])
+    lesson_id = story['lesson_id'] if story else 0
+
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("📖 بازگشت به داستان", callback_data=f"story_view:{quiz['story_id']}")],
         [InlineKeyboardButton("🔁 تکرار کوییز", callback_data=f"story_quiz:{quiz['story_id']}")],
-        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{db.get_story(quiz['story_id'])['lesson_id']}")],
+        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{lesson_id}")],
     ])
 
     await render(query, msg, reply_markup=kb)

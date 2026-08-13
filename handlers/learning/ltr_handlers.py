@@ -41,9 +41,13 @@ async def handle_study_lesson(query, context, suffix: str):
         return
 
     user_id = query.from_user.id
-    weak_words = db.get_weak_words_by_lesson(user_id, lesson_id, limit=20)
-    new_words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=20)
+    MAX_LTR_WORDS = 7  # حداکثر کلمات یک session LTR
 
+    weak_words = db.get_weak_words_by_lesson(user_id, lesson_id, limit=MAX_LTR_WORDS)
+    remaining = MAX_LTR_WORDS - len(weak_words)
+    new_words = []
+    if remaining > 0:
+        new_words = db.get_new_word_objects(user_id, lesson_id=lesson_id, limit=remaining)
     if not weak_words and not new_words:
         await render(
             query,
@@ -69,7 +73,7 @@ async def handle_study_lesson(query, context, suffix: str):
         f"بریم شروع کنیم! 👇"
     )
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🚀 شروع!", callback_data="ltr_learned")],
+        [InlineKeyboardButton("🚀 شروع!", callback_data="ltr_ready")],
         [InlineKeyboardButton("🏁 انصراف", callback_data="ltr_exit")],
     ])
     await render(query, intro_msg, reply_markup=kb)
@@ -120,16 +124,17 @@ async def _show_learn_word(query, context):
     if word.english_meaning:
         parts.append(f"🇬🇧 <i>{esc(word.english_meaning)}</i>")
 
-    parts.append("")
-    parts.append("👆 یاد بگیر، بعد دکمه «یاد گرفتم» را بزن!")
+    # ✅ نمایش مثال در صفحه learn
+    if word.example_de:
+        parts.append("")
+        parts.append(f"📝 {esc(word.example_de)}")
+        if word.example_fa:
+            parts.append(f"   🇮🇷 <i>{esc(word.example_fa)}</i>")
 
-    # ─── Keyboard: TTS + Details + Learned + Exit ───
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")],
-        [InlineKeyboardButton("💡 مثال و جزئیات", callback_data=f"ltr_details:{word.id}")],
-        [InlineKeyboardButton("✅ یاد گرفتم، بعدی!", callback_data="ltr_learned")],
-        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
-    ])
+    if word.collocation_line:
+        parts.append(f"🔗 {esc(word.collocation_line)}")
+
+    # ─── Keyboard ───
 
     from handlers.learning.ltr_session import _ltr_learn_keyboard
     await render(query, "\n".join(parts), reply_markup=_ltr_learn_keyboard(word_id=word.id))
@@ -177,18 +182,31 @@ async def handle_ltr_show_details(query, context, suffix: str):
 
 async def handle_ltr_learned(query, context):
     """User confirms they learned the word."""
-    ltr = LTRSessionManager(context)
-    word = ltr.get_next_word_to_learn()
-
-    if not word:
-        await _route_next_action(query, context)
+    # ✅ Lock: جلوگیری از double-tap
+    lock_key = "ltr_learned_lock"
+    if context.user_data.get(lock_key):
+        try:
+            await query.answer()
+        except Exception:
+            pass
         return
+    context.user_data[lock_key] = True
 
-    # Mark as learned and schedule delayed test
-    ltr.mark_word_learned(word.id)
+    try:
+        ltr = LTRSessionManager(context)
+        word = ltr.get_next_word_to_learn()
 
-    # Route to next action (learn more or test)
-    await _route_next_action(query, context)
+        if not word:
+            await _route_next_action(query, context)
+            return
+
+        # Mark as learned and schedule delayed test
+        ltr.mark_word_learned(word.id)
+
+        # Route to next action (learn more or test)
+        await _route_next_action(query, context)
+    finally:
+        context.user_data.pop(lock_key, None)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -366,79 +384,106 @@ async def _render_article_question(query, context, word: Word):
 
 async def handle_ltr_answer(query, context, suffix: str):
     """Handle user's answer to LTR quiz question."""
+    lock_key = "ltr_answer_lock"
+
+    if context.user_data.get(lock_key):
+        try:
+            await query.answer()
+        except Exception:
+            pass
+        return
+
+    context.user_data[lock_key] = True
+
     try:
-        option_index = int(suffix)
-    except (ValueError, TypeError):
-        return
-
-    ltr = LTRSessionManager(context)
-    word_id = context.user_data.get("ltr_current_question")
-
-    if not word_id:
-        await render(query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard())
-        return
-
-    options = context.user_data.get("ltr_current_options", [])
-    correct_index = context.user_data.get("ltr_current_correct_index", -1)
-    correct_text = context.user_data.get("ltr_current_correct_text", "")
-    q_type = context.user_data.get("ltr_question_type", "meaning")
-
-    if option_index < 0 or option_index >= len(options):
-        return
-
-    is_correct = option_index == correct_index
-    word = db.get_word_by_id(word_id)
-
-    # Record result
-    ltr.record_test_result(word_id, is_correct)
-
-    # Record skill
-    user_id = query.from_user.id
-    db.learning.record_skill(user_id, word_id, "ltr", is_correct)
-
-    if not is_correct:
-        db.learning.record_mistake(
-            user_id=user_id, word_id=word_id,
-            skill_type="ltr", quiz_type=q_type,
-            user_answer=options[option_index] if option_index < len(options) else None,
-            correct_answer=correct_text,
-        )
-
-    # ─── Feedback with context ───
-    if is_correct:
         try:
-            await query.answer("✅ درست بود!", show_alert=False)
-        except Exception:
-            pass
-        feedback = "✅ آفرین! درست بود!"
-    else:
-        try:
-            await query.answer(f"❌ جواب: {correct_text}", show_alert=True)
-        except Exception:
-            pass
+            option_index = int(suffix)
+        except (ValueError, TypeError):
+            try:
+                await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+            except Exception:
+                pass
+            return
 
-        feedback = f"❌ اشتباه بود.\n✅ جواب درست: <b>{esc(correct_text)}</b>"
+        ltr = LTRSessionManager(context)
+
+        word_id = context.user_data.get("ltr_current_question")
+
+        if not word_id:
+            await render(query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard())
+            return
+
+        options = context.user_data.get("ltr_current_options", [])
+        correct_index = context.user_data.get("ltr_current_correct_index", -1)
+        correct_text = context.user_data.get("ltr_current_correct_text", "")
+        q_type = context.user_data.get("ltr_question_type", "meaning")
+
+        if option_index < 0 or option_index >= len(options):
+            try:
+                await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+            except Exception:
+                pass
+            return
+
+        is_correct = option_index == correct_index
+
+        word = db.get_word_by_id(word_id)
+
+        # Record result
+        ltr.record_test_result(word_id, is_correct)
+
+        # Record skill
+        user_id = query.from_user.id
+        db.learning.record_skill(user_id, word_id, "ltr", is_correct)
+
+        if not is_correct:
+            db.learning.record_mistake(
+                user_id=user_id,
+                word_id=word_id,
+                skill_type="ltr",
+                quiz_type=q_type,
+                user_answer=options[option_index] if option_index < len(options) else None,
+                correct_answer=correct_text,
+            )
+
+        # ─── Feedback with context ───
+        if is_correct:
+            try:
+                await query.answer("✅ درست بود!", show_alert=False)
+            except Exception:
+                pass
+            feedback = "✅ آفرین! درست بود!"
+        else:
+            try:
+                await query.answer(f"❌ جواب: {correct_text}", show_alert=True)
+            except Exception:
+                pass
+            feedback = f"❌ اشتباه بود.\n✅ جواب درست: <b>{esc(correct_text)}</b>"
 
         # Add contextual hint
         if word and word.example_de:
-            feedback += f"\n\n📝 <i>{esc(word.example_de)}</i>"
+            feedback += f"\n📝 <i>{esc(word.example_de)}</i>"
+
         if word and word.collocation_line:
             feedback += f"\n🔗 {esc(word.collocation_line)}"
 
-    # Clean current question state
-    context.user_data.pop("ltr_current_options", None)
-    context.user_data.pop("ltr_current_correct_index", None)
-    context.user_data.pop("ltr_current_correct_text", None)
-    context.user_data.pop("ltr_question_type", None)
+        # Clean current question state
+        context.user_data.pop("ltr_current_options", None)
+        context.user_data.pop("ltr_current_correct_index", None)
+        context.user_data.pop("ltr_current_correct_text", None)
+        context.user_data.pop("ltr_question_type", None)
 
-    # Check retry info
-    retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
-    if not is_correct and retry_count > 0:
-        feedback += f"\n\n⚠️ تلاش {retry_count} از ۲"
+        # Check retry info
+        retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
 
-    # Route to next action
-    await _route_next_action(query, context, feedback=feedback)
+        if not is_correct and retry_count > 0:
+            feedback += f"\n⚠️ تلاش {retry_count} از ۲"
 
+        # Route to next action
+        await _route_next_action(query, context, feedback=feedback)
+
+    finally:
+        context.user_data.pop(lock_key, None)
 
 # ═══════════════════════════════════════════════════════════════════
 # Router

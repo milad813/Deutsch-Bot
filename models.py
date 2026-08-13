@@ -265,9 +265,6 @@ class UserSession:
     # Grammar
     grammar_current: dict = field(default_factory=dict)
     
-    # TTS delete job
-    tts_delete_job: object = None
-    
     def clear(self):
         """Clear all session state."""
         self.quiz = None
