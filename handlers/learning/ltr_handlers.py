@@ -576,15 +576,24 @@ async def handle_ltr_summary(query, context):
     """External summary handler."""
     await _show_ltr_summary(query, context)
 
-
 async def handle_ltr_exit(query, context):
-    """Exit LTR session."""
-    LTRSessionManager(context).clear_session()
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
-    ])
-    await render(query, "❌ جلسه تمرین عمیق لغو شد.", reply_markup=kb)
+    """Exit LTR session, but finalize already-tested words."""
+    ltr = LTRSessionManager(context)
 
+    try:
+        ltr.finalize_partial_session()
+    except Exception as e:
+        logger.warning("خطا در finalize کردن LTR هنگام خروج: %s", e)
+
+    ltr.clear_session()
+
+    kb = InlineKeyboardMarkup(
+        [
+            InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")
+        ]
+    )
+
+    await render(query, "❌ جلسه تمرین عمیق لغو شد.", reply_markup=kb)
 
 # ═══════════════════════════════════════════════════════════════════
 # Legacy compatibility

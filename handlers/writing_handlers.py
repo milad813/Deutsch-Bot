@@ -39,30 +39,33 @@ async def _show_writing_question(query, context):
     if not session or session["current"] >= len(session["words"]):
         await _show_writing_summary(query, context)
         return
-    
+
     word_id = session["words"][session["current"]]
     word = db.get_word_by_id(word_id)
     if not word:
         session["current"] += 1
         await _show_writing_question(query, context)
         return
-    
+
     context.user_data["writing_current_word"] = word_id
-    
+
+    # ✅ راهنمای آرتیکل
+    article_hint = ""
+    if word.word_type == "Noun" and word.article:
+        article_hint = "\n💡 <i>آرتیکل را هم بنویس (der/die/das)</i>"
+
     msg = (
         f"✍️ <b>تمرین نوشتاری</b> ({session['current']+1}/{len(session['words'])})\n"
-        f"🇮🇷 {esc(word.persian)}\n\n"
-        f"معادل آلمانی را تایپ کن:"
+        f"🇮🇷 {esc(word.persian)}\n"
+        f"معادل آلمانی را تایپ کن:{article_hint}"
     )
-    
+
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("⏭️ رد شدن", callback_data="writing_skip:")],
         [InlineKeyboardButton("🏁 پایان", callback_data="writing_exit:")],
     ])
-    
     await render(query, msg, reply_markup=kb)
     context.user_data["awaiting_writing_answer"] = True
-
 
 async def _show_writing_question_from_message(update, context):
     """ادامه سوال بعدی از پیام متنی."""

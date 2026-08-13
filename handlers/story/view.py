@@ -26,9 +26,7 @@ def _safe_id_list(raw):
             continue
     return result
 
-
 async def show_story(query, context, story_id: int):
-    """Display a story with options."""
     story = db.get_story(story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
@@ -38,14 +36,13 @@ async def show_story(query, context, story_id: int):
     context.user_data["story_hint_level"] = 0
 
     title = story.get("title_de") or story.get("title_fa") or "داستان"
-
     target_ids = _safe_id_list(story.get("target_word_ids"))
     words = db.get_word_objects_by_ids(target_ids) if target_ids else []
 
     msg = f"📖 <b>{esc(title)}</b>\n{sanitize_html(story['text_de'])}"
 
     if words:
-        msg += "\n\n🎯 <b>کلمات این داستان:</b>\n"
+        msg += "\n🎯 <b>کلمات این داستان:</b>\n"
         user_id = query.from_user.id
         for w in words[:12]:
             stats = db.get_word_stats_full(user_id, w.id)
@@ -57,17 +54,27 @@ async def show_story(query, context, story_id: int):
                 status = "✅"
             msg += f"{status} {esc(w.display_german)}\n"
 
+    # ✅ گروه‌بندی: اصلی / ثانویه / ناوبری
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔊+📖 همزمان بخوان و بشنو", callback_data=f"story_listen_read:{story_id}")],
-        [InlineKeyboardButton("🎧 فقط بشنو (بدون متن)", callback_data=f"story_listen_only:{story_id}")],
-        [InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}")],
-        [InlineKeyboardButton("💡 کمک", callback_data=f"story_hint:{story_id}")],
-        [InlineKeyboardButton("🧩 کلمات", callback_data=f"story_words:{story_id}")],
-        [InlineKeyboardButton("📖 داستان بعدی", callback_data=f"story_next:{story['lesson_id']}")],
-        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{story['lesson_id']}")],
+        # ردیف ۱: اصلی‌ترین اکشن
+        [InlineKeyboardButton("🔊+📖 بخوان و بشنو", callback_data=f"story_listen_read:{story_id}")],
+        # ردیف ۲: تمرین
+        [
+            InlineKeyboardButton("❓ سوالات", callback_data=f"story_quiz:{story_id}"),
+            InlineKeyboardButton("🧩 کلمات", callback_data=f"story_words:{story_id}"),
+        ],
+        # ردیف ۳: کمک و گوش دادن
+        [
+            InlineKeyboardButton("💡 کمک", callback_data=f"story_hint:{story_id}"),
+            InlineKeyboardButton("🎧 فقط بشنو", callback_data=f"story_listen_only:{story_id}"),
+        ],
+        # ردیف ۴: ناوبری
+        [
+            InlineKeyboardButton("📖 داستان بعدی", callback_data=f"story_next:{story['lesson_id']}"),
+            InlineKeyboardButton("🔙 بازگشت", callback_data=f"lesson_{story['lesson_id']}"),
+        ],
     ])
     await render(query, msg, reply_markup=kb)
-
 
 async def show_story_hint(query, context, story_id: int):
     """Show progressive hints for the story."""

@@ -233,6 +233,17 @@ class LTRSessionManager:
         for word_id in passed + failed:
             self.finalize_word(word_id, user_id=uid)
 
+    def finalize_partial_session(self):
+        """Finalize words that have at least one recorded result.
+
+        This is used when the user exits before the session is fully complete.
+        """
+        uid = self.user_data.get("ltr_user_id")
+        results = self.user_data.get("ltr_word_results", {})
+
+        for word_id, word_results in results.items():
+            if word_results:
+                self.finalize_word(word_id, user_id=uid)
     # ─── Summary & Progress ──────────────────────────────────────────
 
     def get_progress_info(self) -> Dict[str, Any]:

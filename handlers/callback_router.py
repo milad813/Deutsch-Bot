@@ -178,22 +178,12 @@ async def _handle_back_to_main_menu(query, context):
         await query.answer()
     except Exception:
         pass
-
-    await cleanup_tts(context, query.from_user.id)  # ✅
+    await cleanup_tts(context, query.from_user.id)
     reset_session(context)
-    try:
-        if query.message:
-            await context.bot.delete_message(
-                chat_id=query.message.chat_id,
-                message_id=query.message.message_id,
-            )
-    except Exception:
-        pass
+
     if query.message:
         due_count = db.get_due_word_count(query.from_user.id)
         hard_count = db.count_hard_due_words(query.from_user.id)
-
-        # ─── بررسی ادمین ───
         is_admin = bool(
             config.ADMIN_USER_ID and query.from_user.id == config.ADMIN_USER_ID
         )
@@ -205,12 +195,23 @@ async def _handle_back_to_main_menu(query, context):
         else:
             msg = "🏠 <b>منوی اصلی</b>\n🎉 همه مرورها انجام شده!"
 
-        await query.message.reply_text(
-            msg,
-            reply_markup=get_main_menu_keyboard(
-                due_count, hard_count=hard_count, is_admin=is_admin
-            ),
-        )
+        # ✅ ویرایش به‌جای حذف
+        try:
+            await query.edit_message_text(
+                msg,
+                reply_markup=get_main_menu_keyboard(
+                    due_count, hard_count=hard_count, is_admin=is_admin
+                ),
+            )
+        except Exception:
+            # اگر ویرایش ممکن نبود (مثلاً پیام خیلی قدیمی)
+            await query.message.reply_text(
+                msg,
+                reply_markup=get_main_menu_keyboard(
+                    due_count, hard_count=hard_count, is_admin=is_admin
+                ),
+            )
+
 
 EXACT_ROUTES: Dict[str, Callable] = {
     "admin_panel": admin_handlers.show_admin_panel,

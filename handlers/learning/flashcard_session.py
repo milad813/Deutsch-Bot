@@ -128,36 +128,26 @@ class FlashcardSessionManager:
 
 
 def _flashcard_front_keyboard(word: Word) -> InlineKeyboardMarkup:
-    """Generate keyboard for flashcard front side."""
-    return InlineKeyboardMarkup(
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👀 نمایش معنی", callback_data=f"flip_card:{word.id}")],
         [
-            [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:front")],
-            [
-                InlineKeyboardButton(
-                    "👀 نشان بده معنی", callback_data=f"flip_card:{word.id}"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "⏭️ رد شدن", callback_data=f"skip_flashcard:{word.id}"
-                )
-            ],
-            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-        ]
-    )
+            InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:front"),
+            InlineKeyboardButton("⏭️ رد شدن", callback_data=f"skip_flashcard:{word.id}"),
+        ],
+        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+    ])
 
 
 def _flashcard_rate_keyboard(word: Word) -> InlineKeyboardMarkup:
-    """Generate keyboard for rating flashcard."""
-    return InlineKeyboardMarkup(
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:back")],
         [
-            [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:back")],
-            [InlineKeyboardButton("😵 Again", callback_data=f"rate_card:{word.id}:1")],
-            [InlineKeyboardButton("😬 Hard", callback_data=f"rate_card:{word.id}:2")],
-            [InlineKeyboardButton("🙂 Good", callback_data=f"rate_card:{word.id}:3")],
-            [InlineKeyboardButton("😎 Easy", callback_data=f"rate_card:{word.id}:4")],
-        ]
-    )
+            InlineKeyboardButton("😵 Again", callback_data=f"rate_card:{word.id}:1"),
+            InlineKeyboardButton("😬 Hard", callback_data=f"rate_card:{word.id}:2"),
+            InlineKeyboardButton("🙂 Good", callback_data=f"rate_card:{word.id}:3"),
+            InlineKeyboardButton("😎 Easy", callback_data=f"rate_card:{word.id}:4"),
+        ],
+    ])
 
 
 async def _send_or_edit(query, update, text: str, reply_markup):

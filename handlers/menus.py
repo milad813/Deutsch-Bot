@@ -368,7 +368,7 @@ async def show_lesson_words(query, context, lesson_id: int, page: int = 0):
     )
     await render(query, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
-
+# ✅ بعد: داشبورد با ساختار بهتر
 async def show_dashboard_simple(update, context):
     if hasattr(update, "effective_user") and update.effective_user:
         user_id = update.effective_user.id
@@ -376,6 +376,7 @@ async def show_dashboard_simple(update, context):
         user_id = update.from_user.id
     else:
         return
+
     if not config.is_authorized_user(user_id):
         return
 
@@ -391,42 +392,43 @@ async def show_dashboard_simple(update, context):
     daily_goal = db.learning.get_daily_goal(user_id)
     today_done = db.learning.get_today_activity_count(user_id)
     goal_bar = progress_bar(today_done, daily_goal)
-
     bar = progress_bar(into, need)
+
+    # ✅ ساختار بخش‌بندی‌شده
     msg = (
-        f"📊 <b>داشبورد</b>\n"
-        f"📚 کل کلمات: {word_count}\n"
-        f"📅 مرور امروز: {due_today} کلمه\n"
-        f"🎯 دقت کلی: {accuracy:.1f}%\n"
-        f"🔥 streak: {prog['streak']} روز\n"
-        f"⭐ سطح {level}  [{bar}]  {into}/{need} XP\n"
-        f"🎯 هدف امروز: {today_done}/{daily_goal}  [{goal_bar}]\n"
+        "📊 <b>داشبورد</b>\n"
+        "━━━━━━━━━━━━━━━\n"
+        "\n"
+        "📈 <b>پیشرفت کلی</b>\n"
+        f"   ⭐ سطح {level}  [{bar}]  {into}/{need} XP\n"
+        f"   🔥 Streak: <b>{prog['streak']}</b> روز\n"
+        f"   🎯 دقت: <b>{accuracy:.1f}%</b>\n"
+        "\n"
+        "📅 <b>امروز</b>\n"
+        f"   🎯 هدف: {today_done}/{daily_goal}  [{goal_bar}]\n"
+        f"   📚 مرور: {due_today} کلمه\n"
+        f"   📖 کل کتابخانه: {word_count} کلمه\n"
     )
 
     if today_done >= daily_goal:
-        msg += "🎉 هدف امروز کامل شد!\n"
+        msg += "\n🎉 <b>هدف امروز کامل شد! آفرین!</b>\n"
 
     keyboard = []
     if hard > 0:
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    f"🔥 مرور کلمات سخت ({hard})", callback_data="flashcard_hard"
-                )
-            ]
-        )
+        keyboard.append([
+            InlineKeyboardButton(f"🔥 مرور کلمات سخت ({hard})", callback_data="flashcard_hard")
+        ])
     if due_today > 0:
-        keyboard.append(
-            [InlineKeyboardButton("🚀 شروع مرور", callback_data="flashcard_due")]
-        )
-    keyboard.append(
-        [InlineKeyboardButton("📒 اشتباهات من", callback_data="show_error_notebook")]
-    )
-    keyboard.append(
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
-    )
+        keyboard.append([
+            InlineKeyboardButton("🚀 شروع مرور", callback_data="flashcard_due")
+        ])
+    keyboard.append([
+        InlineKeyboardButton("📒 اشتباهات من", callback_data="show_error_notebook")
+    ])
+    keyboard.append([
+        InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")
+    ])
     await render(update, msg, reply_markup=InlineKeyboardMarkup(keyboard))
-
 
 # ─── تنظیمات سطح ───────────────────────────────────────────────
 

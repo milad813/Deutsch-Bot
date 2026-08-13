@@ -490,32 +490,88 @@ class LearningRepository(BaseRepository):
         )
 
         return row[0] if row and row[0] else 0
+
     def get_weekly_stats(self, user_id: int) -> Dict:
-        """آمار ۷ روز اخیر."""
-        row = self.fetch_one(
-            """
-            SELECT 
-                SUM(correct_count) as correct,
-                SUM(wrong_count) as wrong,
-                COUNT(DISTINCT date(last_reviewed)) as active_days
-            FROM word_skills
-            WHERE user_id = ? AND last_reviewed >= datetime('now', '-7 days')
-            """,
-            (user_id,),
+        """آمار ۷ روز اخیر با روزهای فعال بر اساس وقت محلی کاربر."""
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+
+        tz = timezone(
+            timedelta(
+                hours=USER_TIMEZONE_OFFSET_HOURS,
+                minutes=USER_TIMEZONE_OFFSET_MINUTES,
+            )
         )
-        if not row:
-            return {"total_answers": 0, "correct": 0, "wrong": 0, "accuracy": 0, "active_days": 0}
-        correct = row[0] or 0
-        wrong = row[1] or 0
-        total = correct + wrong
+
+        now_local = datetime.now(tz)
+
+        start_local = (now_local - timedelta(days=6)).replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        start_utc = start_local.astimezone(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        rows = self.fetch_all(
+            """
+            SELECT last_reviewed, correct_count, wrong_count
+            FROM word_skills
+            WHERE user_id = ? AND last_reviewed >= ?
+            """,
+            (user_id, start_utc),
+        )
+
+        correct_total = 0
+        wrong_total = 0
+        active_days = set()
+
+        for last_reviewed, correct_count, wrong_count in rows:
+            correct_total += correct_count or 0
+            wrong_total += wrong_count or 0
+
+            if not last_reviewed:
+                continue
+
+            value = str(last_reviewed).strip()
+            dt = None
+
+            for fmt in (
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d %H:%M:%S.%f",
+            ):
+                try:
+                    dt = datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+                    break
+                except Exception:
+                    pass
+
+            if dt is None:
+                try:
+                    dt = datetime.fromisoformat(value.replace("Z", ""))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    dt = dt.astimezone(timezone.utc)
+                except Exception:
+                    dt = None
+
+            if dt:
+                local_dt = dt.astimezone(tz)
+                active_days.add(local_dt.date())
+
+        total = correct_total + wrong_total
+
         return {
             "total_answers": total,
-            "correct": correct,
-            "wrong": wrong,
-            "accuracy": int(correct / total * 100) if total else 0,
-            "active_days": row[2] or 0,
+            "correct": correct_total,
+            "wrong": wrong_total,
+            "accuracy": int(correct_total / total * 100) if total else 0,
+            "active_days": len(active_days),
         }
-
+    
     def get_mistake_word_count(self, user_id: int) -> int:
         """تعداد کلمات با اشتباه حل‌نشده."""
         row = self.fetch_one(

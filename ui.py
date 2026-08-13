@@ -80,13 +80,15 @@ def _truncate_by_bytes(text: str, max_bytes: int) -> str:
     return text
 
 
-def _chunk_plain_text(text: str, max_len: int = 3900) -> List[str]:
-    plain = _strip_html(text)
-    if len(plain.encode("utf-8")) <= max_len:
-        return [plain]
+def _chunk_html_text(text: str, max_len: int = 3900) -> List[str]:
+    """شکستن متن HTML به تکه‌های کوچکتر با حفظ تگ‌ها."""
+    if len(text.encode("utf-8")) <= max_len:
+        return [text]
+
     chunks = []
     current = ""
-    for line in plain.split("\n"):
+
+    for line in text.split("\n"):
         candidate = current + ("\n" if current else "") + line
         if len(candidate.encode("utf-8")) <= max_len:
             current = candidate
@@ -94,12 +96,20 @@ def _chunk_plain_text(text: str, max_len: int = 3900) -> List[str]:
         if current:
             chunks.append(current)
         current = line
-    while len(current.encode("utf-8")) > max_len:
-        part = _truncate_by_bytes(current, max_len - 1)
-        if not part:
-            part = current[:1]
+
+    # اگر یک خط به‌تنهایی خیلی طولانی است
+    while current and len(current.encode("utf-8")) > max_len:
+        # پیدا کردن آخرین فضای خالی قبل از محدودیت
+        encoded = current.encode("utf-8")
+        cut_point = max_len
+        while cut_point > 0 and encoded[cut_point - 1:cut_point] != b" ":
+            cut_point -= 1
+        if cut_point == 0:
+            cut_point = max_len
+        part = encoded[:cut_point].decode("utf-8", errors="ignore")
         chunks.append(part)
-        current = current[len(part) :]
+        current = current[len(part):]
+
     if current:
         chunks.append(current)
     return chunks
@@ -115,39 +125,57 @@ def progress_bar(current: int, total: int, width: int = 10) -> str:
 
 
 def _bold_word_in_sentence(sentence: str, word: str) -> str:
+    """بولد کردن تمام رخدادهای یک کلمه در جمله."""
     if not sentence or not word:
         return esc(sentence or "")
-    pattern = re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
-    match = pattern.search(sentence)
-    if not match:
-        return esc(sentence)
-    before = sentence[: match.start()]
-    matched = sentence[match.start() : match.end()]
-    after = sentence[match.end() :]
-    return f"{esc(before)}<b>{esc(matched)}</b>{esc(after)}"
+
+    # پشتیبانی از پسوندهای صرف (مثل schlechten برای schlecht)
+    pattern = re.compile(
+        r"\b(" + re.escape(word) + r"[a-zäöüß]*)\b", re.IGNORECASE
+    )
+
+    result = []
+    last_end = 0
+    for match in pattern.finditer(sentence):
+        result.append(esc(sentence[last_end:match.start()]))
+        result.append(f"<b>{esc(match.group())}</b>")
+        last_end = match.end()
+    result.append(esc(sentence[last_end:]))
+
+    return "".join(result)
 
 def main_menu_keyboard(
     due_count: int = 0, streak: int = 0, hard_count: int = 0, is_admin: bool = False
 ) -> ReplyKeyboardMarkup:
     keyboard = []
+
+    # ─── ردیف اول: اقدام فوری (مهم‌ترین) ───
     if hard_count > 0:
         keyboard.append([f"🔥 مرور کلمات سخت ({hard_count})"])
-    if due_count > 0:
+    elif due_count > 0:
         keyboard.append([f"📅 مرور امروز ({due_count} کلمه)"])
+
+    # ─── ردیف یادگیری ───
     keyboard.append(["📚 کتاب و درس‌ها", "🎴 فلش‌کارت"])
+
+    # ─── ردیف تمرین و آمار ───
     keyboard.append(["🤖 کوییز", "📊 داشبورد"])
+
+    # ─── ردیف تنظیمات و مدیریت ───
     if is_admin:
-        keyboard.append(["🛡️ پنل مدیریت"])
-    keyboard.append(["⚙️ تنظیمات"])
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        keyboard.append(["⚙️ تنظیمات", "🛡️ پنل مدیریت"])
+    else:
+        keyboard.append(["⚙️ تنظیمات"])
+
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 def back_inline_keyboard(
-    text: str = "🔙 منوی اصلی", callback_data: str = "back_to_main_menu"
+    text: str = "🏠 منوی اصلی",
+    callback_data: str = "back_to_main_menu",
 ) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton(text, callback_data=callback_data)]]
     )
-
 
 def quiz_answer_keyboard(options: List[str]) -> InlineKeyboardMarkup:
     keyboard = []
@@ -163,13 +191,14 @@ def quiz_answer_keyboard(options: List[str]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+# در تابع render، جایگزین کردن _chunk_plain_text با _chunk_html_text
 async def render(update, text: str, reply_markup=None):
     query = getattr(update, "callback_query", None)
     if query is None and hasattr(update, "edit_message_text"):
         query = update
 
     async def reply_chunks(target, original_text: str, with_markup: bool = True):
-        chunks = _chunk_plain_text(original_text, 3900)
+        chunks = _chunk_html_text(original_text, 3900)  # ✅ حفظ HTML
         if not chunks:
             chunks = ["..."]
         for i, chunk in enumerate(chunks):
@@ -184,7 +213,7 @@ async def render(update, text: str, reply_markup=None):
             if "message is not modified" in msg:
                 return
             if "too long" in msg:
-                chunks = _chunk_plain_text(text, 3900)
+                chunks = _chunk_html_text(text, 3900)  # ✅
                 if not chunks:
                     chunks = ["..."]
                 if getattr(query, "message", None):
@@ -211,12 +240,9 @@ async def render(update, text: str, reply_markup=None):
                 raise
         return
 
-    message = getattr(update, "effective_message", None) or getattr(
-        update, "message", None
-    )
+    message = getattr(update, "effective_message", None) or getattr(update, "message", None)
     if message is None and hasattr(update, "reply_text"):
         message = update
-
     if message:
         try:
             await message.reply_text(text, reply_markup=reply_markup)
