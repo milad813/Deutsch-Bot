@@ -57,11 +57,44 @@ def main():
         return
 
     db = Database(config.DB_PATH)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="وارد کردن گرامر")
+    parser.add_argument("json_path", nargs="?", default="Grammer.json")
+    parser.add_argument("--book-id", type=int, help="ID کتاب مقصد")
+    parser.add_argument("--book-name", type=str, help="نام کتاب مقصد")
+    args = parser.parse_args()
+
+    path = args.json_path
+    # ...
+
     books = db.books.get_all()
     if not books:
         print("⚠️ هیچ کتابی در دیتابیس نیست. اول import_csv.py را اجرا کن.")
         sys.exit(1)
-    book_id = books[0][0]  # تنها کتاب: Starten Wir
+
+    # ✅ انتخاب کتاب
+    if args.book_id:
+        book_id = args.book_id
+        if not db.books.get_by_id(book_id):
+            print(f"❌ کتاب با ID={book_id} پیدا نشد.")
+            sys.exit(1)
+    elif args.book_name:
+        found = [b for b in books if b[1] == args.book_name]
+        if not found:
+            print(f"❌ کتاب '{args.book_name}' پیدا نشد. کتاب‌های موجود:")
+            for b in books:
+                print(f"   ID={b[0]}: {b[1]} ({b[2]})")
+            sys.exit(1)
+        book_id = found[0][0]
+    elif len(books) == 1:
+        book_id = books[0][0]
+        print(f"ℹ️ فقط یک کتاب وجود دارد: {books[0][1]}")
+    else:
+        print("⚠️ چند کتاب وجود دارد. لطفاً با --book-id یا --book-name مشخص کن:")
+        for b in books:
+            print(f"   ID={b[0]}: {b[1]} ({b[2]})")
+        sys.exit(1)
 
     total_points = 0
     for lesson in lessons:

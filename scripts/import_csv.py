@@ -37,34 +37,45 @@ def pick(row, *keys):
 
 
 def clean_article(value, german=None):
-    for source in (value, german):
-        if not source:
-            continue
-        match = re.search(r"\b(der|die|das)\b", str(source).lower())
+    # ✅ فقط فیلد article را چک کن، نه german
+    if value:
+        v = str(value).strip().lower()
+        if v in ("der", "die", "das"):
+            return v
+
+    # ✅ فقط اگر german با "der/die/das " شروع شود
+    if german:
+        match = re.match(r"^(der|die|das)\s+", str(german).strip().lower())
         if match:
             return match.group(1)
+
     return None
 
 
 WORD_TYPES = (
-    "Noun",
-    "Verb",
-    "Adjective",
-    "Adverb",
-    "Preposition",
-    "Pronoun",
-    "Conjunction",
-    "Phrase",
+    "Noun", "Verb", "Adjective", "Adverb",
+    "Preposition", "Pronoun", "Conjunction", "Phrase",
 )
 
+# ✅ ترتیب مهم است: Pronoun قبل از Noun چک شود
+_WORD_TYPE_PRIORITY = (
+    "Pronoun", "Conjunction", "Preposition", "Adjective",
+    "Adverb", "Noun", "Verb", "Phrase",
+)
 
 def clean_word_type(value):
     value = norm(value)
     if not value:
         return None
+    lowered = value.lower().strip()
 
-    lowered = value.lower()
+    # ۱. ابتدا exact match
     for t in WORD_TYPES:
+        if lowered == t.lower():
+            return t
+
+    # ۲. سپس substring match با ترتیب امن
+    for t in _WORD_TYPE_PRIORITY:
         if t.lower() in lowered:
             return t
 

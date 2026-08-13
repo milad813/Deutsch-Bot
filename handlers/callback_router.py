@@ -51,9 +51,6 @@ from ui import back_inline_keyboard, render
 
 logger = logging.getLogger(__name__)
 
-_tts_jobs: Dict[int, object] = {}
-
-
 async def _handle_quiz_type(query, context, suffix: str):
     context.user_data["quiz_type"] = suffix
     if context.user_data.get("quiz_lesson_preset"):

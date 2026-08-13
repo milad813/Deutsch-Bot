@@ -451,12 +451,21 @@ class ExtendedWordRepository(BaseRepository):
         exclude_ids=None,
     ):
         return self.get_for_flashcard(
-            user_id, lesson_id, limit, include_new, new_limit, exclude_ids
+            user_id,
+            limit=limit,
+            lesson_id=lesson_id,
+            include_new=include_new,
+            new_limit=new_limit,
+            exclude_ids=exclude_ids,
         )
 
     def get_new_word_objects(self, user_id, lesson_id=None, limit=20, exclude_ids=None):
-        return self.get_new(user_id, lesson_id, limit, exclude_ids)
-
+        return self.get_new(
+            user_id,
+            lesson_id=lesson_id,
+            limit=limit,
+            exclude_ids=exclude_ids,
+        )
     def get_due_today(self, user_id: int) -> List[Tuple]:
         query = """SELECT w.id, w.german, w.persian FROM words w
                    JOIN word_stats ws ON w.id = ws.word_id

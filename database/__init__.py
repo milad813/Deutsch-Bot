@@ -42,6 +42,15 @@ class Database:
         return level, current, needed
 
     def _ensure_learning_schema(self):
+        for migration_sql in (
+        "ALTER TABLE word_skills ADD COLUMN correct_streak INTEGER DEFAULT 0",
+        "ALTER TABLE grammar_progress ADD COLUMN correct_streak INTEGER DEFAULT 0",
+        "ALTER TABLE story_progress ADD COLUMN next_review TIMESTAMP",  # ← جدید
+    ):
+            try:
+                c.execute(migration_sql)
+            except Exception:
+                pass
         with self._conn.cursor(commit=True) as c:
             c.execute("""CREATE TABLE IF NOT EXISTS word_skills (
                 user_id INTEGER NOT NULL, word_id INTEGER NOT NULL,

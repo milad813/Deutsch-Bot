@@ -131,7 +131,7 @@ async def show_quiz_menu(update, context):
     ]
     await render(
         update,
-        "🤖 نوع کوییز را انتخاب کنید:"
+        "🤖 نوع کوییز را انتخاب کنید:\n"
         "💡 <i>نوشتاری = بیشترین تأثیر روی یادگیری</i>",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
@@ -316,7 +316,6 @@ async def show_lessons(query, context, book_id: int):
 
 async def show_lesson_options(query, context, lesson_id: int):
     lesson = db.lessons.get_by_id(lesson_id)
-    # lesson tuple is (lesson_number, title) from db_legacy.get_lesson
     lesson_name = (
         _format_lesson_name(lesson[1], lesson[2] or "") if lesson else "این درس"
     )

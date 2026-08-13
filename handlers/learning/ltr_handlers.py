@@ -12,6 +12,7 @@ import logging
 import random
 import re
 from typing import Optional
+from handlers.learning.ltr_session import MAX_RETRIES
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -486,7 +487,7 @@ async def handle_ltr_answer(query, context, suffix: str):
         retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
 
         if not is_correct and retry_count > 0:
-            feedback += f"\n⚠️ تلاش {retry_count} از ۲"
+            feedback += f"\n⚠️ تلاش {retry_count} از {MAX_RETRIES}"
 
         # Route to next action
         await _route_next_action(query, context, feedback=feedback)

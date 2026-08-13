@@ -27,16 +27,14 @@ async def on_error(update, context):
     if isinstance(context.error, (BadRequest, Forbidden)):
         logger.debug("خطای قابل‌چشم‌پوشی: %s", context.error)
         return
-
     logger.error("خطای پیش‌بینی‌نشده در پردازش یک آپدیت", exc_info=context.error)
-
     if isinstance(update, Update) and update.effective_message:
         try:
             await update.effective_message.reply_text(
                 "⚠️ خطایی رخ داد. لطفاً دوباره تلاش کنید یا /menu را بزنید."
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("خطا در ارسال پیام خطا به کاربر: %s", e)
 
 
 async def set_commands(application):
