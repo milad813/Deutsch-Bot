@@ -106,10 +106,12 @@ BACKUP_KEEP_MAX = _get_int("BACKUP_KEEP_MAX", 30)
 
 
 def is_authorized_user(user_id: int) -> bool:
+    # ✅ اگر دسترسی عمومی فعال باشد، همه اجازه استفاده دارند
+    if ALLOW_PUBLIC_ACCESS:
+        return True
     if ADMIN_USER_ID == 0:
-        return ALLOW_PUBLIC_ACCESS
+        return False
     return user_id == ADMIN_USER_ID
-
 
 def is_llm_available() -> bool:
     if BOT_MODE == BotMode.OFFLINE:

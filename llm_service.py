@@ -100,7 +100,7 @@ class LLMService:
             random.shuffle(wrongs)
             options = [correct] + wrongs[:3]
             random.shuffle(options)
-
+        random.shuffle(options) 
         return {
             "question": question,
             "options": options,

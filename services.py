@@ -80,9 +80,6 @@ SESSION_KEYS = {
     "ltr_question_type",
     "listening_session",
     "listening_current",
-    "writing_session",
-    "writing_current_word",
-    "awaiting_writing_answer",
     # Locks / Flags
     "quiz_answer_lock",
     "ltr_answer_lock",
@@ -94,7 +91,6 @@ SESSION_KEYS = {
     "grammar_answer_lock",
     "listening_answer_lock",
     "listening_skip_lock",
-    "writing_skip_lock",
     "story_generating",
 }
 

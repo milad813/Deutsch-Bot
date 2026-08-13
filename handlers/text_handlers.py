@@ -12,14 +12,6 @@ async def handle_text_input(update, context):
 
     text = update.message.text.strip()
 
-    # ✅ فیکس: بررسی جواب نوشتاری
-    if context.user_data.get("awaiting_writing_answer"):
-        from handlers.writing_handlers import handle_writing_text
-
-        handled = await handle_writing_text(update, context)
-        if handled:
-            return
-
     if text.startswith("🔥 مرور کلمات سخت"):
         await start_flashcard_session(update, context, hard_only=True)
         return

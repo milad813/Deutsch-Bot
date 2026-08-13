@@ -99,12 +99,6 @@ async def show_quiz_menu(update, context):
     keyboard = [
         [
             InlineKeyboardButton(
-                "✍️ نوشتاری (توصیه‌شده)",
-                callback_data=f"{CallbackPrefix.WRITING_START.value}",
-            )
-        ],
-        [
-            InlineKeyboardButton(
                 "🧠 معنی (آلمانی→فارسی)",
                 callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}meaning",
             )

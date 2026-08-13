@@ -12,7 +12,6 @@ from handlers import (
     listening_handlers,
     menus,
     quiz_handlers,
-    writing_handlers,
 )
 from handlers.learning import (
     handle_flip_card,
@@ -324,18 +323,6 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.STORY_NEXT.value, lambda q, c, s: show_story_menu(q, c, int(s))),
     (CallbackPrefix.SET_LEVEL.value, lambda q, c, s: menus.handle_set_level(q, c, s)),
     (CallbackPrefix.SET_GOAL.value, lambda q, c, s: menus.handle_set_goal(q, c, s)),
-    (
-        CallbackPrefix.WRITING_START.value,
-        lambda q, c, s: writing_handlers.handle_writing_start(q, c),
-    ),
-    (
-        CallbackPrefix.WRITING_SKIP.value,
-        lambda q, c, s: writing_handlers.handle_writing_skip(q, c),
-    ),
-    (
-        CallbackPrefix.WRITING_EXIT.value,
-        lambda q, c, s: writing_handlers.handle_writing_exit(q, c),
-    ),
     (
         CallbackPrefix.LISTENING_START.value,
         lambda q, c, s: listening_handlers.handle_listening_start(q, c),
