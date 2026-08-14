@@ -108,6 +108,7 @@ class LLMService:
             "correct_answer": correct,
         }
 
+
     async def _chat(self, system, user, temperature=None, max_tokens=None):
         if not self.clients:
             raise RuntimeError("LLM در دسترس نیست")
@@ -146,7 +147,7 @@ class LLMService:
                         client.chat.completions.create,
                         **kwargs
                     ),
-                    timeout=25.0,
+                    timeout=30.0,
                 )
                 return response.choices[0].message.content
                 
@@ -166,7 +167,7 @@ class LLMService:
                                 client.chat.completions.create,
                                 **kwargs
                             ),
-                            timeout=25.0,
+                            timeout=30.0,
                         )
                         return response.choices[0].message.content
                     except Exception as e2:
@@ -180,7 +181,7 @@ class LLMService:
                                     client.chat.completions.create,
                                     **kwargs
                                 ),
-                                timeout=25.0,
+                                timeout=30.0,
                             )
                             content = response.choices[0].message.content
                             if content and "<think>" in content:
@@ -196,6 +197,7 @@ class LLMService:
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
 
+                   
     async def generate_quiz_question(
         self,
         word: str,
