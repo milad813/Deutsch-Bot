@@ -114,9 +114,14 @@ class LLMService:
         temp = temperature if temperature is not None else config.GROQ_TEMPERATURE
         tokens = max_tokens if max_tokens is not None else config.GROQ_MAX_TOKENS
         
-        # ✅ تنظیمات ویژه برای مدل‌های Reasoning (مثل Qwen) جهت جلوگیری از تولید <think>
+        # ✅ شناسایی مدل‌های Reasoning (مثل Qwen)
         is_reasoning_model = any(m in MODEL.lower() for m in ["qwen", "qwq", "deepseek"])
         
+        # 🎯 ترفند طلایی: اضافه کردن /no_think به پرامپت برای جلوگیری از تولید <think>
+        if is_reasoning_model:
+            user = f"/no_think\n{user}"
+            system = "You output ONLY the requested content directly. Do NOT use <think> tags or show any thinking process. " + system
+
         for attempt in range(len(self.clients)):
             client = self._next_client()
             if client is None:
@@ -132,16 +137,18 @@ class LLMService:
                     "max_tokens": tokens,
                 }
                 
-                # ارسال پارامتر برای غیرفعال کردن thinking
+                # تلاش برای ارسال پارامترهای خاص (ممکن است گروک رد کند)
                 if is_reasoning_model:
-                    kwargs["extra_body"] = {"reasoning_format": "none"}
+                    kwargs["extra_body"] = {
+                        "chat_template_kwargs": {"enable_thinking": False},
+                    }
 
                 response = await asyncio.wait_for(
                     asyncio.to_thread(
                         client.chat.completions.create,
                         **kwargs
                     ),
-                    timeout=25.0, # ✅ تایم‌اوت را کمی بیشتر کردیم
+                    timeout=25.0, # تایم‌اوت بیشتر برای مدل‌های سنگین
                 )
                 return response.choices[0].message.content
                 
@@ -149,13 +156,12 @@ class LLMService:
                 logger.warning("Groq timeout (کلید %d)، تلاش بعدی", attempt + 1)
                 continue
             except Exception as e:
-                # اگر SDK گروک extra_body را قبول نکرد (خطای Pydantic/Type)
-                if is_reasoning_model and ("extra_body" in str(e) or "reasoning_format" in str(e) or "unexpected keyword" in str(e)):
-                    logger.info("تلاش مجدد بدون extra_body برای سازگاری با SDK...")
+                error_str = str(e).lower()
+                # 🛡️ سپر دفاعی: اگر گروک extra_body یا reasoning را رد کرد، آن را حذف کن و دوباره بفرست
+                if is_reasoning_model and ("extra_body" in error_str or "reasoning" in error_str or "chat_template" in error_str or "unexpected keyword" in error_str or "400" in error_str):
+                    logger.info("حذف پارامترهای reasoning و تلاش مجدد (Fallback)...")
                     try:
                         kwargs.pop("extra_body", None)
-                        # در برخی نسخه‌ها باید مستقیم پاس داده شود
-                        kwargs["reasoning_format"] = "none"
                         response = await asyncio.wait_for(
                             asyncio.to_thread(
                                 client.chat.completions.create,
@@ -172,6 +178,7 @@ class LLMService:
                 
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
+
     async def generate_quiz_question(
         self,
         word: str,
