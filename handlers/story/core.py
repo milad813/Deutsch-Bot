@@ -326,7 +326,7 @@ Du bist ein erfahrener Deutschlehrer und kreativer Geschichtenerzähler.
    - Hauptteil (Konflikt oder Ereignis)
    - Schluss (Lösung oder Erkenntnis)
 5. **Hervorhebung:** Markiere die Zielwörter mit HTML-Tags: <b>Wort</b> (NICHT mit ** Sternchen)
-6. **Keine zusätzlichen schwierigen Wörter** – bleibe im Niveau {level}
+6. **Keine zusätzlichen schwierigen Wörter** – bleibe strikt im Niveau {level}. Benutze nur die 1000 häufigsten deutschen Wörter.
 7. Erstelle mindestens 2, höchstens 4 Verständnisfragen.
 8. Jede Frage muss genau 4 Optionen haben.
 9. Gib bei jeder Frage einen question_type an: comprehension, vocabulary oder detail.
