@@ -107,7 +107,6 @@ class LLMService:
             "correct_index": options.index(correct),
             "correct_answer": correct,
         }
-
     async def _chat(self, system, user, temperature=None, max_tokens=None):
         if not self.clients:
             raise RuntimeError("LLM در دسترس نیست")
@@ -117,16 +116,15 @@ class LLMService:
         # 🎯 شناسایی مدل‌های Reasoning (مثل Qwen)
         is_reasoning_model = any(m in MODEL.lower() for m in ["qwen", "qwq", "deepseek"])
         
-        # 🚨 رفع مشکل finish_reason: length در مدل‌های Reasoning
-        # مدل‌های Reasoning توکن‌های بخش تفکر (Think) را هم از max_tokens کم می‌کنند.
-        # اگر max_tokens کم باشد، تمام توکن‌ها صرف فکر کردن شده و چیزی برای خروجی JSON نمی‌ماند!
+        # 🚨 تنظیم ایمن توکن‌ها برای مدل‌های Reasoning
+        # چون /no_think باعث می‌شود مدل فکر نکند، 4096 برای خروجی JSON کاملاً کافی است و از 413 جلوگیری می‌کند.
         if is_reasoning_model and tokens < 4096:
-            tokens = 8192  # اختصاص توکن کافی برای Think + Output
+            tokens = 4096 
         
         # 🧠 ترفند پرامپت برای اطمینان از خروجی مستقیم
         if is_reasoning_model:
             user = f"/no_think\n{user}"
-            system = "You output ONLY the requested content directly. Do NOT use <think> tags. " + system
+            system = "You output ONLY the requested content directly. Do NOT use  tags. " + system
 
         for attempt in range(len(self.clients)):
             client = self._next_client()
@@ -142,7 +140,7 @@ class LLMService:
                     "temperature": temp,
                     "max_tokens": tokens,
                 }
-                # ✅ پارامتر رسمی Groq برای مخفی کردن <think> در Qwen
+                # ✅ پارامتر رسمی Groq برای مخفی کردن  در Qwen
                 if is_reasoning_model:
                     kwargs["extra_body"] = {"reasoning_format": "hidden"}
                 
@@ -151,7 +149,7 @@ class LLMService:
                         client.chat.completions.create,
                         **kwargs
                     ),
-                    timeout=90.0,  # ⏱️ افزایش تایم‌اوت به ۹۰ ثانیه (چون مدل‌های Reasoning کندتر هستند)
+                    timeout=90.0,
                 )
                 
                 if not response.choices:
@@ -161,7 +159,6 @@ class LLMService:
                 content = response.choices[0].message.content
                 finish_reason = response.choices[0].finish_reason
                 
-                # 🚨 ثبت دقیق علت خالی بودن پاسخ
                 if not content:
                     logger.warning(
                         "Groq پاسخ خالی برگرداند. finish_reason: %s, model: %s (کلید %d)",
@@ -176,6 +173,22 @@ class LLMService:
                 continue
             except Exception as e:
                 error_str = str(e).lower()
+                
+                # 🛡️ لایه دفاعی ۰: خطای 413 (Request too large)
+                if "413" in error_str or "too large" in error_str or "maximum context" in error_str:
+                    logger.warning("خطای 413 (درخواست بزرگ). کاهش max_tokens به 2048 و تلاش مجدد...")
+                    kwargs["max_tokens"] = 2048
+                    try:
+                        response = await asyncio.wait_for(
+                            asyncio.to_thread(client.chat.completions.create, **kwargs),
+                            timeout=90.0,
+                        )
+                        if response.choices:
+                            content = response.choices[0].message.content
+                            if content: return content
+                    except Exception as e413:
+                        logger.warning("Groq خطا در تلاش مجدد 413 (کلید %d): %s", attempt + 1, e413)
+
                 # 🛡️ لایه دفاعی ۱: اگر SDK گروک extra_body را رد کرد
                 if is_reasoning_model and ("extra_body" in error_str or "unexpected keyword" in error_str or "reasoning_format" in error_str or "400" in error_str):
                     logger.info("تلاش مجدد با پاس دادن مستقیم reasoning_format (Fallback)...")
@@ -183,10 +196,7 @@ class LLMService:
                         kwargs.pop("extra_body", None)
                         kwargs["reasoning_format"] = "hidden"
                         response = await asyncio.wait_for(
-                            asyncio.to_thread(
-                                client.chat.completions.create,
-                                **kwargs
-                            ),
+                            asyncio.to_thread(client.chat.completions.create, **kwargs),
                             timeout=90.0,
                         )
                         if not response.choices: continue
@@ -198,21 +208,18 @@ class LLMService:
                     except Exception as e2:
                         logger.warning("Groq خطا در تلاش دوم (کلید %d): %s", attempt + 1, e2)
                         
-                        # 🛡️ لایه دفاعی ۲: حذف کامل پارامتر و پاکسازی دستی <think>
+                        # 🛡️ لایه دفاعی ۲: حذف کامل پارامتر و پاکسازی دستی 
                         try:
                             kwargs.pop("reasoning_format", None)
                             response = await asyncio.wait_for(
-                                asyncio.to_thread(
-                                    client.chat.completions.create,
-                                    **kwargs
-                                ),
+                                asyncio.to_thread(client.chat.completions.create, **kwargs),
                                 timeout=90.0,
                             )
                             if not response.choices: continue
                             content = response.choices[0].message.content
-                            if content and "<think>" in content:
+                            if content and "" in content:
                                 import re
-                                content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+                                content = re.sub(r".*?", "", content, flags=re.DOTALL).strip()
                             if not content:
                                 logger.warning("Groq پاسخ خالی برگرداند. finish_reason: %s (Fallback 2)", response.choices[0].finish_reason)
                                 continue
@@ -225,7 +232,7 @@ class LLMService:
                 
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
-
+    
     async def generate_quiz_question(
         self,
         word: str,
