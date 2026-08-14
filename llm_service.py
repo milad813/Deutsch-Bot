@@ -108,7 +108,6 @@ class LLMService:
             "correct_answer": correct,
         }
 
-
     async def _chat(self, system, user, temperature=None, max_tokens=None):
         if not self.clients:
             raise RuntimeError("LLM در دسترس نیست")
@@ -137,20 +136,35 @@ class LLMService:
                     "temperature": temp,
                     "max_tokens": tokens,
                 }
-                
                 # ✅ پارامتر رسمی Groq برای مخفی کردن <think> در Qwen 3.6
                 if is_reasoning_model:
                     kwargs["extra_body"] = {"reasoning_format": "hidden"}
-
+                
                 response = await asyncio.wait_for(
                     asyncio.to_thread(
                         client.chat.completions.create,
                         **kwargs
                     ),
-                    timeout=30.0,
+                    timeout=60.0,  # ⏱️ افزایش تایم‌اوت برای جلوگیری از شکست در داستان‌های طولانی
                 )
-                return response.choices[0].message.content
                 
+                if not response.choices:
+                    logger.warning("Groq هیچ choice ای برنگرداند (کلید %d)", attempt + 1)
+                    continue
+                    
+                content = response.choices[0].message.content
+                finish_reason = response.choices[0].finish_reason
+                
+                # 🚨 ثبت دقیق علت خالی بودن پاسخ
+                if not content:
+                    logger.warning(
+                        "Groq پاسخ خالی برگرداند. finish_reason: %s, model: %s (کلید %d)",
+                        finish_reason, MODEL, attempt + 1
+                    )
+                    continue
+                    
+                return content
+
             except asyncio.TimeoutError:
                 logger.warning("Groq timeout (کلید %d)، تلاش بعدی", attempt + 1)
                 continue
@@ -167,9 +181,14 @@ class LLMService:
                                 client.chat.completions.create,
                                 **kwargs
                             ),
-                            timeout=30.0,
+                            timeout=60.0,
                         )
-                        return response.choices[0].message.content
+                        if not response.choices: continue
+                        content = response.choices[0].message.content
+                        if not content:
+                            logger.warning("Groq پاسخ خالی برگرداند. finish_reason: %s (Fallback 1)", response.choices[0].finish_reason)
+                            continue
+                        return content
                     except Exception as e2:
                         logger.warning("Groq خطا در تلاش دوم (کلید %d): %s", attempt + 1, e2)
                         
@@ -181,12 +200,16 @@ class LLMService:
                                     client.chat.completions.create,
                                     **kwargs
                                 ),
-                                timeout=30.0,
+                                timeout=60.0,
                             )
+                            if not response.choices: continue
                             content = response.choices[0].message.content
                             if content and "<think>" in content:
                                 import re
                                 content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+                            if not content:
+                                logger.warning("Groq پاسخ خالی برگرداند. finish_reason: %s (Fallback 2)", response.choices[0].finish_reason)
+                                continue
                             return content
                         except Exception as e3:
                             logger.warning("Groq خطا در تلاش سوم (کلید %d): %s", attempt + 1, e3)
@@ -196,7 +219,6 @@ class LLMService:
                 
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
-
                    
     async def generate_quiz_question(
         self,

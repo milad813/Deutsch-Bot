@@ -202,28 +202,23 @@ async def _plan_story(
         ]
     )
 
+    # ✅ پرامپت بهینه‌شده: حذف درخواست تولید text در مرحله planning
     prompt = f"""
 Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
-
 **Ziel:** Erstelle eine kurze, natürliche Geschichte auf Niveau {level}.
-
 **Wortschatz aus Lektion "{lesson_title}":**
 {word_list}
-
 **Anforderungen:**
 1. Wähle maximal {MAX_STORY_WORDS} Wörter aus der Liste aus.
 2. Die Geschichte muss logisch und natürlich klingen.
 3. Länge: 80–120 Wörter.
 4. Thema: Alltagssituation oder kleines Abenteuer.
 5. Gib in "used_words" NUR die id-Zahlen der ausgewählten Wörter zurück.
-
 **Ausgabeformat (JSON):**
 {{
-  "title": "...",
-  "text": "...",
-  "used_words": [12, 34, 56],
-  "genre": "daily|adventure|mystery|humor|social",
-  "level": "{level}"
+"title_de": "Kurzer Titel (max. 6 Wörter)",
+"used_words": [12, 34, 56],
+"genre": "daily|adventure|mystery|humor|social"
 }}
 """.strip()
 
@@ -232,7 +227,7 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
             "You are a German teacher. You output only valid JSON.",
             prompt,
             temperature=0.7,
-            max_tokens=2048,
+            max_tokens=1024, # ⬇️ کاهش توکن چون نیازی به تولید کل داستان نیست
         )
         if not response:
             return None
@@ -244,7 +239,8 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
             return None
 
         plan = json.loads(match.group())
-        if not isinstance(plan, dict) or "text" not in plan:
+        # ✅ تغییر شرط اعتبارسنجی از text به used_words
+        if not isinstance(plan, dict) or "used_words" not in plan:
             return None
 
         used = []
@@ -272,7 +268,7 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
     except Exception as e:
         logger.error("خطا در برنامه‌ریزی داستان: %s", e)
         return None
-
+    
 def _filter_words_by_plan(words: List[Dict], plan: Dict) -> List[Dict]:
     """فیلتر کلمات بر اساس plan."""
     used_ids = set(plan.get("used_words", []))
