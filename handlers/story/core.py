@@ -247,7 +247,7 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
             "You are a German teacher. You output only valid JSON.",
             prompt,
             temperature=0.7,
-            max_tokens=500,
+            max_tokens=1024,
         )
         if not response:
             return None
@@ -415,7 +415,7 @@ async def _generate_story_for_lesson(
                 "You are a creative German language teacher. You output only valid JSON.",
                 prompt,
                 temperature=0.7,
-                max_tokens=800,
+                max_tokens=2048,
             )
 
             if not response:

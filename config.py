@@ -81,7 +81,7 @@ GROQ_API_KEYS = _get_list("GROQ_API_KEYS")
 if not GROQ_API_KEYS and GROQ_API_KEY:
     GROQ_API_KEYS = [GROQ_API_KEY]
 GROQ_MODEL = get_env("GROQ_MODEL", "llama-3.3-70b-versatile")
-GROQ_MAX_TOKENS = _get_int("GROQ_MAX_TOKENS", 400)
+GROQ_MAX_TOKENS = _get_int("GROQ_MAX_TOKENS", 1024)
 GROQ_TEMPERATURE = _get_float("GROQ_TEMPERATURE", 0.7)
 USER_INTERESTS = get_env("USER_INTERESTS", "")
 _BOT_MODE_STR = get_env("BOT_MODE", "hybrid").lower()
