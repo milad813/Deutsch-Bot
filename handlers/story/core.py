@@ -188,21 +188,6 @@ def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
     if not recent_stats or recent_stats.get("total_answers", 0) == 0:
         return lesson_level
 
-    # get_weekly_stats دقت را به صورت درصد (0-100) برمی‌گرداند
-    accuracy = recent_stats.get("accuracy", 50)
-
-    # تنظیم سطح بر اساس دقت کاربر
-    LEVEL_ORDER = ["A1", "A2", "B1", "B2"]
-
-    if accuracy > 80:
-        idx = LEVEL_ORDER.index(lesson_level) if lesson_level in LEVEL_ORDER else 0
-        if idx < len(LEVEL_ORDER) - 1:
-            return LEVEL_ORDER[idx + 1]
-    elif accuracy < 40 and lesson_level in ["B1", "B2"]:
-        return "A2"
-
-    return lesson_level
-
 async def _plan_story(
     words: List[Dict], level: str, lesson_title: str
 ) -> Optional[Dict]:
@@ -247,7 +232,7 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
             "You are a German teacher. You output only valid JSON.",
             prompt,
             temperature=0.7,
-            max_tokens=1024,
+            max_tokens=2048,
         )
         if not response:
             return None
@@ -504,7 +489,7 @@ Text: {story_data["text"]}"""
                         "You translate German to Persian. Output only valid JSON.",
                         translate_prompt,
                         temperature=0.3,
-                        max_tokens=500,
+                        max_tokens=2048,
                     )
 
                     if translate_response:

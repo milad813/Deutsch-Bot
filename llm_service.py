@@ -114,13 +114,13 @@ class LLMService:
         temp = temperature if temperature is not None else config.GROQ_TEMPERATURE
         tokens = max_tokens if max_tokens is not None else config.GROQ_MAX_TOKENS
         
-        # ✅ شناسایی مدل‌های Reasoning (مثل Qwen)
+        # 🎯 شناسایی مدل‌های Reasoning (مثل Qwen)
         is_reasoning_model = any(m in MODEL.lower() for m in ["qwen", "qwq", "deepseek"])
         
-        # 🎯 ترفند طلایی: اضافه کردن /no_think به پرامپت برای جلوگیری از تولید <think>
+        # 🧠 ترفند پرامپت برای اطمینان از خروجی مستقیم
         if is_reasoning_model:
             user = f"/no_think\n{user}"
-            system = "You output ONLY the requested content directly. Do NOT use <think> tags or show any thinking process. " + system
+            system = "You output ONLY the requested content directly. Do NOT use <think> tags. " + system
 
         for attempt in range(len(self.clients)):
             client = self._next_client()
@@ -137,18 +137,16 @@ class LLMService:
                     "max_tokens": tokens,
                 }
                 
-                # تلاش برای ارسال پارامترهای خاص (ممکن است گروک رد کند)
+                # ✅ پارامتر رسمی Groq برای مخفی کردن <think> در Qwen 3.6
                 if is_reasoning_model:
-                    kwargs["extra_body"] = {
-                        "chat_template_kwargs": {"enable_thinking": False},
-                    }
+                    kwargs["extra_body"] = {"reasoning_format": "hidden"}
 
                 response = await asyncio.wait_for(
                     asyncio.to_thread(
                         client.chat.completions.create,
                         **kwargs
                     ),
-                    timeout=25.0, # تایم‌اوت بیشتر برای مدل‌های سنگین
+                    timeout=25.0,
                 )
                 return response.choices[0].message.content
                 
@@ -157,11 +155,13 @@ class LLMService:
                 continue
             except Exception as e:
                 error_str = str(e).lower()
-                # 🛡️ سپر دفاعی: اگر گروک extra_body یا reasoning را رد کرد، آن را حذف کن و دوباره بفرست
-                if is_reasoning_model and ("extra_body" in error_str or "reasoning" in error_str or "chat_template" in error_str or "unexpected keyword" in error_str or "400" in error_str):
-                    logger.info("حذف پارامترهای reasoning و تلاش مجدد (Fallback)...")
+                # 🛡️ لایه دفاعی ۱: اگر SDK گروک extra_body را رد کرد
+                if is_reasoning_model and ("extra_body" in error_str or "unexpected keyword" in error_str or "reasoning_format" in error_str or "400" in error_str):
+                    logger.info("تلاش مجدد با پاس دادن مستقیم reasoning_format (Fallback)...")
                     try:
                         kwargs.pop("extra_body", None)
+                        kwargs["reasoning_format"] = "hidden"
+                        
                         response = await asyncio.wait_for(
                             asyncio.to_thread(
                                 client.chat.completions.create,
@@ -172,13 +172,32 @@ class LLMService:
                         return response.choices[0].message.content
                     except Exception as e2:
                         logger.warning("Groq خطا در تلاش دوم (کلید %d): %s", attempt + 1, e2)
+                        
+                        # 🛡️ لایه دفاعی ۲: حذف کامل پارامتر و پاکسازی دستی <think>
+                        try:
+                            kwargs.pop("reasoning_format", None)
+                            response = await asyncio.wait_for(
+                                asyncio.to_thread(
+                                    client.chat.completions.create,
+                                    **kwargs
+                                ),
+                                timeout=25.0,
+                            )
+                            content = response.choices[0].message.content
+                            # اگر مدل باز هم <think> تولید کرد، آن را با Regex حذف می‌کنیم
+                            if content and "<think>" in content:
+                                import re
+                                content = re.sub(r"<think>.*?", "", content, flags=re.DOTALL).strip()
+                            return content
+                        except Exception as e3:
+                            logger.warning("Groq خطا در تلاش سوم (کلید %d): %s", attempt + 1, e3)
                 
                 logger.warning("Groq خطا (کلید %d): %s — تلاش بعدی", attempt + 1, e)
                 continue
                 
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
-
+    
     async def generate_quiz_question(
         self,
         word: str,
