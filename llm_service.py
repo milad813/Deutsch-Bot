@@ -117,6 +117,12 @@ class LLMService:
         # 🎯 شناسایی مدل‌های Reasoning (مثل Qwen)
         is_reasoning_model = any(m in MODEL.lower() for m in ["qwen", "qwq", "deepseek"])
         
+        # 🚨 رفع مشکل finish_reason: length در مدل‌های Reasoning
+        # مدل‌های Reasoning توکن‌های بخش تفکر (Think) را هم از max_tokens کم می‌کنند.
+        # اگر max_tokens کم باشد، تمام توکن‌ها صرف فکر کردن شده و چیزی برای خروجی JSON نمی‌ماند!
+        if is_reasoning_model and tokens < 4096:
+            tokens = 8192  # اختصاص توکن کافی برای Think + Output
+        
         # 🧠 ترفند پرامپت برای اطمینان از خروجی مستقیم
         if is_reasoning_model:
             user = f"/no_think\n{user}"
@@ -136,7 +142,7 @@ class LLMService:
                     "temperature": temp,
                     "max_tokens": tokens,
                 }
-                # ✅ پارامتر رسمی Groq برای مخفی کردن <think> در Qwen 3.6
+                # ✅ پارامتر رسمی Groq برای مخفی کردن <think> در Qwen
                 if is_reasoning_model:
                     kwargs["extra_body"] = {"reasoning_format": "hidden"}
                 
@@ -145,7 +151,7 @@ class LLMService:
                         client.chat.completions.create,
                         **kwargs
                     ),
-                    timeout=60.0,  # ⏱️ افزایش تایم‌اوت برای جلوگیری از شکست در داستان‌های طولانی
+                    timeout=90.0,  # ⏱️ افزایش تایم‌اوت به ۹۰ ثانیه (چون مدل‌های Reasoning کندتر هستند)
                 )
                 
                 if not response.choices:
@@ -181,7 +187,7 @@ class LLMService:
                                 client.chat.completions.create,
                                 **kwargs
                             ),
-                            timeout=60.0,
+                            timeout=90.0,
                         )
                         if not response.choices: continue
                         content = response.choices[0].message.content
@@ -200,7 +206,7 @@ class LLMService:
                                     client.chat.completions.create,
                                     **kwargs
                                 ),
-                                timeout=60.0,
+                                timeout=90.0,
                             )
                             if not response.choices: continue
                             content = response.choices[0].message.content
@@ -219,7 +225,7 @@ class LLMService:
                 
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
-                   
+
     async def generate_quiz_question(
         self,
         word: str,
