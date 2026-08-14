@@ -161,7 +161,6 @@ class LLMService:
                     try:
                         kwargs.pop("extra_body", None)
                         kwargs["reasoning_format"] = "hidden"
-                        
                         response = await asyncio.wait_for(
                             asyncio.to_thread(
                                 client.chat.completions.create,
@@ -184,10 +183,9 @@ class LLMService:
                                 timeout=25.0,
                             )
                             content = response.choices[0].message.content
-                            # اگر مدل باز هم <think> تولید کرد، آن را با Regex حذف می‌کنیم
                             if content and "<think>" in content:
                                 import re
-                                content = re.sub(r"<think>.*?", "", content, flags=re.DOTALL).strip()
+                                content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
                             return content
                         except Exception as e3:
                             logger.warning("Groq خطا در تلاش سوم (کلید %d): %s", attempt + 1, e3)
@@ -197,7 +195,7 @@ class LLMService:
                 
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
         return None
-    
+
     async def generate_quiz_question(
         self,
         word: str,

@@ -180,13 +180,13 @@ def _select_genre(level: str, lesson_title: str) -> Dict:
 
 
 def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
-    """تعیین سطح تطبیقی بر اساس عملکرد کاربر."""
-    # استفاده از get_weekly_stats که آمار ۷ روز اخیر را برمی‌گرداند
-    recent_stats = db.learning.get_weekly_stats(user_id)
-
-    # اگر کاربر هیچ فعالیتی نداشته، همان سطح درس را برگردان
-    if not recent_stats or recent_stats.get("total_answers", 0) == 0:
-        return lesson_level
+    """گرفتن سطح دقیقاً از تنظیمات کاربر (بدون محاسبات پیچیده)."""
+    settings = db.users.get_settings(user_id)
+    # اگر کاربر سطحی انتخاب کرده بود، همان را برگردان
+    if settings and settings.get("preferred_level"):
+        return settings["preferred_level"]
+    # در غیر این صورت از سطح کتاب به عنوان fallback استفاده کن
+    return lesson_level or "A1"
 
 async def _plan_story(
     words: List[Dict], level: str, lesson_title: str
@@ -354,7 +354,11 @@ async def _generate_story_for_lesson(
 
     lesson_title = lesson[2] or f"درس {lesson[1]}"
     book_level = db.books.get_level_by_lesson(lesson_id) or "A1"
+    if not book_level:
+        book_level = "A1"
     level = _get_adaptive_level(user_id, book_level)
+    if not level:
+        level = "A1"
     genre = _select_genre(level, lesson_title)
 
     logger.info(

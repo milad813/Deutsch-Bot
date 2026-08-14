@@ -46,7 +46,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_name=user.last_name,
     )
     reset_session(context)
-
+    # ─── Onboarding: پرسیدن سطح از کاربر جدید ───
+    settings = db.users.get_settings(user.id)
+    if not settings:  # اگر رکوردی در user_settings نبود
+        await show_level_select(update, context)
+        return
     due, streak, hard = await _menu_stats(user.id)
     welcome = (
         f"سلام {esc(user.first_name)} عزیز! 👋\n"
@@ -83,7 +87,11 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_name=user.last_name,
     )
     reset_session(context)
-
+    # ─── Onboarding: پرسیدن سطح از کاربر جدید ───
+    settings = db.users.get_settings(user.id)
+    if not settings:  # اگر رکوردی در user_settings نبود
+        await show_level_select(update, context)
+        return
     due, streak, hard = await _menu_stats(user.id)
     msg = "🏠 <b>منوی اصلی</b>\n"
     if streak > 0:
@@ -560,26 +568,36 @@ async def show_settings_menu(update, context):
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
-
-async def show_level_select(query, context):
-    user_id = query.from_user.id
+async def show_level_select(update_or_query, context):
+    user_id = (
+        update_or_query.effective_user.id
+        if hasattr(update_or_query, "effective_user") and update_or_query.effective_user
+        else update_or_query.from_user.id
+    )
     settings = db.users.get_settings(user_id)
-    current_level = settings.get("preferred_level", "A1")
-
+    current_level = settings.get("preferred_level", "A1") if settings else "A1"
+    
     keyboard = []
     for lvl in LEVELS:
         marker = "✅ " if lvl == current_level else ""
         keyboard.append(
             [InlineKeyboardButton(f"{marker}{lvl}", callback_data=f"set_level:{lvl}")]
         )
-    keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="show_settings")])
+    # اگر از تنظیمات آمده باشد دکمه بازگشت به تنظیمات، وگرنه منوی اصلی
+    back_cb = "show_settings" if settings else "back_to_main_menu"
+    keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data=back_cb)])
+    
     await render(
-        query,
-        "📐 <b>سطح زبان خود را انتخاب کنید:</b>\n"
-        "این سطح در مثال‌ها، داستان‌ها و کوییزهای LLM استفاده می‌شود.",
+        update_or_query,
+        "👋 <b>خوش آمدی!</b>\n"
+        "برای اینکه داستان‌ها، مثال‌ها و کوییزها دقیقاً مناسب تو باشند،\n"
+        "لطفاً <b>سطح زبان آلمانی</b> خودت را انتخاب کن:\n\n"
+        "🟢 <b>A1</b> = مبتدی (کاملاً تازه‌کار)\n"
+        "🟡 <b>A2</b> = متوسط (آشنایی اولیه)\n"
+        "🟠 <b>B1</b> = فراتر از متوسط\n"
+        "🔴 <b>B2</b> = پیشرفته",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
-
 
 async def handle_set_level(query, context, suffix: str):
     level = suffix.strip().upper()
