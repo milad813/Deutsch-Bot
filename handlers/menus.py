@@ -262,15 +262,16 @@ async def show_lessons(query, context, book_id: int):
 
 
 async def start_mixed_exam(query, context, count: int = 20):
-    """شروع سریع آزمون ترکیبی."""
+    """شروع سریع آزمون ترکیبی - فقط از کلمات دیده‌شده."""
     user_id = query.from_user.id
 
-    # بررسی تعداد کلمات موجود
-    available = db.words.get_count()
+    # ✅ فقط کلماتی که کاربر حداقل یک‌بار تعامل داشته
+    available = db.words.get_seen_count(user_id)
     if available == 0:
         await render(
             query,
-            "📭 کلمه‌ای برای آزمون وجود ندارد!",
+            "📭 هنوز کلمه‌ای نخونده‌ای!\n"
+            "اول با فلش‌کارت یا LTR چند کلمه یاد بگیر، بعد بیا آزمون بده. 📚",
             reply_markup=back_inline_keyboard(),
         )
         return
@@ -279,12 +280,12 @@ async def start_mixed_exam(query, context, count: int = 20):
 
     # ریست state قبلی
     context.user_data.pop("quiz_lesson_id", None)
-    context.user_data.pop("quiz_source_filter", None)
     context.user_data.pop("quiz_lesson_preset", None)
     context.user_data.pop("quiz_fixed_word_ids", None)
 
+    # ✅ source_filter="seen" → فقط کلمات دیده‌شده
     await quiz_handlers.start_quiz_session(
-        query, context, "mixed", count, None
+        query, context, "mixed", count, "seen"
     )
 
 

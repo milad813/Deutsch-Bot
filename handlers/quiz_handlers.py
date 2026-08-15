@@ -32,6 +32,9 @@ async def _fetch_words_by_source(
         )
     if source_filter == "mistakes":
         return db.words.get_mistake_words(user_id, limit=limit, exclude_ids=exclude_ids)
+    # ✅ جدید: فقط کلمات دیده‌شده
+    if source_filter == "seen":
+        return db.words.get_seen_words(user_id, limit=limit, exclude_ids=exclude_ids)
     return None  # → fallback
 
 

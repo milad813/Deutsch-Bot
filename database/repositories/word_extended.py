@@ -56,6 +56,36 @@ class ExtendedWordRepository(BaseRepository):
         by_id = {row[0]: self._row_to_word(row) for row in rows}
         return [by_id[wid] for wid in word_ids if wid in by_id]
 
+    def get_seen_words(
+        self,
+        user_id: int,
+        limit: int = 100,
+        exclude_ids: Optional[Iterable[int]] = None,
+    ) -> List[Word]:
+        """کلماتی که کاربر حداقل یک‌بار تعامل داشته (رکورد در word_stats)."""
+        query = f"""
+            SELECT {self._word_columns('w')}
+            FROM words w
+            JOIN word_stats ws ON w.id = ws.word_id
+            WHERE ws.user_id = ?
+        """
+        params: List = [user_id]
+        exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
+        query += exclude_sql + " ORDER BY RANDOM() LIMIT ?"
+        params.extend(exclude_params)
+        params.append(limit)
+        rows = self.fetch_all(query, tuple(params))
+        return [self._row_to_word(row) for row in rows]
+
+    def get_seen_count(self, user_id: int) -> int:
+        """تعداد کلمات دیده‌شده توسط کاربر."""
+        row = self.fetch_one(
+            "SELECT COUNT(*) FROM word_stats WHERE user_id = ?",
+            (user_id,),
+        )
+        return row[0] if row else 0
+
+
     def get_by_type(
         self,
         word_type: Optional[str],

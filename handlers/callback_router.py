@@ -117,6 +117,8 @@ async def _handle_quiz_count(query, context, suffix: str):
             count = db.words.get_due_count(user_id)
         elif source_filter == "mistakes":
             count = db.learning.get_mistake_word_count(user_id)
+        elif source_filter == "seen":
+            count = db.words.get_seen_count(user_id)
         else:
             count = db.words.get_count()
         count = min(count, config.MAX_QUIZ_ALL_COUNT)
