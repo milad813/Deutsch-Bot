@@ -7,6 +7,7 @@ from handlers.learning.flashcard_session import (
     start_flashcard_session,
 )
 from handlers.learning.ltr_handlers import (
+    handle_daily_learning,
     handle_ltr_answer,
     handle_ltr_exit,
     handle_ltr_learned,
@@ -40,4 +41,5 @@ __all__ = [
     "handle_ltr_summary",
     "handle_ltr_exit",
     "handle_ltr_answer",
+    "handle_daily_learning",
 ]

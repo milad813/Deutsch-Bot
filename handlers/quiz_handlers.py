@@ -160,7 +160,27 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
         word_type=word.word_type,
     )
 
+async def _gen_mixed(word: Word, user_id: int, level: str) -> Optional[Dict]:
+    """تولید سوال با نوع تصادفی (ترکیبی)."""
+    import random
 
+    # ساخت لیست انواع ممکن بر اساس ویژگی‌های کلمه
+    possible_types = ["meaning", "reverse"]
+    if word.word_type == "Noun" and word.article:
+        possible_types.append("article")
+    if word.example_de:
+        possible_types.append("cloze")
+
+    chosen_type = random.choice(possible_types)
+
+    if chosen_type == "article":
+        return await _gen_article(word, user_id, level)
+    elif chosen_type == "reverse":
+        return await _gen_reverse(word, user_id, level)
+    elif chosen_type == "cloze":
+        return await _gen_cloze(word, user_id, level)
+    else:
+        return await _gen_meaning(word, user_id, level)
 @dataclass
 class QuizConfig:
     name: str
@@ -174,6 +194,7 @@ QUIZ_REGISTRY: Dict[str, QuizConfig] = {
     "meaning": QuizConfig("meaning", "معنی", _get_word_for_quiz, _gen_meaning),
     "reverse": QuizConfig("reverse", "معکوس", _get_word_for_quiz, _gen_reverse),
     "cloze": QuizConfig("cloze", "جای خالی", _get_word_with_example, _gen_cloze),
+    "mixed": QuizConfig("mixed", "ترکیبی", _get_word_for_quiz, _gen_mixed),  # ← جدید
 }
 
 

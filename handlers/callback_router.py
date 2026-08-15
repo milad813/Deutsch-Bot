@@ -21,6 +21,7 @@ from handlers.learning import (
     start_flashcard_session,
 )
 from handlers.learning.ltr_handlers import (
+    handle_daily_learning,
     handle_ltr_answer,
     handle_ltr_exit,
     handle_ltr_learned,
@@ -76,7 +77,7 @@ async def _handle_flashcard_lesson(query, context, suffix: str):
         lesson_id = int(suffix)
     except ValueError:
         return
-    await start_flashcard_session(query, context, lesson_id=lesson_id)  # ✅ مستقیم
+    await start_flashcard_session(query, context, lesson_id=lesson_id)
 
 
 async def _handle_quiz_source(query, context, suffix: str):
@@ -183,6 +184,16 @@ async def _handle_book(query, context, suffix: str):
     await menus.show_lessons(query, context, book_id)
 
 
+
+async def _handle_mixed_exam(query, context, suffix: str):
+    """آزمون ترکیبی سریع."""
+    try:
+        count = int(suffix)
+    except ValueError:
+        count = 20
+    count = max(5, min(count, config.MAX_QUIZ_ALL_COUNT))
+    await menus.start_mixed_exam(query, context, count)
+
 async def _handle_back_to_main_menu(query, context):
     try:
         await query.answer()
@@ -250,6 +261,8 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "ltr_exit": handle_ltr_exit,
     "flashcard_due": lambda q, c: start_flashcard_session(q, c, only_due=True),
     "flashcard_hard": lambda q, c: start_flashcard_session(q, c, hard_only=True),
+    "daily_learning": lambda q, c: handle_daily_learning(q, c),
+
 }
 # Type-safe callback routing using CallbackPrefix enum
 PREFIX_ROUTES: List[Tuple[str, Callable]] = [
@@ -339,7 +352,11 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
         CallbackPrefix.LISTENING_REPLAY.value,
         lambda q, c, s: listening_handlers.handle_listening_replay(q, c, s),
     ),
+    (CallbackPrefix.MIXED_EXAM.value, _handle_mixed_exam),
+
 ]
+
+
 
 
 async def inline_handler(update, context):

@@ -28,7 +28,7 @@ class LTRSessionManager:
     def initialize(
         self,
         user_id: int,
-        lesson_id: int,
+        lesson_id: Optional[int],  # ← Optional شد
         weak_words: List[Word],
         new_words: List[Word],
     ) -> bool:
@@ -58,7 +58,7 @@ class LTRSessionManager:
         )
 
         logger.info(
-            "LTR session initialized: lesson=%d, %d weak + %d new = %d words",
+            "LTR session initialized: lesson=%s, %d weak + %d new = %d words",
             lesson_id,
             len(weak_words),
             len(new_words),

@@ -2,6 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 import config
+import handlers.quiz_handlers as quiz_handlers
 from models import CallbackPrefix
 import asyncio
 
@@ -108,9 +109,14 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg,
         reply_markup=get_main_menu_keyboard(due, streak, hard, is_admin=is_admin),
     )
-
 async def show_quiz_menu(update, context):
     keyboard = [
+        [
+            InlineKeyboardButton(
+                "📝 آزمون ترکیبی (پیشنهادی)",
+                callback_data=f"{CallbackPrefix.MIXED_EXAM.value}20",
+            )
+        ],
         [
             InlineKeyboardButton(
                 "🧠 معنی (آلمانی→فارسی)",
@@ -148,7 +154,6 @@ async def show_quiz_menu(update, context):
         "🤖 نوع کوییز را انتخاب کنید:",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
-
 async def show_quiz_source(query, context):
     keyboard = [
         [
@@ -216,33 +221,70 @@ async def show_books_for_quiz(query, context):
         query, "📖 یک کتاب انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-
-async def show_lessons_for_quiz(query, context, book_id):
+async def show_lessons(query, context, book_id: int):
     lessons = db.lessons.get_by_book(book_id)
     if not lessons:
         await render(
             query,
             "📭 درسی ندارد.",
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔙 بازگشت", callback_data="show_quiz_source")]]
+                [[InlineKeyboardButton("🔙", callback_data="show_books_inline")]]
             ),
         )
         return
-    keyboard = []
+
+    user_id = query.from_user.id
+    # ✅ یک کوئری برای همه درس‌ها (N+1 نمی‌شود)
+    progress_map = db.words.get_learned_counts_by_book(user_id, book_id)
+
+    kb = []
     for lesson_id, num, title in lessons:
-        keyboard.append(
+        p = progress_map.get(lesson_id, {"learned": 0, "total": 0})
+        learned = p["learned"]
+        total = p["total"]
+
+        if total > 0:
+            label = f"📝 {_format_lesson_name(num, title or '')}  ({learned}/{total})"
+        else:
+            label = f"📝 {_format_lesson_name(num, title or '')}"
+
+        kb.append(
             [
                 InlineKeyboardButton(
-                    _short_label(f"📝 {_format_lesson_name(num, title or '')}"),
-                    callback_data=f"{CallbackPrefix.QUIZ_LESSON.value}{lesson_id}",
+                    _short_label(label),
+                    callback_data=f"lesson_{lesson_id}",
                 )
             ]
         )
-    keyboard.append(
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="show_quiz_source")]
-    )
-    await render(
-        query, "📖 یک درس انتخاب کنید:", reply_markup=InlineKeyboardMarkup(keyboard)
+
+    kb.append([InlineKeyboardButton("🔙", callback_data="show_books_inline")])
+    await render(query, "📖 یک درس انتخاب کنید:", reply_markup=InlineKeyboardMarkup(kb))
+
+
+async def start_mixed_exam(query, context, count: int = 20):
+    """شروع سریع آزمون ترکیبی."""
+    user_id = query.from_user.id
+
+    # بررسی تعداد کلمات موجود
+    available = db.words.get_count()
+    if available == 0:
+        await render(
+            query,
+            "📭 کلمه‌ای برای آزمون وجود ندارد!",
+            reply_markup=back_inline_keyboard(),
+        )
+        return
+
+    count = min(count, available, config.MAX_QUIZ_ALL_COUNT)
+
+    # ریست state قبلی
+    context.user_data.pop("quiz_lesson_id", None)
+    context.user_data.pop("quiz_source_filter", None)
+    context.user_data.pop("quiz_lesson_preset", None)
+    context.user_data.pop("quiz_fixed_word_ids", None)
+
+    await quiz_handlers.start_quiz_session(
+        query, context, "mixed", count, None
     )
 
 
@@ -301,30 +343,6 @@ async def show_books(update_or_query, context, is_message: bool = False):
         ]
         kb.append([InlineKeyboardButton("🔙", callback_data="back_to_main_menu")])
     await render(update_or_query, text, reply_markup=InlineKeyboardMarkup(kb))
-
-
-async def show_lessons(query, context, book_id: int):
-    lessons = db.lessons.get_by_book(book_id)
-    if not lessons:
-        await render(
-            query,
-            "📭 درسی ندارد.",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔙", callback_data="show_books_inline")]]
-            ),
-        )
-        return
-    kb = [
-        [
-            InlineKeyboardButton(
-                _short_label(f"📝 {_format_lesson_name(num, title or '')}"),
-                callback_data=f"lesson_{lesson_id}",
-            )
-        ]
-        for lesson_id, num, title in lessons
-    ]
-    kb.append([InlineKeyboardButton("🔙", callback_data="show_books_inline")])
-    await render(query, "📖 یک درس انتخاب کنید:", reply_markup=InlineKeyboardMarkup(kb))
 
 
 async def show_lesson_options(query, context, lesson_id: int):
@@ -452,8 +470,6 @@ async def show_lesson_words(query, context, lesson_id: int, page: int = 0):
     )
     await render(query, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
-
-# ✅ بعد: داشبورد با ساختار بهتر
 async def show_dashboard_simple(update, context):
     if hasattr(update, "effective_user") and update.effective_user:
         user_id = update.effective_user.id
@@ -467,6 +483,7 @@ async def show_dashboard_simple(update, context):
 
     from ui import progress_bar
 
+    # ─── آمارها ───
     word_count = db.words.get_count()
     due_today = len(db.words.get_due_today(user_id))
     correct, total = db.users.get_quiz_stats(user_id)
@@ -474,30 +491,36 @@ async def show_dashboard_simple(update, context):
     prog = db.users.get_progress(user_id)
     level, into, need = db.level_from_xp(prog["xp"])
     hard = db.words.count_hard_due(user_id)
+
+    # ─── هدف روزانه (فیکس‌شده) ───
     daily_goal = db.learning.get_daily_goal(user_id)
-    today_done = db.learning.get_today_activity_count(user_id)
+    today_done = db.learning.get_today_activity_count(user_id)  # کلمات یکتا
+    today_new = db.learning.get_today_new_words_count(user_id)
+    total_learned = db.learning.get_total_learned_words_count(user_id)
+
     goal_bar = progress_bar(today_done, daily_goal)
     bar = progress_bar(into, need)
+    library_bar = progress_bar(total_learned, word_count)
 
-    # ✅ ساختار بخش‌بندی‌شده
+    # ─── ساختار بخش‌بندی‌شده ───
     msg = (
         "📊 <b>داشبورد</b>\n"
-        "━━━━━━━━━━━━━━━\n"
-        "\n"
+        "━━━━━━━━━━━━━━━\n\n"
         "📈 <b>پیشرفت کلی</b>\n"
         f"   ⭐ سطح {level}  [{bar}]  {into}/{need} XP\n"
         f"   🔥 Streak: <b>{prog['streak']}</b> روز\n"
         f"   🎯 دقت: <b>{accuracy:.1f}%</b>\n"
-        "\n"
+        f"   📚 کل آموخته: <b>{total_learned}</b> از {word_count} کلمه  [{library_bar}]\n\n"
         "📅 <b>امروز</b>\n"
         f"   🎯 هدف: {today_done}/{daily_goal}  [{goal_bar}]\n"
-        f"   📚 مرور: {due_today} کلمه\n"
-        f"   📖 کل کتابخانه: {word_count} کلمه\n"
+        f"   🆕 کلمات جدید امروز: {today_new}\n"
+        f"   📋 مرور باقی‌مانده: {due_today} کلمه\n"
     )
 
     if today_done >= daily_goal:
         msg += "\n🎉 <b>هدف امروز کامل شد! آفرین!</b>\n"
 
+    # ─── دکمه‌ها ───
     keyboard = []
     if hard > 0:
         keyboard.append(
@@ -511,14 +534,32 @@ async def show_dashboard_simple(update, context):
         keyboard.append(
             [InlineKeyboardButton("🚀 شروع مرور", callback_data="flashcard_due")]
         )
+
+    # ─── دکمه‌های جدید ───
+    keyboard.append(
+        [InlineKeyboardButton("📝 آزمون جامع (۲۰ سوال)", callback_data="mixed_exam:20")]
+    )
+
+    # ─── برنامه یادگیری روزانه ───
+    remaining_goal = daily_goal - today_done
+    if remaining_goal > 0:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"📖 ادامه یادگیری ({remaining_goal} کلمه جدید)",
+                    callback_data="daily_learning",
+                )
+            ]
+        )
+
     keyboard.append(
         [InlineKeyboardButton("📒 اشتباهات من", callback_data="show_error_notebook")]
     )
     keyboard.append(
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
     )
-    await render(update, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
+    await render(update, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
 # ─── تنظیمات سطح ───────────────────────────────────────────────
 

@@ -586,6 +586,64 @@ async def handle_ltr_ready(query, context):
     await _show_learn_word(query, context)
 
 
+async def handle_daily_learning(query, context):
+    """شروع یادگیری کلمات جدید بر اساس هدف روزانه (ترتیب کتاب)."""
+    user_id = query.from_user.id
+
+    daily_goal = db.learning.get_daily_goal(user_id)
+    today_done = db.learning.get_today_activity_count(user_id)
+    remaining = daily_goal - today_done
+
+    if remaining <= 0:
+        await render(
+            query,
+            "🎉 هدف امروزت قبلاً کامل شده! آفرین!",
+            reply_markup=back_inline_keyboard(),
+        )
+        return
+
+    # ✅ حداکثر ۱۰ کلمه در هر session LTR
+    MAX_LTR_WORDS = 10
+    limit = min(remaining, MAX_LTR_WORDS)
+
+    # گرفتن کلمات ندیده به ترتیب کتاب → درس
+    new_words = db.words.get_next_unseen_words(user_id, limit=limit)
+
+    if not new_words:
+        await render(
+            query,
+            "🎉 تبریک! تمام کلمات کتابخانه را دیده‌ای!\n"
+            "دیگر کلمه جدیدی باقی نمانده.",
+            reply_markup=back_inline_keyboard(),
+        )
+        return
+
+    # شروع LTR بدون lesson خاص (cross-lesson)
+    ltr = LTRSessionManager(context)
+    if not ltr.initialize(user_id, None, [], new_words):
+        await render(query, "❌ خطا در شروع جلسه.", reply_markup=back_inline_keyboard())
+        return
+
+    total = len(new_words)
+    intro_msg = (
+        f"📖 <b>برنامه یادگیری امروز</b>\n"
+        f"📚 {total} کلمه جدید از ادامه کتاب\n"
+        f"🎯 هدف روزانه: {daily_goal} | باقی‌مانده: {remaining}\n\n"
+        f"روش کار:\n"
+        f"۱. 📖 کلمه را یاد می‌گیری\n"
+        f"۲. ❓ بعد از چند کلمه، ازت سوال می‌پرسم\n"
+        f"۳. 🔁 اگه اشتباه زدی، دوباره می‌پرسم\n\n"
+        f"بریم شروع کنیم! 👇"
+    )
+
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🚀 شروع!", callback_data="ltr_ready")],
+            [InlineKeyboardButton("🏁 انصراف", callback_data="ltr_exit")],
+        ]
+    )
+    await render(query, intro_msg, reply_markup=kb)
+
 # ═══════════════════════════════════════════════════════════════════
 # Helper Functions
 # ═══════════════════════════════════════════════════════════════════

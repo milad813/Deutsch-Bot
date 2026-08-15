@@ -32,6 +32,7 @@ SESSION_KEYS = {
     "quiz_lesson_id",
     "quiz_source_filter",
     "quiz_lesson_preset",
+    "quiz_question_sent_at",
     "current_flashcard",
     "flashcard_queue",
     "learning_session",

@@ -462,9 +462,8 @@ class LearningRepository(BaseRepository):
         return row[0] if row and row[0] else 10
 
     def get_today_activity_count(self, user_id: int) -> int:
-        """تعداد فعالیت‌های امروز به وقت محلی کاربر."""
+        """تعداد کلمات یکتای تمرین‌شده امروز (نه مجموع تعاملات)."""
         from datetime import datetime, timedelta, timezone
-
         from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
 
         tz = timezone(
@@ -473,24 +472,57 @@ class LearningRepository(BaseRepository):
                 minutes=USER_TIMEZONE_OFFSET_MINUTES,
             )
         )
-
         now_local = datetime.now(tz)
         today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-
-        # ✅ تبدیل درست به UTC
         today_start_utc = today_start_local.astimezone(timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
-
         row = self.fetch_one(
             """
-            SELECT SUM(correct_count + wrong_count)
-            FROM word_skills
+            SELECT COUNT(DISTINCT word_id)
+            FROM word_stats
             WHERE user_id = ? AND last_reviewed >= ?
             """,
             (user_id, today_start_utc),
         )
+        return row[0] if row and row[0] else 0
 
+    def get_total_learned_words_count(self, user_id: int) -> int:
+        """تعداد کل کلماتی که کاربر حداقل یک‌بار تعامل داشته."""
+        row = self.fetch_one(
+            "SELECT COUNT(*) FROM word_stats WHERE user_id = ?",
+            (user_id,),
+        )
+        return row[0] if row and row[0] else 0
+
+    def get_today_new_words_count(self, user_id: int) -> int:
+        """تعداد کلماتی که امروز برای اولین بار دیده شده‌اند."""
+        from datetime import datetime, timedelta, timezone
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+
+        tz = timezone(
+            timedelta(
+                hours=USER_TIMEZONE_OFFSET_HOURS,
+                minutes=USER_TIMEZONE_OFFSET_MINUTES,
+            )
+        )
+        now_local = datetime.now(tz)
+        today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start_utc = today_start_local.astimezone(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        row = self.fetch_one(
+            """
+            SELECT COUNT(DISTINCT word_id)
+            FROM word_skills
+            WHERE user_id = ? AND last_reviewed >= ?
+            AND word_id NOT IN (
+                SELECT DISTINCT word_id FROM word_skills
+                WHERE user_id = ? AND last_reviewed < ?
+            )
+            """,
+            (user_id, today_start_utc, user_id, today_start_utc),
+        )
         return row[0] if row and row[0] else 0
 
     def get_weekly_stats(self, user_id: int) -> Dict:

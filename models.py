@@ -54,6 +54,8 @@ class CallbackPrefix(str, Enum):
     LISTENING_SKIP = "listening_skip:"
     LISTENING_EXIT = "listening_exit:"
     LISTENING_REPLAY = "listening_replay:"
+    MIXED_EXAM = "mixed_exam:"
+    DAILY_LEARNING = "daily_learning"
 
 
 @dataclass

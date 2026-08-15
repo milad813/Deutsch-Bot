@@ -487,6 +487,43 @@ class ExtendedWordRepository(BaseRepository):
         )
         return row[0] if row else 0
 
+
+    def get_learned_counts_by_book(
+        self, user_id: int, book_id: int
+    ) -> dict:
+        """تعداد آموخته/کل کلمات هر درس در یک کتاب (یک کوئری)."""
+        rows = self.fetch_all(
+            """
+            SELECT
+                l.id,
+                COUNT(DISTINCT w.id) AS total,
+                COUNT(DISTINCT CASE WHEN ws.word_id IS NOT NULL THEN w.id END) AS learned
+            FROM lessons l
+            LEFT JOIN words w ON w.lesson_id = l.id
+            LEFT JOIN word_stats ws ON ws.word_id = w.id AND ws.user_id = ?
+            WHERE l.book_id = ?
+            GROUP BY l.id
+            """,
+            (user_id, book_id),
+        )
+        return {row[0]: {"learned": row[2], "total": row[1]} for row in rows}
+
+    def get_next_unseen_words(
+        self, user_id: int, limit: int = 20
+    ) -> list:
+        """کلمات ندیده‌شده به ترتیب کتاب → درس → id."""
+        query = f"""
+            SELECT {self._word_columns('w')}
+            FROM words w
+            LEFT JOIN word_stats ws ON ws.word_id = w.id AND ws.user_id = ?
+            WHERE ws.word_id IS NULL
+            ORDER BY w.book_id ASC, w.lesson_id ASC, w.id ASC
+            LIMIT ?
+        """
+        rows = self.fetch_all(query, (user_id, limit))
+        return [self._row_to_word(row) for row in rows]
+
+
     def get_weak_count(self, user_id: int) -> int:
         row = self.fetch_one(
             """SELECT COUNT(*) FROM words w JOIN word_stats ws ON w.id=ws.word_id
