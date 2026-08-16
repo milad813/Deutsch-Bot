@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 import time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
+import asyncio
 import config
 from learning_engine import record_quiz_answer
 from models import QuizSession, Word
@@ -14,7 +14,15 @@ from services import db, llm, quiz_service
 from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
 
 logger = logging.getLogger(__name__)
+_background_tasks = set()
+_pending_quiz_examples = set()
 
+
+def _spawn_background(coro):
+    """اجرای تسک در پس‌زمینه بدون بلاک کردن handler."""
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 async def _fetch_words_by_source(
     user_id: int,
@@ -59,70 +67,196 @@ async def _get_noun_with_article(user_id, lesson_id, source_filter, exclude_ids)
     )
     return random.choice(nouns) if nouns else None
 
-
 async def _get_word_with_example(user_id, lesson_id, source_filter, exclude_ids):
+    """
+    برای کوییز cloze فقط کلمه‌ای را انتخاب کن که مثال داشته باشد.
+    اگر در source_filter کلمه با مثال نبود، از کل کلمات دارای مثال استفاده کن.
+    """
     words = await _fetch_words_by_source(
         user_id, lesson_id, source_filter, set(exclude_ids or [])
     )
-    if words is not None:
-        return random.choice(words) if words else None
-    words = db.words.get_with_examples(lesson_id=lesson_id, exclude_ids=exclude_ids)
-    if words:
-        return random.choice(words)
-    return db.words.get_random(lesson_id=lesson_id, exclude_ids=exclude_ids)
 
+    if words is not None:
+        candidates = [w for w in words if w.example_de]
+        if candidates:
+            return random.choice(candidates)
+
+    words = db.words.get_with_examples(
+        lesson_id=lesson_id,
+        exclude_ids=exclude_ids,
+    )
+
+    return random.choice(words) if words else None
+
+async def _ensure_example_background(word: Word, level: str) -> None:
+    """
+    اگر کلمه مثال ندارد، در پس‌زمینه مثال LLM بساز و ذخیره کن.
+    این تابع هرگز نباید کوییز را بلاک کند.
+    """
+    if not word or not word.id:
+        return
+
+    if word.example_de:
+        return
+
+    if not llm.is_available():
+        return
+
+    if word.id in _pending_quiz_examples:
+        return
+
+    _pending_quiz_examples.add(word.id)
+
+    try:
+        example = await llm.generate_contextual_example(
+            word.german,
+            article=word.article,
+            meaning=word.persian or "",
+            level=level,
+        )
+
+        if example and example.get("de"):
+            # ذخیره در جدول words برای استفاده‌های بعدی
+            db.words.execute(
+                """
+                UPDATE words
+                SET example_de = ?, example_fa = ?
+                WHERE id = ?
+                """,
+                (example.get("de"), example.get("fa"), word.id),
+                commit=True,
+            )
+
+            # ذخیره در cache جداگانه LLM
+            db.learning.save_llm_example(
+                word_id=word.id,
+                level=level,
+                example_de=example.get("de"),
+                example_fa=example.get("fa"),
+            )
+
+            logger.info("مثال پس‌زمینه برای word_id=%s ذخیره شد", word.id)
+
+    except Exception as e:
+        logger.warning(
+            "خطا در تولید مثال پس‌زمینه برای word_id=%s: %s",
+            word.id,
+            e,
+        )
+    finally:
+        _pending_quiz_examples.discard(word.id)
 
 async def _gen_article(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if not word.article:
         return None
     return quiz_service.create_article_quiz(word.article, word.german, word.persian)
 
-
 async def _gen_meaning(word: Word, user_id: int, level: str) -> Optional[Dict]:
-    if llm.is_available():
-        quiz = await llm.generate_quiz_question(
-            word.display_german,
-            word.persian,
-            level=level,
-            user_id=user_id,
-            word_id=word.id,
+    """
+    تولید سوال معنی به صورت local-first.
+    اگر QUIZ_LLM_GENERATION فعال بود، فقط با timeout خیلی کم LLM را امتحان می‌کند.
+    """
+    wrong = get_wrong_options(
+        db,
+        word,
+        count=3,
+        attr_getter=lambda w: w.persian,
+    )
+
+    local_quiz = quiz_service.create_meaning_quiz(
+        word.display_german,
+        word.persian,
+        wrong,
+    )
+
+    if not config.QUIZ_LLM_GENERATION or not llm.is_available():
+        return local_quiz
+
+    try:
+        llm_quiz = await asyncio.wait_for(
+            llm.generate_quiz_question(
+                word.display_german,
+                word.persian,
+                level=level,
+                user_id=user_id,
+                word_id=word.id,
+            ),
+            timeout=config.QUIZ_LLM_TIMEOUT_SECONDS,
         )
-        if quiz:
-            return quiz
 
-    wrong = get_wrong_options(db, word, count=3, attr_getter=lambda w: w.persian)
-    return quiz_service.create_meaning_quiz(word.display_german, word.persian, wrong)
+        return llm_quiz or local_quiz
 
+    except Exception as e:
+        logger.warning(
+            "LLM meaning quiz timeout/fallback for word_id=%s: %s",
+            word.id,
+            e,
+        )
+        return local_quiz
 
 async def _gen_reverse(word: Word, user_id: int, level: str) -> Optional[Dict]:
+    """
+    تولید سوال معکوس به صورت local-first.
+    """
     correct_german = (
         word.display_german
         if (word.word_type == "Noun" and word.article)
         else word.german
     )
 
-    if llm.is_available():
-        quiz = await llm.generate_reverse_quiz(
-            correct_german,
-            word.persian,
-            level=level,
-            user_id=user_id,
-            word_id=word.id,
+    wrong = get_wrong_options(
+        db,
+        word,
+        count=3,
+        attr_getter=lambda w: w.display_german,
+    )
+
+    local_quiz = quiz_service.create_reverse_quiz(
+        word.persian,
+        correct_german,
+        wrong,
+    )
+
+    if not config.QUIZ_LLM_GENERATION or not llm.is_available():
+        return local_quiz
+
+    try:
+        llm_quiz = await asyncio.wait_for(
+            llm.generate_reverse_quiz(
+                correct_german,
+                word.persian,
+                level=level,
+                user_id=user_id,
+                word_id=word.id,
+            ),
+            timeout=config.QUIZ_LLM_TIMEOUT_SECONDS,
         )
-        if quiz:
-            return quiz
 
-    wrong = get_wrong_options(db, word, count=3, attr_getter=lambda w: w.display_german)
-    return quiz_service.create_reverse_quiz(word.persian, correct_german, wrong)
+        return llm_quiz or local_quiz
 
+    except Exception as e:
+        logger.warning(
+            "LLM reverse quiz timeout/fallback for word_id=%s: %s",
+            word.id,
+            e,
+        )
+        return local_quiz
 
 async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
+    """
+    تولید cloze فقط اگر مثال موجود باشد.
+    اگر مثال نبود، LLM example در پس‌زمینه ساخته می‌شود، اما کوییز بلاک نمی‌شود.
+    """
     ex_de = word.example_de
 
-    if not ex_de and llm.is_available():
-        ex_de = await llm.generate_example_sentence(word.display_german, level)
+    if not ex_de:
+        cached = db.learning.get_llm_example(word.id, level)
+        if cached:
+            ex_de = cached.get("de")
 
     if not ex_de:
+        if config.QUIZ_LLM_GENERATION and llm.is_available():
+            _spawn_background(_ensure_example_background(word, level))
         return None
 
     base_cloze = quiz_service.create_cloze_quiz(
@@ -136,23 +270,12 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if not base_cloze:
         return None
 
-    target = base_cloze.get("correct_answer") or word.german
-
-    wrong = []
-
-    if llm.is_available():
-        wrong = await llm.generate_cloze_options(
-            target,
-            ex_de,
-            count=3,
-            user_id=user_id,
-            word_id=word.id,
-        )
-
-    if len(wrong) < 3:
-        wrong += get_wrong_options(
-            db, word, count=3 - len(wrong), attr_getter=lambda w: w.german
-        )
+    wrong = get_wrong_options(
+        db,
+        word,
+        count=3,
+        attr_getter=lambda w: w.german,
+    )
 
     return quiz_service.create_cloze_with_options(
         word.german,
@@ -164,26 +287,42 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     )
 
 async def _gen_mixed(word: Word, user_id: int, level: str) -> Optional[Dict]:
-    """تولید سوال با نوع تصادفی (ترکیبی)."""
-    import random
-
-    # ساخت لیست انواع ممکن بر اساس ویژگی‌های کلمه
+    """
+    تولید سوال ترکیبی با fallback هوشمند.
+    اگر cloze آماده نبود، سریعاً به meaning/reverse/article برمی‌گردد.
+    """
     possible_types = ["meaning", "reverse"]
+
     if word.word_type == "Noun" and word.article:
         possible_types.append("article")
+
     if word.example_de:
         possible_types.append("cloze")
 
-    chosen_type = random.choice(possible_types)
+    random.shuffle(possible_types)
 
-    if chosen_type == "article":
-        return await _gen_article(word, user_id, level)
-    elif chosen_type == "reverse":
-        return await _gen_reverse(word, user_id, level)
-    elif chosen_type == "cloze":
-        return await _gen_cloze(word, user_id, level)
-    else:
-        return await _gen_meaning(word, user_id, level)
+    for chosen_type in possible_types:
+        quiz = None
+
+        if chosen_type == "article":
+            quiz = await _gen_article(word, user_id, level)
+
+        elif chosen_type == "reverse":
+            quiz = await _gen_reverse(word, user_id, level)
+
+        elif chosen_type == "cloze":
+            quiz = await _gen_cloze(word, user_id, level)
+
+        else:
+            quiz = await _gen_meaning(word, user_id, level)
+
+        if quiz:
+            return quiz
+
+    # آخرین fallback
+    return await _gen_meaning(word, user_id, level)
+
+
 @dataclass
 class QuizConfig:
     name: str
@@ -242,7 +381,14 @@ async def _start_generic_quiz(
                 session.question_ids.append(word.id)
 
             try:
+                t0 = time.time()
                 quiz = await quiz_generator(word, user_id, level)
+                logger.info(
+                    "quiz_generator type=%s word_id=%s took %.2fs",
+                    quiz_type,
+                    word.id,
+                    time.time() - t0,
+                )
             except Exception as e:
                 logger.error("خطا در quiz_generator: %s", e, exc_info=True)
                 quiz = None
@@ -555,15 +701,23 @@ async def handle_quiz_answer(query, context):
 
             feedback = f"❌ اشتباه بود!\n✅ جواب درست: {esc(correct_answer)}"
 
-            if llm.is_available():
-                explanation = await llm.explain_mistake(
-                    quiz_info.get("word", ""),
-                    user_answer_text,
-                    correct_answer,
-                    quiz_info.get("type", "meaning"),
-                )
-                if explanation:
-                    feedback += f"\n💡 {esc(explanation)}"
+            if config.QUIZ_LLM_EXPLAIN_MISTAKE and llm.is_available():
+                try:
+                    explanation = await asyncio.wait_for(
+                        llm.explain_mistake(
+                            quiz_info.get("word", ""),
+                            user_answer_text,
+                            correct_answer,
+                            quiz_info.get("type", "meaning"),
+                        ),
+                        timeout=config.QUIZ_LLM_TIMEOUT_SECONDS,
+                    )
+
+                    if explanation:
+                        feedback += f"\n💡 {esc(explanation)}"
+
+                except Exception as e:
+                    logger.warning("LLM explain mistake timeout/fallback: %s", e)
 
         if _is_session_finished(context):
             await _show_quiz_summary(query, context, header=feedback)

@@ -112,10 +112,14 @@ class LLMService:
             raise RuntimeError("LLM در دسترس نیست")
         temp = temperature if temperature is not None else config.GROQ_TEMPERATURE
         tokens = max_tokens if max_tokens is not None else config.GROQ_MAX_TOKENS
-        
-        # 🎯 شناسایی مدل‌های Reasoning (مثل Qwen)
-        is_reasoning_model = any(m in MODEL.lower() for m in ["qwen", "qwq", "deepseek"])
-        
+
+        timeout = getattr(config, "LLM_TIMEOUT_SECONDS", 8)
+        use_reasoning_params = getattr(config, "LLM_USE_REASONING_PARAMS", False)
+
+        # 🎯 فقط در صورتی که خودمان صریحاً بخواهیم، پارامترهای reasoning فعال شوند
+        is_reasoning_model = use_reasoning_params and any(
+            m in MODEL.lower() for m in ["qwen", "qwq", "deepseek"]
+        )
         # 🚨 تنظیم ایمن توکن‌ها برای مدل‌های Reasoning
         # چون /no_think باعث می‌شود مدل فکر نکند، 4096 برای خروجی JSON کاملاً کافی است و از 413 جلوگیری می‌کند.
         if is_reasoning_model and tokens < 4096:
@@ -149,7 +153,7 @@ class LLMService:
                         client.chat.completions.create,
                         **kwargs
                     ),
-                    timeout=90.0,
+                    timeout=timeout,
                 )
                 
                 if not response.choices:
@@ -181,7 +185,7 @@ class LLMService:
                     try:
                         response = await asyncio.wait_for(
                             asyncio.to_thread(client.chat.completions.create, **kwargs),
-                            timeout=90.0,
+                            timeout=timeout,
                         )
                         if response.choices:
                             content = response.choices[0].message.content
@@ -197,7 +201,7 @@ class LLMService:
                         kwargs["reasoning_format"] = "hidden"
                         response = await asyncio.wait_for(
                             asyncio.to_thread(client.chat.completions.create, **kwargs),
-                            timeout=90.0,
+                            timeout=timeout,
                         )
                         if not response.choices: continue
                         content = response.choices[0].message.content
@@ -213,7 +217,7 @@ class LLMService:
                             kwargs.pop("reasoning_format", None)
                             response = await asyncio.wait_for(
                                 asyncio.to_thread(client.chat.completions.create, **kwargs),
-                                timeout=90.0,
+                                timeout=timeout,
                             )
                             if not response.choices: continue
                             content = response.choices[0].message.content
