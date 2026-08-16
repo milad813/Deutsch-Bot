@@ -331,20 +331,14 @@ async def _render_flashcard_front(
         sentence_with_bold = _bold_word_in_sentence(example["de"], word.german)
         if "<b>" in sentence_with_bold:
             parts.append(f"🇩🇪 {sentence_with_bold}")
-            parts.append("💡 معنی کلمه‌ی <b>بولدشده</b> چیست؟")
             speak_text = example["de"]
         else:
             parts.append(f"🇩🇪 <b>{esc(word.display_german)}</b>")
-            parts.append("💡 فکر کن... معنی چیست؟")
     else:
         parts.append(f"🇩🇪 <b>{esc(word.display_german)}</b>")
-        parts.append("💡 فکر کن... معنی چیست؟")
 
     context.user_data["current_tts_text"] = speak_text
 
-    if quick_rate:
-        parts.append("⚡ اگر مطمئنی، مستقیم ارزیابی کن 👇")
-    context.user_data["current_tts_text"] = speak_text
     await _send_or_edit(
         query,
         update,
@@ -432,17 +426,7 @@ async def handle_flip_card(query, context, suffix: str = None):
                 msg += f"🔗 {esc(word.collocation_line)}\n"
 
         if not context.user_data.get("fsrs_guide_shown"):
-            msg += (
-                "\n<b>راهنمای ارزیابی:</b>\n"
-                "😵 Again = اصلاً یادم نبود\n"
-                "😬 Hard = به‌سختی یادم آمد\n"
-                "🙂 Good = یادم آمد\n"
-                "😎 Easy = خیلی راحت بود\n"
-            )
             context.user_data["fsrs_guide_shown"] = True
-
-        msg += "\nحالا صادقانه: چقدر بلد بودی؟"
-
         context.user_data["current_tts_text"] = speak_text
 
         await render(query, msg, reply_markup=_flashcard_rate_keyboard(word))
