@@ -296,7 +296,13 @@ async def _gen_mixed(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if word.word_type == "Noun" and word.article:
         possible_types.append("article")
 
-    if word.example_de:
+    # ✅ بررسی example دیتابیس یا cached LLM example
+    has_example = bool(word.example_de)
+    if not has_example:
+        cached = db.learning.get_llm_example(word.id, level)
+        has_example = bool(cached and cached.get("de"))
+
+    if has_example:
         possible_types.append("cloze")
 
     random.shuffle(possible_types)
@@ -306,13 +312,10 @@ async def _gen_mixed(word: Word, user_id: int, level: str) -> Optional[Dict]:
 
         if chosen_type == "article":
             quiz = await _gen_article(word, user_id, level)
-
         elif chosen_type == "reverse":
             quiz = await _gen_reverse(word, user_id, level)
-
         elif chosen_type == "cloze":
             quiz = await _gen_cloze(word, user_id, level)
-
         else:
             quiz = await _gen_meaning(word, user_id, level)
 
@@ -321,7 +324,6 @@ async def _gen_mixed(word: Word, user_id: int, level: str) -> Optional[Dict]:
 
     # آخرین fallback
     return await _gen_meaning(word, user_id, level)
-
 
 @dataclass
 class QuizConfig:
@@ -376,9 +378,6 @@ async def _start_generic_quiz(
             word = await word_fetcher(user_id, lesson_id, source_filter, exclude_ids)
             if not word:
                 break
-
-            if session:
-                session.question_ids.append(word.id)
 
             try:
                 t0 = time.time()
@@ -489,6 +488,12 @@ def _init_quiz_session(
     lesson_id: Optional[int] = None,
 ):
     """Initialize quiz session using typed QuizSession model."""
+    # ✅ پاک‌سازی stateهای قدیمی قبل از شروع session جدید
+    context.user_data.pop("quiz_wrong_word_ids", None)
+    context.user_data.pop("quiz_flash", None)
+    context.user_data.pop("quiz_fixed_word_ids", None)
+    context.user_data.pop("current_quiz", None)
+    context.user_data.pop("quiz_question_sent_at", None)
     context.user_data["quiz_session_obj"] = QuizSession(
         quiz_type=quiz_type,
         total_questions=total_questions,

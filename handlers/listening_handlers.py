@@ -113,7 +113,7 @@ async def _show_listening_question(update, context):
         kb_rows.append(
             [
                 InlineKeyboardButton(
-                    _short_label(f"{chr(65+i)}) {opt}", 64),
+                    _short_label(opt, 64),
                     callback_data=f"listening_ans:{i}",
                 )
             ]

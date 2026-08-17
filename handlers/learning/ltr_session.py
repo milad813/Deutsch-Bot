@@ -314,6 +314,7 @@ class LTRSessionManager:
             "ltr_current_correct_index",
             "ltr_current_correct_text",
             "ltr_question_type",
+            "ltr_fallback_attempted",
             # Legacy keys
             "ltr_index",
             "ltr_main_index",
@@ -346,16 +347,21 @@ def _ltr_learn_keyboard(word_id: int = None) -> InlineKeyboardMarkup:
 def _ltr_answer_keyboard(options: list) -> InlineKeyboardMarkup:
     """Keyboard for test/quiz phase."""
     rows = []
+
     for i, opt in enumerate(options):
-        label = f"{chr(65 + i)}) {opt}"
         rows.append(
             [
                 InlineKeyboardButton(
-                    _short_label(label, 64), callback_data=f"ltr_ans:{i}"
+                    _short_label(opt, 64),
+                    callback_data=f"ltr_ans:{i}"
                 )
             ]
         )
-    rows.append([InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")])
+
+    rows.append(
+        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")]
+    )
+
     return InlineKeyboardMarkup(rows)
 
 

@@ -341,36 +341,60 @@ class FSRSService:
 
         return new_state, interval_days
 
+
     def grade_from_correctness(
         self,
         is_correct: bool,
         consecutive_correct: int = 0,
         response_time_sec: float = None,
+        quiz_type: str = None,
     ) -> int:
         """
         تبدیل نتیجه کوییز به grade.
+
         1 = Again
         2 = Hard
         3 = Good
         4 = Easy
 
         اگر اشتباه زد: Again
-        اگر درست زد ولی خیلی طول کشید (>8 ثانیه): Hard
+        اگر درست زد ولی خیلی طول کشید: Hard
         اگر درست زد و ۳+ متوالی درست داشت: Easy
         در غیر این صورت: Good
         """
+
         if not is_correct:
             return 1
+
         try:
             consecutive_correct = int(consecutive_correct or 0)
         except Exception:
             consecutive_correct = 0
-        # ✅ جدید: پاسخ درست ولی کُند → Hard
-        if response_time_sec is not None and response_time_sec > 8.0:
+
+        # ✅ آستانه زمانی بر اساس نوع کوییز
+        thresholds = {
+            "article": 6.0,
+            "meaning": 8.0,
+            "reverse": 8.0,
+            "cloze": 12.0,
+            "listening": 15.0,
+            "story": 15.0,
+            "grammar": 12.0,
+            "ltr": 10.0,
+        }
+
+        quiz_type_key = str(quiz_type or "").strip().lower()
+        threshold = thresholds.get(quiz_type_key, 8.0)
+
+        # ✅ پاسخ درست ولی کُند → Hard
+        if response_time_sec is not None and response_time_sec > threshold:
             return 2
+
         if consecutive_correct >= 3:
             return 4
+
         return 3
+
     def get_review_cards(
         self,
         user_id: int,

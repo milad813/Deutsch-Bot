@@ -12,17 +12,9 @@ def esc(text) -> str:
 
 def _short_label(text: str, max_len: int = 64) -> str:
     text = str(text or "")
-    encoded = text.encode("utf-8")
-    if len(encoded) <= max_len:
+    if len(text) <= max_len:
         return text
-    suffix = "..."
-    suffix_bytes = len(suffix.encode("utf-8"))
-    if max_len <= suffix_bytes:
-        return suffix[:max_len]
-    target = max_len - suffix_bytes
-    while text and len(text.encode("utf-8")) > target:
-        text = text[:-1]
-    return text + suffix
+    return text[:max_len - 3].rstrip() + "..."
 
 
 def _strip_html(text: str) -> str:
@@ -175,11 +167,11 @@ def back_inline_keyboard(
 def quiz_answer_keyboard(options: List[str]) -> InlineKeyboardMarkup:
     keyboard = []
     for i, opt in enumerate(options or []):
-        label = f"{chr(65 + i)}) {opt}"
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    _short_label(label, 64), callback_data=f"quiz_ans:{i}"
+                    _short_label(opt, 64),
+                    callback_data=f"quiz_ans:{i}"
                 )
             ]
         )
@@ -193,36 +185,44 @@ async def render(update, text: str, reply_markup=None):
         query = update
 
     async def reply_chunks(target, original_text: str, with_markup: bool = True):
-        chunks = _chunk_html_text(original_text, 3900)  # ✅ حفظ HTML
+        chunks = _chunk_html_text(original_text, 3900)
         if not chunks:
             chunks = ["..."]
+
         for i, chunk in enumerate(chunks):
             markup = reply_markup if (with_markup and i == 0) else None
-            await target.reply_text(chunk, reply_markup=markup, parse_mode=None)
+            await target.reply_text(chunk, reply_markup=markup)
 
     if query:
         try:
             await query.edit_message_text(text, reply_markup=reply_markup)
         except BadRequest as e:
             msg = str(e).lower()
+
             if "message is not modified" in msg:
                 return
+
             if "too long" in msg:
-                chunks = _chunk_html_text(text, 3900)  # ✅
+                chunks = _chunk_html_text(text, 3900)
                 if not chunks:
                     chunks = ["..."]
+
                 if getattr(query, "message", None):
                     try:
                         await query.edit_message_text(
-                            chunks[0], reply_markup=reply_markup, parse_mode=None
+                            chunks[0],
+                            reply_markup=reply_markup,
                         )
                     except Exception:
                         await query.message.reply_text(
-                            chunks[0], reply_markup=reply_markup, parse_mode=None
+                            chunks[0],
+                            reply_markup=reply_markup,
                         )
+
                     for chunk in chunks[1:]:
-                        await query.message.reply_text(chunk, parse_mode=None)
+                        await query.message.reply_text(chunk)
                 return
+
             if getattr(query, "message", None):
                 try:
                     await query.message.reply_text(text, reply_markup=reply_markup)
@@ -238,8 +238,10 @@ async def render(update, text: str, reply_markup=None):
     message = getattr(update, "effective_message", None) or getattr(
         update, "message", None
     )
+
     if message is None and hasattr(update, "reply_text"):
         message = update
+
     if message:
         try:
             await message.reply_text(text, reply_markup=reply_markup)
