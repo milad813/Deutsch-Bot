@@ -72,7 +72,12 @@ def record_quiz_answer(
             if s["skill_type"] == skill_type:
                 consecutive = s.get("correct_streak", 0)
                 break
-        grade = fsrs.grade_from_correctness(is_correct, consecutive, response_time_sec)
+        grade = fsrs.grade_from_correctness(
+            is_correct,
+            consecutive,
+            response_time_sec,
+            quiz_type=quiz_type
+        )
         fsrs.review(user_id, word_id, grade)
 
     if not is_correct:

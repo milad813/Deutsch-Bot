@@ -116,11 +116,11 @@ async def _show_story_question(query, context):
 
     kb = []
     for i, opt in enumerate(options):
-        label = f"{chr(65 + i)}) {opt}"
         kb.append(
             [
                 InlineKeyboardButton(
-                    _short_label(label, 64), callback_data=f"story_ans:{i}"
+                    _short_label(opt, 64),
+                    callback_data=f"story_ans:{i}"
                 )
             ]
         )

@@ -13,23 +13,25 @@ logger = logging.getLogger(__name__)
 def _grammar_quiz_keyboard(options, point_id):
     kb = []
     for i, opt in enumerate(options):
-        label = f"{chr(65 + i)}) {opt}"
         kb.append(
             [
                 InlineKeyboardButton(
-                    _short_label(label, 64), callback_data=f"grammar_ans:{i}"
+                    _short_label(opt, 64),
+                    callback_data=f"grammar_ans:{i}"
                 )
             ]
         )
+
     kb.append(
         [
             InlineKeyboardButton(
-                "🔙 بازگشت به نکته", callback_data=f"grammar_point:{point_id}"
+                "🔙 بازگشت به نکته",
+                callback_data=f"grammar_point:{point_id}"
             )
         ]
     )
-    return InlineKeyboardMarkup(kb)
 
+    return InlineKeyboardMarkup(kb)
 
 async def show_grammar_menu(query, context, lesson_id: int):
     points = db.grammar.get_by_lesson(lesson_id)

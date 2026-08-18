@@ -185,10 +185,10 @@ async def handle_ltr_learned(query, context):
 # TEST Phase - Multiple Question Types
 # ═══════════════════════════════════════════════════════════════════
 
-
 async def _show_test_question(query, context, word_id: int):
     """Show a quiz question with cognitive ladder question type selection."""
     word = db.words.get_by_id(word_id)
+
     if not word:
         await _route_next_action(query, context)
         return
@@ -247,52 +247,75 @@ def _select_question_type(word: Word, previous_type: str = None, attempt_number:
 
 async def _render_meaning_question(query, context, word: Word):
     """Question: Show German → Choose Persian meaning."""
+
     correct_answer = word.persian
 
     # Get wrong Persian options
     wrong_options = get_wrong_options(
         db, word, count=3, attr_getter=lambda w: w.persian
     )
+
     options = make_options(correct_answer, wrong_options, total=4, min_options=2)
+
     if not options or len(options) < 2 or correct_answer not in options:
-        # Fallback to reverse
+        # ✅ جلوگیری از حلقه
+        if context.user_data.get("ltr_fallback_attempted"):
+            await _render_final_fallback_question(query, context, word)
+            return
+
+        context.user_data["ltr_fallback_attempted"] = True
         await _render_reverse_question(query, context, word)
         return
+
+    context.user_data.pop("ltr_fallback_attempted", None)
 
     # Store for validation
     context.user_data["ltr_current_options"] = options
     context.user_data["ltr_current_correct_index"] = options.index(correct_answer)
     context.user_data["ltr_current_correct_text"] = correct_answer
 
-    msg = f"🧠 <b>معنی این کلمه چیست؟</b>\n\n" f"🇩🇪 <b>{esc(word.display_german)}</b>"
+    msg = (
+        f"🧠 <b>معنی این کلمه چیست؟</b>\n"
+        f"🇩🇪 <b>{esc(word.display_german)}</b>"
+    )
 
     await render(query, msg, reply_markup=_ltr_answer_keyboard(options))
 
 
 async def _render_reverse_question(query, context, word: Word):
     """Question: Show Persian → Choose German word."""
+
     correct_answer = word.display_german
 
     wrong_options = get_wrong_options(
         db, word, count=3, attr_getter=lambda w: w.display_german
     )
+
     options = make_options(correct_answer, wrong_options, total=4, min_options=2)
+
     if not options or len(options) < 2 or correct_answer not in options:
+        # ✅ جلوگیری از حلقه
+        if context.user_data.get("ltr_fallback_attempted"):
+            await _render_final_fallback_question(query, context, word)
+            return
+
+        context.user_data["ltr_fallback_attempted"] = True
         await _render_meaning_question(query, context, word)
         return
+
+    context.user_data.pop("ltr_fallback_attempted", None)
 
     context.user_data["ltr_current_options"] = options
     context.user_data["ltr_current_correct_index"] = options.index(correct_answer)
     context.user_data["ltr_current_correct_text"] = correct_answer
 
     msg = (
-        f"🔄 <b>معادل آلمانی این کلمه کدام است؟</b>\n\n"
+        f"🔄 <b>معادل آلمانی این کلمه کدام است؟</b>\n"
         f"🇮🇷 <b>{esc(word.persian)}</b>"
     )
 
     await render(query, msg, reply_markup=_ltr_answer_keyboard(options))
-
-
+ 
 async def _render_cloze_question(query, context, word: Word):
     """Question: Show sentence with blank → Choose correct word."""
     sentence = word.example_de or ""

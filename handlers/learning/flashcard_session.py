@@ -126,25 +126,48 @@ class FlashcardSessionManager:
         for key in keys_to_clear:
             self.user_data.pop(key, None)
 
-
-def _flashcard_front_keyboard(word: Word) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+def _flashcard_front_keyboard(
+    word: Word, quick_rate: bool = False
+) -> InlineKeyboardMarkup:
+    """کیبورد سمت جلوی کارت.
+    با quick_rate، ردیف ارزیابی مستقیم هم نمایش داده می‌شود تا کاربرِ
+    مطمئن بدون فلیپ، با یک tap ثبت کند."""
+    rows = [
         [
+            InlineKeyboardButton(
+                "👀 نمایش معنی", callback_data=f"flip_card:{word.id}"
+            )
+        ],
+    ]
+    if quick_rate:
+        rows.append(
             [
                 InlineKeyboardButton(
-                    "👀 نمایش معنی", callback_data=f"flip_card:{word.id}"
-                )
-            ],
-            [
-                InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:front"),
-                InlineKeyboardButton(
-                    "⏭️ رد شدن", callback_data=f"skip_flashcard:{word.id}"
+                    "😵 Again", callback_data=f"rate_card:{word.id}:1"
                 ),
-            ],
-            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
+                InlineKeyboardButton(
+                    "😬 Hard", callback_data=f"rate_card:{word.id}:2"
+                ),
+                InlineKeyboardButton(
+                    "🙂 Good", callback_data=f"rate_card:{word.id}:3"
+                ),
+                InlineKeyboardButton(
+                    "😎 Easy", callback_data=f"rate_card:{word.id}:4"
+                ),
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:front"),
+            InlineKeyboardButton(
+                "⏭️ رد شدن", callback_data=f"skip_flashcard:{word.id}"
+            ),
         ]
     )
-
+    rows.append(
+        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
+    )
+    return InlineKeyboardMarkup(rows)
 
 def _flashcard_rate_keyboard(word: Word) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -183,6 +206,15 @@ def _get_level_for_context(context, user_id: int) -> str:
     settings = db.users.get_settings(user_id)
     return settings.get("preferred_level", "A1")
 
+
+def _should_quick_rate(user_id: Optional[int], word_id: int) -> bool:
+    """شرط نمایش دکمه‌های ارزیابی مستقیم روی سمت جلوی کارت:
+    ۱) flag تنظیمات FLASHCARD_QUICK_RATE روشن باشد
+    ۲) کلمه قبلاً دیده شده باشد (رکورد word_stats داشته باشد)
+    کلمات کاملاً جدید همچنان مسیر فلیپ اجباری را دارند."""
+    if not config.FLASHCARD_QUICK_RATE or not user_id:
+        return False
+    return db.words.get_stats_full(user_id, word_id) is not None
 
 async def start_flashcard_session(
     update,
@@ -243,6 +275,7 @@ async def _render_flashcard_front(
     # Set current word
     session = FlashcardSessionManager(context)
     session.set_current_word(word.id)
+    quick_rate = _should_quick_rate(user_id, word.id)
 
     # Example priority:
     # 1. Saved example from words table
@@ -298,19 +331,19 @@ async def _render_flashcard_front(
         sentence_with_bold = _bold_word_in_sentence(example["de"], word.german)
         if "<b>" in sentence_with_bold:
             parts.append(f"🇩🇪 {sentence_with_bold}")
-            parts.append("💡 معنی کلمه‌ی <b>بولدشده</b> چیست؟")
             speak_text = example["de"]
         else:
             parts.append(f"🇩🇪 <b>{esc(word.display_german)}</b>")
-            parts.append("💡 فکر کن... معنی چیست؟")
     else:
         parts.append(f"🇩🇪 <b>{esc(word.display_german)}</b>")
-        parts.append("💡 فکر کن... معنی چیست؟")
 
     context.user_data["current_tts_text"] = speak_text
 
     await _send_or_edit(
-        query, update, "\n".join(parts), _flashcard_front_keyboard(word)
+        query,
+        update,
+        "\n".join(parts),
+        _flashcard_front_keyboard(word, quick_rate=quick_rate),
     )
 
 
@@ -351,7 +384,8 @@ async def handle_flip_card(query, context, suffix: str = None):
 
         fc_data = context.user_data.get("current_flashcard", {}) or {}
         example = fc_data.get("example")
-
+        fc_data["flipped"] = True
+        context.user_data["current_flashcard"] = fc_data
         example_de = None
         example_fa = None
 
@@ -392,17 +426,7 @@ async def handle_flip_card(query, context, suffix: str = None):
                 msg += f"🔗 {esc(word.collocation_line)}\n"
 
         if not context.user_data.get("fsrs_guide_shown"):
-            msg += (
-                "\n<b>راهنمای ارزیابی:</b>\n"
-                "😵 Again = اصلاً یادم نبود\n"
-                "😬 Hard = به‌سختی یادم آمد\n"
-                "🙂 Good = یادم آمد\n"
-                "😎 Easy = خیلی راحت بود\n"
-            )
             context.user_data["fsrs_guide_shown"] = True
-
-        msg += "\nحالا صادقانه: چقدر بلد بودی؟"
-
         context.user_data["current_tts_text"] = speak_text
 
         await render(query, msg, reply_markup=_flashcard_rate_keyboard(word))
@@ -486,7 +510,10 @@ async def handle_rate_card(query, context, suffix: str = None):
             notice = f"✅ {grade_names.get(grade, grade)} ثبت شد (مرور بعدی: ۱ روز)"
         else:
             notice = f"✅ {grade_names.get(grade, grade)} ثبت شد (مرور بعدی: {interval_days} روز)"
-
+        if not current.get("flipped"):
+            rated_word = db.words.get_by_id(word_id)
+            if rated_word and rated_word.persian:
+                notice += f"\n📌 {rated_word.display_german} = {rated_word.persian}"
         await _go_next_flashcard(query, context, notice=notice)
 
     finally:
