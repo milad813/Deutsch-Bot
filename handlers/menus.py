@@ -495,9 +495,10 @@ async def show_dashboard_simple(update, context):
 
     # ─── هدف روزانه (فیکس‌شده) ───
     daily_goal = db.learning.get_daily_goal(user_id)
-    today_done = db.learning.get_today_activity_count(user_id)  # کلمات یکتا
+    today_done = db.learning.get_today_new_words_count(user_id)
     today_new = db.learning.get_today_new_words_count(user_id)
     total_learned = db.learning.get_total_learned_words_count(user_id)
+    total_activity = db.learning.get_today_activity_count(user_id)
 
     goal_bar = progress_bar(today_done, daily_goal)
     bar = progress_bar(into, need)
@@ -513,10 +514,11 @@ async def show_dashboard_simple(update, context):
         f"   🎯 دقت: <b>{accuracy:.1f}%</b>\n"
         f"   📚 کل آموخته: <b>{total_learned}</b> از {word_count} کلمه  [{library_bar}]\n\n"
         "📅 <b>امروز</b>\n"
-        f"   🎯 هدف: {today_done}/{daily_goal}  [{goal_bar}]\n"
-        f"   🆕 کلمات جدید امروز: {today_new}\n"
+        f"   🎯 هدف: {today_new}/{daily_goal}  [{goal_bar}]\n"
+        f"   🆕 کلمات جدید: {today_new}\n"
+        f"   🔄 کل تمرین‌ها (شامل مرور): {total_activity}\n"
         f"   📋 مرور باقی‌مانده: {due_today} کلمه\n"
-    )
+        f"   ⚡ مرور کلمات سخت: {hard} کلمه\n")
 
     if today_done >= daily_goal:
         msg += "\n🎉 <b>هدف امروز کامل شد! آفرین!</b>\n"

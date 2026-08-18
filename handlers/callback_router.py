@@ -26,6 +26,7 @@ from handlers.learning.ltr_handlers import (
     handle_ltr_exit,
     handle_ltr_learned,
     handle_ltr_ready,
+    handle_ltr_review_weak,
     handle_ltr_summary,
     handle_study_lesson,
 )
@@ -264,6 +265,7 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "flashcard_due": lambda q, c: start_flashcard_session(q, c, only_due=True),
     "flashcard_hard": lambda q, c: start_flashcard_session(q, c, hard_only=True),
     "daily_learning": lambda q, c: handle_daily_learning(q, c),
+    "ltr_review_weak": handle_ltr_review_weak,
 
 }
 # Type-safe callback routing using CallbackPrefix enum

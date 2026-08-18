@@ -12,10 +12,10 @@ from ui import _short_label, progress_bar
 logger = logging.getLogger(__name__)
 
 # ─── تنظیمات LTR ───────────────────────────────────────────────────
-WORDS_PER_BATCH = 3  # هر بار چند کلمه یاد بده قبل از تست
-DELAY_AFTER_LEARN = 3  # چند کلمه بعد، سوال بپرس
+WORDS_PER_BATCH = 5  # هر بار چند کلمه یاد بده قبل از تست
+DELAY_AFTER_LEARN = 5  # چند کلمه بعد، سوال بپرس
 MAX_RETRIES = 3  # اگه اشتباه زد، چند بار دوباره بپرس
-RETRY_DELAY = 1  # تأخیر برای retry
+RETRY_DELAY = 2  # تأخیر برای retry
 
 
 class LTRSessionManager:
@@ -136,8 +136,12 @@ class LTRSessionManager:
             return db.words.get_by_id(word_id)
         return None
 
-    def record_test_result(self, word_id: int, is_correct: bool):
-        """Record test result and decide next action."""
+    def record_test_result(self, word_id: int, is_correct: bool, q_type: str = "meaning"):
+        """Record test result and decide next action.
+        
+        NEW: Requires at least MIN_SUCCESS_TYPES different question types
+        to be answered correctly before marking word as passed.
+        """
         results = self.user_data.setdefault("ltr_word_results", {})
         if word_id not in results:
             results[word_id] = []
@@ -148,14 +152,30 @@ class LTRSessionManager:
             tested.append(word_id)
 
         if is_correct:
-            # ✅ Passed
-            passed = self.user_data.setdefault("ltr_words_passed", [])
-            if word_id not in passed:
-                passed.append(word_id)
-            # Remove from failed if was there
-            failed = self.user_data.get("ltr_words_failed", [])
-            if word_id in failed:
-                failed.remove(word_id)
+            # ✅ Record successful question type
+            success_types = self.user_data.setdefault("ltr_word_success_types", {})
+            if word_id not in success_types:
+                success_types[word_id] = set()
+            success_types[word_id].add(q_type)
+
+            # Check if we have enough different successful types
+            if len(success_types[word_id]) >= MIN_SUCCESS_TYPES:
+                # ✅ Passed - enough variety of correct answers
+                passed = self.user_data.setdefault("ltr_words_passed", [])
+                if word_id not in passed:
+                    passed.append(word_id)
+                # Remove from failed if was there
+                failed = self.user_data.get("ltr_words_failed", [])
+                if word_id in failed:
+                    failed.remove(word_id)
+            else:
+                # ⏳ Need another test with a DIFFERENT question type
+                learned_count = len(self.user_data.get("ltr_words_learned", []))
+                self._schedule_test(
+                    word_id,
+                    due_after_progress=learned_count + RETRY_DELAY,
+                    is_retry=False,
+                )
         else:
             # ❌ Failed - schedule retry if allowed
             retry_count = self.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
@@ -295,6 +315,7 @@ class LTRSessionManager:
             "failed_ids": failed,
         }
 
+
     def clear_session(self) -> None:
         keys_to_clear = [
             "ltr_user_id",
@@ -305,6 +326,7 @@ class LTRSessionManager:
             "ltr_delayed_tasks",
             "ltr_word_results",
             "ltr_word_retry_count",
+            "ltr_word_success_types",
             "ltr_words_learned",
             "ltr_words_tested",
             "ltr_words_passed",
@@ -325,7 +347,6 @@ class LTRSessionManager:
             "ltr_delayed_1",
             "ltr_delayed_2",
         ]
-
         for key in keys_to_clear:
             self.user_data.pop(key, None)
 

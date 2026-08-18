@@ -187,7 +187,7 @@ async def handle_ltr_learned(query, context):
 
 
 async def _show_test_question(query, context, word_id: int):
-    """Show a quiz question with RANDOM question type."""
+    """Show a quiz question with cognitive ladder question type selection."""
     word = db.words.get_by_id(word_id)
     if not word:
         await _route_next_action(query, context)
@@ -197,8 +197,18 @@ async def _show_test_question(query, context, word_id: int):
     context.user_data["ltr_current_question"] = word_id
     context.user_data["current_tts_text"] = word.display_german
 
-    # ─── Select question type ───
-    q_type = _select_question_type(word)
+    # ─── Select question type based on attempt number ───
+    ltr = LTRSessionManager(context)
+    retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
+    success_types = ltr.user_data.get("ltr_word_success_types", {}).get(word_id, set())
+    
+    # Determine attempt number (1 = first test, 2+ = retry or second test)
+    attempt_number = 1 if len(success_types) == 0 and retry_count == 0 else 2
+    
+    # Get previous question type to avoid repetition
+    previous_type = context.user_data.get("ltr_question_type")
+    
+    q_type = _select_question_type(word, previous_type, attempt_number)
     context.user_data["ltr_question_type"] = q_type
 
     # ─── Generate question based on type ───
@@ -212,20 +222,28 @@ async def _show_test_question(query, context, word_id: int):
         await _render_meaning_question(query, context, word)
 
 
-def _select_question_type(word: Word) -> str:
-    """Select appropriate question type based on word properties."""
-    types = ["meaning", "reverse"]
-
-    # Add article question for nouns
-    if word.word_type == "Noun" and word.article:
-        types.append("article")
-
-    # Add cloze question if example exists
-    if word.example_de and word.german:
-        types.append("cloze")
-
+def _select_question_type(word: Word, previous_type: str = None, attempt_number: int = 1) -> str:
+    """Select question type based on cognitive ladder, avoiding previous type."""
+    
+    if attempt_number == 1:
+        # First test: Recognition + Structure
+        types = ["meaning"]
+        if word.word_type == "Noun" and word.article:
+            types.append("article")
+        if word.example_de and word.german:
+            types.append("cloze")
+    else:
+        # Retry or second test: Production + Application
+        types = ["reverse", "cloze"]
+        if word.collocation_de:
+            types.append("collocation")
+        types.append("meaning")  # fallback
+    
+    # Filter out previous type if possible
+    if previous_type and len(types) > 1:
+        types = [t for t in types if t != previous_type]
+    
     return random.choice(types)
-
 
 async def _render_meaning_question(query, context, word: Word):
     """Question: Show German → Choose Persian meaning."""
@@ -351,11 +369,9 @@ async def _render_article_question(query, context, word: Word):
 # Answer Handling
 # ═══════════════════════════════════════════════════════════════════
 
-
 async def handle_ltr_answer(query, context, suffix: str):
     """Handle user's answer to LTR quiz question."""
     lock_key = "ltr_answer_lock"
-
     if context.user_data.get(lock_key):
         try:
             await query.answer()
@@ -364,7 +380,6 @@ async def handle_ltr_answer(query, context, suffix: str):
         return
 
     context.user_data[lock_key] = True
-
     try:
         try:
             option_index = int(suffix)
@@ -376,9 +391,7 @@ async def handle_ltr_answer(query, context, suffix: str):
             return
 
         ltr = LTRSessionManager(context)
-
         word_id = context.user_data.get("ltr_current_question")
-
         if not word_id:
             await render(
                 query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard()
@@ -388,7 +401,7 @@ async def handle_ltr_answer(query, context, suffix: str):
         options = context.user_data.get("ltr_current_options", [])
         correct_index = context.user_data.get("ltr_current_correct_index", -1)
         correct_text = context.user_data.get("ltr_current_correct_text", "")
-        q_type = context.user_data.get("ltr_question_type", "meaning")
+        q_type = context.user_data.get("ltr_question_type", "meaning")  # ← مهم
 
         if option_index < 0 or option_index >= len(options):
             try:
@@ -398,16 +411,14 @@ async def handle_ltr_answer(query, context, suffix: str):
             return
 
         is_correct = option_index == correct_index
-
         word = db.words.get_by_id(word_id)
 
-        # Record result
-        ltr.record_test_result(word_id, is_correct)
+        # ✅ Record result WITH question type
+        ltr.record_test_result(word_id, is_correct, q_type)
 
         # Record skill
         user_id = query.from_user.id
         db.learning.record_skill(user_id, word_id, "ltr", is_correct)
-
         if not is_correct:
             db.learning.record_mistake(
                 user_id=user_id,
@@ -437,7 +448,6 @@ async def handle_ltr_answer(query, context, suffix: str):
         # Add contextual hint
         if word and word.example_de:
             feedback += f"\n📝 <i>{esc(word.example_de)}</i>"
-
         if word and word.collocation_line:
             feedback += f"\n🔗 {esc(word.collocation_line)}"
 
@@ -449,16 +459,13 @@ async def handle_ltr_answer(query, context, suffix: str):
 
         # Check retry info
         retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
-
         if not is_correct and retry_count > 0:
             feedback += f"\n⚠️ تلاش {retry_count} از {MAX_RETRIES}"
 
         # Route to next action
         await _route_next_action(query, context, feedback=feedback)
-
     finally:
         context.user_data.pop(lock_key, None)
-
 
 # ═══════════════════════════════════════════════════════════════════
 # Router
@@ -496,21 +503,18 @@ async def _route_next_action(query, context, feedback: str = ""):
 # Summary & Exit
 # ═══════════════════════════════════════════════════════════════════
 
-
 async def _show_ltr_summary(query, context, feedback: str = ""):
-    """Show final session summary with detailed breakdown."""
+    """Show final session summary with detailed breakdown and auto-review."""
     ltr = LTRSessionManager(context)
 
     # Finalize all words (update SRS)
     ltr.finalize_all_passed_words()
-
     summary = ltr.get_session_summary()
 
     parts = []
     if feedback:
         parts.append(feedback)
-        parts.append("")
-
+    parts.append("")
     parts.extend(
         [
             "📊 <b>خلاصه جلسه تمرین عمیق (LTR)</b>",
@@ -541,17 +545,30 @@ async def _show_ltr_summary(query, context, feedback: str = ""):
     else:
         parts.append("💡 پیشنهاد: فلش‌کارت این درس را مرور کن.")
 
+    # ✅ NEW: Auto-start flashcard review for weak words
+    failed_ids = summary.get("failed_ids", [])
+    weak_word_ids = failed_ids[:10] if failed_ids else []
+
     # Clear session
     ltr.clear_session()
 
-    kb = InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("🎴 فلش‌کارت مرور", callback_data="flashcard_due")],
-            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
-        ]
-    )
-    await render(query, "\n".join(parts), reply_markup=kb)
+    # Build keyboard based on whether there are weak words
+    kb_rows = []
+    
+    if weak_word_ids:
+        # ✅ NEW: Button to immediately review weak words
+        kb_rows.append(
+            [InlineKeyboardButton("🔁 مرور فوری کلمات ضعیف", callback_data="ltr_review_weak")]
+        )
+    
+    kb_rows.append([InlineKeyboardButton("🎴 فلش‌کارت مرور", callback_data="flashcard_due")])
+    kb_rows.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")])
 
+    # Store weak word IDs for the review button
+    if weak_word_ids:
+        context.user_data["ltr_weak_word_ids"] = weak_word_ids
+
+    await render(query, "\n".join(parts), reply_markup=InlineKeyboardMarkup(kb_rows))
 
 async def handle_ltr_summary(query, context):
     """External summary handler."""
@@ -589,9 +606,8 @@ async def handle_ltr_ready(query, context):
 async def handle_daily_learning(query, context):
     """شروع یادگیری کلمات جدید بر اساس هدف روزانه (ترتیب کتاب)."""
     user_id = query.from_user.id
-
     daily_goal = db.learning.get_daily_goal(user_id)
-    today_done = db.learning.get_today_activity_count(user_id)
+    today_done = db.learning.get_today_new_words_count(user_id)
     remaining = daily_goal - today_done
 
     if remaining <= 0:
@@ -644,6 +660,30 @@ async def handle_daily_learning(query, context):
     )
     await render(query, intro_msg, reply_markup=kb)
 
+
+async def handle_ltr_review_weak(query, context):
+    """Start immediate flashcard review for weak words from LTR session."""
+    weak_ids = context.user_data.get("ltr_weak_word_ids", [])
+    if not weak_ids:
+        await render(query, "📭 کلمه ضعیفی ثبت نشده.", reply_markup=back_inline_keyboard())
+        return
+    
+    # Start flashcard session with only these specific words
+    words = db.words.get_by_ids(weak_ids)
+    if not words:
+        await render(query, "❌ کلمات پیدا نشدند.", reply_markup=back_inline_keyboard())
+        return
+    
+    # Initialize flashcard session manually
+    from handlers.learning.flashcard_session import FlashcardSessionManager, _render_flashcard_front
+    
+    session = FlashcardSessionManager(context)
+    session.initialize(lesson_id=None, only_new=False, only_due=False, hard_only=False)
+    session.set_queue(words)
+    
+    await _render_flashcard_front(query, None, context, words[0])
+
+    
 # ═══════════════════════════════════════════════════════════════════
 # Helper Functions
 # ═══════════════════════════════════════════════════════════════════

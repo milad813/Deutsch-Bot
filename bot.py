@@ -72,7 +72,7 @@ async def daily_reminder(context):
                 run_db(db.words.get_due_count, uid),
                 run_db(db.words.count_hard_due, uid),
                 run_db(db.learning.get_daily_goal, uid),
-                run_db(db.learning.get_today_activity_count, uid),
+                run_db(db.learning.get_today_new_words_count, uid),
             )
 
             if due_count > 0 or hard_count > 0:
