@@ -289,6 +289,26 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "ltr_review_weak": handle_ltr_review_weak,
 
 }
+
+
+def int_suffix(handler):
+    async def wrapper(query, context, suffix: str):
+        try:
+            value = int(suffix)
+        except (TypeError, ValueError):
+            return
+
+        await handler(query, context, value)
+
+    return wrapper
+
+
+def no_suffix(handler):
+    async def wrapper(query, context, suffix: str):
+        await handler(query, context)
+
+    return wrapper
+
 # Type-safe callback routing using CallbackPrefix enum
 PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.QUIZ_TYPE.value, _handle_quiz_type),
@@ -301,16 +321,12 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.FLASHCARD_LESSON.value, _handle_flashcard_lesson),
     (CallbackPrefix.STUDY_LESSON.value, handle_study_lesson),
     (CallbackPrefix.FLIP_CARD.value, handle_flip_card),
-    (
-        CallbackPrefix.SKIP_FLASHCARD.value,
-        handle_skip_flashcard,
-    ),
+    (CallbackPrefix.SKIP_FLASHCARD.value,handle_skip_flashcard,),
     (CallbackPrefix.RATE_CARD.value, handle_rate_card),
     (CallbackPrefix.SPEAK_CURRENT.value, handle_speak_current),
     (CallbackPrefix.LESSON_WORDS.value, _handle_lesson_words),
     (CallbackPrefix.BOOK.value, _handle_book),
-    (CallbackPrefix.LESSON.value,menus.show_lesson_options,
-    ),
+    (CallbackPrefix.LESSON.value,menus.show_lesson_options,),
     (CallbackPrefix.LTR_ANS.value,handle_ltr_answer),
     (CallbackPrefix.GRAMMAR_LESSON.value,show_grammar_menu,),
     (CallbackPrefix.GRAMMAR_POINT.value,show_grammar_point),
@@ -328,31 +344,15 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.STORY_QUIZ.value, start_story_quiz),
     (CallbackPrefix.STORY_ANS.value, handle_story_answer),
     (CallbackPrefix.STORY_NEXT_Q.value,handle_story_next_question,),
-    (CallbackPrefix.STORY_NEXT.value, show_story_menu(q, c, int(s))),
+    (CallbackPrefix.STORY_NEXT.value, show_story_menu),
     (CallbackPrefix.SET_LEVEL.value, menus.handle_set_level),
     (CallbackPrefix.SET_GOAL.value, menus.handle_set_goal),
-    (
-        CallbackPrefix.LISTENING_START.value,
-        handle_listening_start(q, c),
-    ),
-    (
-        CallbackPrefix.LISTENING_ANS.value,
-        handle_listening_answer,
-    ),
-    (
-        CallbackPrefix.LISTENING_SKIP.value,
-        handle_listening_skip(q, c),
-    ),
-    (
-        CallbackPrefix.LISTENING_EXIT.value,
-        handle_listening_exit(q, c),
-    ),
-    (
-        CallbackPrefix.LISTENING_REPLAY.value,
-        handle_listening_replay,
-    ),
+    (CallbackPrefix.LISTENING_START.value,handle_listening_start,),
+    (CallbackPrefix.LISTENING_ANS.value,handle_listening_answer,),
+    (CallbackPrefix.LISTENING_SKIP.value,handle_listening_skip,),
+    (CallbackPrefix.LISTENING_EXIT.value,handle_listening_exit,),
+    (CallbackPrefix.LISTENING_REPLAY.value,handle_listening_replay,),
     (CallbackPrefix.MIXED_EXAM.value, _handle_mixed_exam),
-
 ]
 
 
