@@ -10,8 +10,10 @@ import config
 from learning_engine import record_quiz_answer
 from models import QuizSession, Word
 from option_generator import get_wrong_options
-from services import db, llm, quiz_service
+from services import db, llm, quiz_service, run_db
 from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
+from core.locks import callback_guard
+
 
 logger = logging.getLogger(__name__)
 _background_tasks = set()
@@ -33,16 +35,37 @@ async def _fetch_words_by_source(
 ) -> Optional[List[Word]]:
     """منطق مشترک گرفتن کلمات بر اساس source_filter."""
     if source_filter == "weak":
-        return db.words.get_weak(user_id, limit=limit, exclude_ids=exclude_ids)
+        return await run_db(
+        db.words.get_weak,
+        user_id,
+        limit=limit,
+        exclude_ids=exclude_ids,
+    )
     if source_filter == "due":
-        return db.words.get_due(
-            user_id, limit=limit, lesson_id=lesson_id, exclude_ids=exclude_ids
-        )
+        return await run_db(
+        db.words.get_due,
+        user_id,
+        limit=limit,
+        lesson_id=lesson_id,
+        exclude_ids=exclude_ids,
+    )
     if source_filter == "mistakes":
-        return db.words.get_mistake_words(user_id, limit=limit, exclude_ids=exclude_ids)
+        return await run_db(
+        db.words.get_mistake_words,
+        user_id,
+        limit=limit,
+        lesson_id=lesson_id,
+        exclude_ids=exclude_ids,
+    )
     # ✅ جدید: فقط کلمات دیده‌شده
     if source_filter == "seen":
-        return db.words.get_seen_words(user_id, limit=limit, exclude_ids=exclude_ids)
+        return await run_db(
+        db.words.get_seen_words,
+        user_id,
+        limit=limit,
+        lesson_id=lesson_id,
+        exclude_ids=exclude_ids,
+    )
     return None  # → fallback
 
 
@@ -614,18 +637,8 @@ async def _show_quiz_summary(query, context, header: str = ""):
 
     await render(query, text, reply_markup=InlineKeyboardMarkup(keyboard))
 
-
+@callback_guard("grammar_answer_lock")
 async def handle_quiz_answer(query, context):
-    # LOCK: جلوگیری از double-tap
-    lock_key = "quiz_answer_lock"
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-    context.user_data[lock_key] = True
-
     try:
         if "current_quiz" not in context.user_data:
             try:
@@ -658,20 +671,19 @@ async def handle_quiz_answer(query, context):
             quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
         )
 
-        record_quiz_answer(
+        await run_db(
+            record_quiz_answer,
             user_id=user_id,
-            word_id=quiz_info.get("word_id"),
-            skill_type=quiz_info.get("type", "meaning"),
+            word_id=word_id,
+            skill_type="listening",
             is_correct=is_correct,
-            user_answer=user_answer_text,
-            correct_answer=correct_answer,
+            user_answer=options[selected_idx],
+            correct_answer=word.persian,
             update_srs=True,
             update_quiz_stats=True,
-            xp=10 if is_correct else 0,
-            quiz_type=quiz_info.get("type", "meaning"),
-            response_time_sec=response_time,  # ← خط جدید
+            xp=5 if is_correct else 0,
+            quiz_type="listening",
         )
-
         _update_quiz_session(
             context,
             is_correct,

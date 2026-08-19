@@ -7,6 +7,8 @@ from quiz_service import QuizService
 from srs_service import FSRSService
 from tts_service import TTSService
 from ui import main_menu_keyboard
+from typing import Any, Callable, TypeVar
+from core.async_utils import run_db  # noqa: F401
 
 db = Database(config.DB_PATH)
 llm = LLMService(db=db)
@@ -14,14 +16,11 @@ quiz_service = QuizService()
 fsrs = FSRSService(db)
 tts = TTSService()
 
-async def run_db(func, *args, **kwargs):
-    """
-    Run a blocking database function in a worker thread.
+import asyncio
 
-    Usage:
-        await run_db(db.words.get_due_count, user_id)
-    """
-    return await asyncio.to_thread(func, *args, **kwargs)
+T = TypeVar("T")
+
+
 
 SESSION_KEYS = {
     "conversation_history",

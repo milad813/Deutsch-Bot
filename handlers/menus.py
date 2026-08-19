@@ -48,7 +48,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     reset_session(context)
     # ─── Onboarding: پرسیدن سطح از کاربر جدید ───
-    settings = db.users.get_settings(user.id)
+    settings = await run_db(db.users.get_settings, user.id)
     if not settings:  # اگر رکوردی در user_settings نبود
         await show_level_select(update, context)
         return
@@ -485,20 +485,26 @@ async def show_dashboard_simple(update, context):
     from ui import progress_bar
 
     # ─── آمارها ───
-    word_count = db.words.get_count()
-    due_today = len(db.words.get_due_today(user_id))
-    correct, total = db.users.get_quiz_stats(user_id)
+
+    word_count, due_rows, quiz_stats, prog, hard, daily_goal, today_done, total_learned, total_activity = await asyncio.gather(
+    run_db(db.words.get_count),
+    run_db(db.words.get_due_today, user_id),
+    run_db(db.users.get_quiz_stats, user_id),
+    run_db(db.users.get_progress, user_id),
+    run_db(db.words.count_hard_due, user_id),
+    run_db(db.learning.get_daily_goal, user_id),
+    run_db(db.learning.get_today_new_words_count, user_id),
+    run_db(db.learning.get_total_learned_words_count, user_id),
+    run_db(db.learning.get_today_activity_count, user_id),
+)
+
+    due_today = len(due_rows)
+    correct, total = quiz_stats
     accuracy = (correct / total * 100) if total > 0 else 0
-    prog = db.users.get_progress(user_id)
     level, into, need = db.level_from_xp(prog["xp"])
-    hard = db.words.count_hard_due(user_id)
 
     # ─── هدف روزانه (فیکس‌شده) ───
-    daily_goal = db.learning.get_daily_goal(user_id)
-    today_done = db.learning.get_today_new_words_count(user_id)
     today_new = db.learning.get_today_new_words_count(user_id)
-    total_learned = db.learning.get_total_learned_words_count(user_id)
-    total_activity = db.learning.get_today_activity_count(user_id)
 
     goal_bar = progress_bar(today_done, daily_goal)
     bar = progress_bar(into, need)

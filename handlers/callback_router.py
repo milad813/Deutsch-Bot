@@ -5,14 +5,34 @@ from telegram.error import BadRequest
 
 import config
 import asyncio
-# ✅ جایگزین:
-from handlers import (
-    admin_handlers,
-    grammar_handlers,
-    listening_handlers,
-    menus,
-    quiz_handlers,
+
+from handlers.admin_handlers import (
+    show_admin_panel,
+    show_admin_users,
+    handle_reset_progress,
+    handle_reset_confirm,
+    handle_reset_cancel,
 )
+from handlers.grammar_handlers import (
+    show_grammar_menu,
+    show_grammar_point,
+    start_grammar_quiz,
+    handle_grammar_answer,
+)
+from handlers.listening_handlers import (
+    handle_listening_start,
+    handle_listening_answer,
+    handle_listening_skip,
+    handle_listening_exit,
+    handle_listening_replay,
+)
+from handlers.quiz_handlers import (
+    start_quiz_session,
+    handle_quiz_answer,
+    start_wrong_quiz,
+    _send_next_quiz,
+)
+from handlers import menus
 from handlers.learning import (
     handle_flip_card,
     handle_next_flashcard,
@@ -49,6 +69,7 @@ from middleware.rate_limiter import rate_limiter
 from models import CallbackPrefix
 from services import db, get_main_menu_keyboard, reset_session, run_db
 from ui import back_inline_keyboard, render
+from handlers.learning.flashcard_session import start_flashcard_due ,start_flashcard_hard
 
 logger = logging.getLogger(__name__)
 
@@ -111,17 +132,17 @@ async def _handle_quiz_count(query, context, suffix: str):
 
     if suffix == "all":
         if lesson_id:
-            count = db.words.get_count_by_lesson(lesson_id)
+            count = await run_db(db.words.get_count_by_lesson, lesson_id)
         elif source_filter == "weak":
-            count = db.words.get_weak_count(user_id)
+            count = run_db(db.words.get_weak_count,user_id)
         elif source_filter == "due":
-            count = db.words.get_due_count(user_id)
+            count = run_db(db.words.get_due_count,user_id)
         elif source_filter == "mistakes":
-            count = db.learning.get_mistake_word_count(user_id)
+            count = run_db(db.learning.get_mistake_word_count,user_id)
         elif source_filter == "seen":
-            count = db.words.get_seen_count(user_id)
+            count = run_db(db.words.get_seen_count,user_id)
         else:
-            count = db.words.get_count()
+            count = run_db(db.words.get_count)
         count = min(count, config.MAX_QUIZ_ALL_COUNT)
     else:
         try:
@@ -143,7 +164,7 @@ async def _handle_quiz_count(query, context, suffix: str):
     # پاک کردن quiz_lesson_preset قبل از شروع session
     context.user_data.pop("quiz_lesson_preset", None)
 
-    await quiz_handlers.start_quiz_session(
+    await start_quiz_session(
         query, context, quiz_type, count, source_filter
     )
 
@@ -166,7 +187,7 @@ async def _handle_quiz_lesson(query, context, suffix: str):
 
 
 async def _handle_quiz_ans(query, context, suffix: str):
-    await quiz_handlers.handle_quiz_answer(query, context)
+    await handle_quiz_answer(query, context)
 
 
 async def _handle_lesson_words(query, context, suffix: str):
@@ -240,31 +261,31 @@ async def _handle_back_to_main_menu(query, context):
 
 
 EXACT_ROUTES: Dict[str, Callable] = {
-    "admin_panel": admin_handlers.show_admin_panel,
-    "admin_users": lambda q, c: admin_handlers.show_admin_users(q, c),
-    "reset_progress": lambda q, c: admin_handlers.handle_reset_progress(q, c),
-    "reset_confirm": lambda q, c: admin_handlers.handle_reset_confirm(q, c),
-    "reset_cancel": lambda q, c: admin_handlers.handle_reset_cancel(q, c),
+    "admin_panel": show_admin_panel,
+    "admin_users": show_admin_users,
+    "reset_progress":handle_reset_progress,
+    "reset_confirm":handle_reset_confirm,
+    "reset_cancel":handle_reset_cancel,
     "back_to_main_menu": None,
     "noop": None,
-    "show_dashboard": lambda q, c: menus.show_dashboard_simple(q, c),
-    "show_error_notebook": lambda q, c: menus.show_error_notebook(q, c),
-    "quiz_next": quiz_handlers._send_next_quiz,
-    "show_books_inline": lambda q, c: menus.show_books(q, c, is_message=False),
-    "show_quiz_source": lambda q, c: menus.show_quiz_source(q, c),
-    "show_quiz_menu": lambda q, c: menus.show_quiz_menu(q, c),
-    "show_settings": lambda q, c: menus.show_settings_menu(q, c),
-    "show_level_select": lambda q, c: menus.show_level_select(q, c),
-    "show_goal_select": lambda q, c: menus.show_goal_select(q, c),
-    "quiz_retry_wrong": lambda q, c: quiz_handlers.start_wrong_quiz(q, c),
-    "next_flashcard": lambda q, c: handle_next_flashcard(q, c),
+    "show_dashboard": menus.show_dashboard_simple,
+    "show_error_notebook": menus.show_error_notebook,
+    "quiz_next": _send_next_quiz,
+    "show_books_inline": menus.show_books,
+    "show_quiz_source": menus.show_quiz_source,
+    "show_quiz_menu": menus.show_quiz_menu,
+    "show_settings": menus.show_settings_menu,
+    "show_level_select": menus.show_level_select,
+    "show_goal_select": menus.show_goal_select,
+    "quiz_retry_wrong": start_wrong_quiz,
+    "next_flashcard": handle_next_flashcard,
     "ltr_ready": handle_ltr_ready,
     "ltr_learned": handle_ltr_learned,
     "ltr_summary": handle_ltr_summary,
     "ltr_exit": handle_ltr_exit,
-    "flashcard_due": lambda q, c: start_flashcard_session(q, c, only_due=True),
-    "flashcard_hard": lambda q, c: start_flashcard_session(q, c, hard_only=True),
-    "daily_learning": lambda q, c: handle_daily_learning(q, c),
+    "flashcard_due": start_flashcard_due,
+    "flashcard_hard":start_flashcard_hard,
+    "daily_learning":handle_daily_learning,
     "ltr_review_weak": handle_ltr_review_weak,
 
 }
@@ -279,82 +300,56 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.QUIZ_FROM_LESSON.value, _handle_quiz_from_lesson),
     (CallbackPrefix.FLASHCARD_LESSON.value, _handle_flashcard_lesson),
     (CallbackPrefix.STUDY_LESSON.value, handle_study_lesson),
-    (CallbackPrefix.FLIP_CARD.value, lambda q, c, s: handle_flip_card(q, c, s)),
+    (CallbackPrefix.FLIP_CARD.value, handle_flip_card),
     (
         CallbackPrefix.SKIP_FLASHCARD.value,
-        lambda q, c, s: handle_skip_flashcard(q, c, s),
+        handle_skip_flashcard,
     ),
-    (CallbackPrefix.RATE_CARD.value, lambda q, c, s: handle_rate_card(q, c, s)),
+    (CallbackPrefix.RATE_CARD.value, handle_rate_card),
     (CallbackPrefix.SPEAK_CURRENT.value, handle_speak_current),
     (CallbackPrefix.LESSON_WORDS.value, _handle_lesson_words),
     (CallbackPrefix.BOOK.value, _handle_book),
-    (
-        CallbackPrefix.LESSON.value,
-        lambda q, c, s: menus.show_lesson_options(q, c, int(s)),
+    (CallbackPrefix.LESSON.value,menus.show_lesson_options,
     ),
-    (CallbackPrefix.LTR_ANS.value, lambda q, c, s: handle_ltr_answer(q, c, s)),
-    (
-        CallbackPrefix.GRAMMAR_LESSON.value,
-        lambda q, c, s: grammar_handlers.show_grammar_menu(q, c, int(s)),
-    ),
-    (
-        CallbackPrefix.GRAMMAR_POINT.value,
-        lambda q, c, s: grammar_handlers.show_grammar_point(q, c, int(s)),
-    ),
-    (
-        CallbackPrefix.GRAMMAR_QUIZ.value,
-        lambda q, c, s: grammar_handlers.start_grammar_quiz(q, c, int(s)),
-    ),
-    (
-        CallbackPrefix.GRAMMAR_ANS.value,
-        lambda q, c, s: grammar_handlers.handle_grammar_answer(q, c, s),
-    ),
-    (CallbackPrefix.STORY_LESSON.value, lambda q, c, s: show_story_menu(q, c, int(s))),
-    (CallbackPrefix.STORY_VIEW.value, lambda q, c, s: show_story(q, c, int(s))),
-    (
-        CallbackPrefix.STORY_FA.value,
-        lambda q, c, s: show_story_translation(q, c, int(s)),
-    ),
-    (CallbackPrefix.STORY_WORDS.value, lambda q, c, s: show_story_words(q, c, int(s))),
-    (CallbackPrefix.STORY_AUDIO.value, lambda q, c, s: play_story_audio(q, c, int(s))),
-    (CallbackPrefix.STORY_HINT.value, lambda q, c, s: show_story_hint(q, c, int(s))),
-    (
-        CallbackPrefix.STORY_LISTEN_READ.value,
-        lambda q, c, s: play_story_listen_read(q, c, int(s)),
-    ),
-    (
-        CallbackPrefix.STORY_LISTEN_ONLY.value,
-        lambda q, c, s: play_story_listen_only(q, c, int(s)),
-    ),
-    (CallbackPrefix.STORY_REPLAY.value, lambda q, c, s: replay_story(q, c, int(s))),
-    (CallbackPrefix.STORY_QUIZ.value, lambda q, c, s: start_story_quiz(q, c, int(s))),
-    (CallbackPrefix.STORY_ANS.value, lambda q, c, s: handle_story_answer(q, c, s)),
-    (
-        CallbackPrefix.STORY_NEXT_Q.value,
-        lambda q, c, s: handle_story_next_question(q, c, s),
-    ),
-    (CallbackPrefix.STORY_NEXT.value, lambda q, c, s: show_story_menu(q, c, int(s))),
-    (CallbackPrefix.SET_LEVEL.value, lambda q, c, s: menus.handle_set_level(q, c, s)),
-    (CallbackPrefix.SET_GOAL.value, lambda q, c, s: menus.handle_set_goal(q, c, s)),
+    (CallbackPrefix.LTR_ANS.value,handle_ltr_answer),
+    (CallbackPrefix.GRAMMAR_LESSON.value,show_grammar_menu,),
+    (CallbackPrefix.GRAMMAR_POINT.value,show_grammar_point),
+    (CallbackPrefix.GRAMMAR_QUIZ.value,start_grammar_quiz,),
+    (CallbackPrefix.GRAMMAR_ANS.value,handle_grammar_answer,),
+    (CallbackPrefix.STORY_LESSON.value,show_story_menu),
+    (CallbackPrefix.STORY_VIEW.value,show_story),
+    (CallbackPrefix.STORY_FA.value,show_story_translation,),
+    (CallbackPrefix.STORY_WORDS.value,show_story_words),
+    (CallbackPrefix.STORY_AUDIO.value,play_story_audio),
+    (CallbackPrefix.STORY_HINT.value,show_story_hint),
+    (CallbackPrefix.STORY_LISTEN_READ.value,play_story_listen_read,),
+    (CallbackPrefix.STORY_LISTEN_ONLY.value,play_story_listen_only,),
+    (CallbackPrefix.STORY_REPLAY.value,replay_story),
+    (CallbackPrefix.STORY_QUIZ.value, start_story_quiz),
+    (CallbackPrefix.STORY_ANS.value, handle_story_answer),
+    (CallbackPrefix.STORY_NEXT_Q.value,handle_story_next_question,),
+    (CallbackPrefix.STORY_NEXT.value, show_story_menu(q, c, int(s))),
+    (CallbackPrefix.SET_LEVEL.value, menus.handle_set_level),
+    (CallbackPrefix.SET_GOAL.value, menus.handle_set_goal),
     (
         CallbackPrefix.LISTENING_START.value,
-        lambda q, c, s: listening_handlers.handle_listening_start(q, c),
+        handle_listening_start(q, c),
     ),
     (
         CallbackPrefix.LISTENING_ANS.value,
-        lambda q, c, s: listening_handlers.handle_listening_answer(q, c, s),
+        handle_listening_answer,
     ),
     (
         CallbackPrefix.LISTENING_SKIP.value,
-        lambda q, c, s: listening_handlers.handle_listening_skip(q, c),
+        handle_listening_skip(q, c),
     ),
     (
         CallbackPrefix.LISTENING_EXIT.value,
-        lambda q, c, s: listening_handlers.handle_listening_exit(q, c),
+        handle_listening_exit(q, c),
     ),
     (
         CallbackPrefix.LISTENING_REPLAY.value,
-        lambda q, c, s: listening_handlers.handle_listening_replay(q, c, s),
+        handle_listening_replay,
     ),
     (CallbackPrefix.MIXED_EXAM.value, _handle_mixed_exam),
 

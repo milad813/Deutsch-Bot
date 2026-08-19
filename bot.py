@@ -49,12 +49,12 @@ async def post_shutdown(application):
 
 
 async def daily_backup(context):
-    backup_path = db.backup()
+    backup_path = await run_db(db.backup)
     logger.info("بکاپ گرفته شد: %s", backup_path)
 
 
 async def daily_tts_cleanup(context):
-    tts.cleanup_cache()
+    await asyncio.to_thread(tts.cleanup_cache)
     logger.info("TTS cache cleanup completed")
 
 

@@ -91,7 +91,7 @@ async def handle_speak_current(query, context, suffix: str):
     if not text:
         fc = context.user_data.get("current_flashcard") or {}
         word_id = fc.get("word_id")
-        word = db.words.get_by_id(word_id) if word_id else None
+        word = await run_db(db.words.get_by_id, word_id) if word_id else None
         text = word.display_german if word else None
     if not text:
         try:

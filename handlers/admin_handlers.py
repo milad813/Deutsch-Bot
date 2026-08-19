@@ -3,9 +3,10 @@
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+import asyncio
 
 import config
-from services import db
+from services import db, run_db
 from ui import back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
@@ -28,10 +29,12 @@ async def show_admin_panel(update, context):
         await render(update, "⛔️ دسترسی ندارید.", reply_markup=back_inline_keyboard())
         return
 
-    total_users = db.users.get_user_count()
-    active_7d = db.users.get_active_user_count(days=7)
-    active_30d = db.users.get_active_user_count(days=30)
-    total_words = db.words.get_count()
+    total_users, active_7d, active_30d, total_words = await asyncio.gather(
+        run_db(db.users.get_user_count),
+        run_db(db.users.get_active_user_count, 7),
+        run_db(db.users.get_active_user_count, 30),
+        run_db(db.words.get_count),
+)
 
     msg = (
         f"🛡️ <b>پنل مدیریت</b>\n\n"
@@ -80,11 +83,10 @@ async def show_admin_users(update, context):
 
         # آمار کاربر
         try:
-            prog = db.users.get_progress(uid)
-            correct, total = db.users.get_quiz_stats(uid)
-            accuracy = int(correct / total * 100) if total > 0 else 0
-            due = db.words.get_due_count(uid)
-            weak = db.words.get_weak_count(uid)
+            prog = await run_db(db.users.get_progress, uid)
+            correct, total = await run_db(db.users.get_quiz_stats, uid)
+            due = await run_db(db.words.get_due_count, uid)
+            weak = await run_db(db.words.get_weak_count, uid)
             xp = prog.get("xp", 0)
             streak = prog.get("streak", 0)
         except Exception:

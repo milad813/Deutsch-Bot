@@ -2,6 +2,7 @@
 
 import logging
 import random
+from core.locks import callback_guard
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -135,18 +136,8 @@ async def _show_story_question(query, context):
 
     await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))
 
-
+@callback_guard("grammar_answer_lock")
 async def handle_story_answer(query, context, suffix: str):
-    """Handle user's answer to a story quiz question."""
-    lock_key = "story_answer_lock"
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-    context.user_data[lock_key] = True
-
     try:
         quiz = context.user_data.get("story_quiz")
         if not quiz:

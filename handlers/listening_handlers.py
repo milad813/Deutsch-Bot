@@ -4,6 +4,7 @@ import logging
 import random
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from core.locks import callback_guard
 
 from learning_engine import record_quiz_answer
 from option_generator import get_wrong_options
@@ -47,7 +48,7 @@ async def _show_listening_question(update, context):
         return
 
     word_id = session["words"][session["current"]]
-    word = db.words.get_by_id(word_id)
+    word = await run_db(db.words.get_by_id, word_id)
     if not word:
         session["current"] += 1
         await _show_listening_question(update, context)
@@ -150,20 +151,8 @@ async def _show_listening_summary(query, context):
 
     await render(query, msg, reply_markup=kb)
 
-
+@callback_guard("grammar_answer_lock")
 async def handle_listening_answer(query, context, suffix: str):
-    """پردازش جواب کاربر."""
-    lock_key = "listening_answer_lock"
-
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-
-    context.user_data[lock_key] = True
-
     try:
         try:
             selected_idx = int(suffix)
@@ -190,7 +179,7 @@ async def handle_listening_answer(query, context, suffix: str):
             return
 
         word_id = current["word_id"]
-        word = db.words.get_by_id(word_id)
+        word = await run_db(db.words.get_by_id, word_id)
 
         if not word:
             return
@@ -234,19 +223,8 @@ async def handle_listening_answer(query, context, suffix: str):
     finally:
         context.user_data.pop(lock_key, None)
 
-
+@callback_guard("grammar_answer_lock")
 async def handle_listening_skip(query, context):
-    lock_key = "listening_skip_lock"
-
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-
-    context.user_data[lock_key] = True
-
     try:
         session = context.user_data.get("listening_session")
 
@@ -257,7 +235,7 @@ async def handle_listening_skip(query, context):
 
         if current:
             word_id = current["word_id"]
-            word = db.words.get_by_id(word_id)
+            word = await run_db(db.words.get_by_id, word_id)
 
             if word:
                 session["wrong"] = session.get("wrong", 0) + 1
@@ -304,7 +282,7 @@ async def handle_listening_replay(query, context, suffix: str):
     except (ValueError, TypeError):
         return
 
-    word = db.words.get_by_id(word_id)
+    word = await run_db(db.words.get_by_id, word_id)
     if not word:
         return
 

@@ -34,8 +34,7 @@ def get_wrong_options(
 
     same_type_words: List[Word] = []
     if word.word_type:
-        same_type_words = db.words.get_by_type(
-            word.word_type, exclude_id=word.id, limit=50
+        same_type_words = db.words.get_by_type(word.word_type, exclude_id=word.id, limit=50
         )
 
     other_words = db.words.get_by_type(None, exclude_id=word.id, limit=50)

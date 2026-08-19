@@ -184,6 +184,12 @@ def _flashcard_rate_keyboard(word: Word) -> InlineKeyboardMarkup:
         ]
     )
 
+async def start_flashcard_due(query, context):
+    await start_flashcard_session(query, context, only_due=True)
+
+
+async def start_flashcard_hard(query, context):
+    await start_flashcard_session(query, context, hard_only=True)
 
 async def _send_or_edit(query, update, text: str, reply_markup):
     """Send or edit message based on context."""
@@ -375,7 +381,7 @@ async def handle_flip_card(query, context, suffix: str = None):
                 pass
             return
 
-        word = db.words.get_by_id(word_id)
+        word = await run_db(db.words.get_by_id, word_id)
         if not word:
             await render(
                 query, "❌ کلمه پیدا نشد.", reply_markup=back_inline_keyboard()
@@ -472,8 +478,12 @@ async def handle_rate_card(query, context, suffix: str = None):
     context.user_data["flashcard_rate_lock"] = lock_value
 
     try:
-        _, interval_days = fsrs.review_flashcard(user_id, word_id, grade)
-
+        _, interval_days = await run_db(
+            fsrs.review_flashcard,
+            user_id,
+            word_id,
+            grade,
+        )
         requeued = False
 
         # اگر Again بود، همان جلسه دوباره وارد صف شود
@@ -557,7 +567,7 @@ async def _go_next_flashcard(query, context, notice: Optional[str] = None):
     word_id = session.pop_queue()
 
     while word_id is not None:
-        word = db.words.get_by_id(word_id)
+        word = await run_db(db.words.get_by_id, word_id)
         if word:
             await _render_flashcard_front(query, None, context, word, notice=notice)
             return
@@ -572,7 +582,8 @@ async def _go_next_flashcard(query, context, notice: Optional[str] = None):
         exclude_ids = {last_word_id} if last_word_id else set()
         exclude_ids.update(skipped)
 
-        words = db.words.get_hard_due(
+        words = await run_db(
+            db.words.get_hard_due,
             user_id,
             limit=config.FLASHCARD_QUEUE_LIMIT,
             exclude_ids=exclude_ids,

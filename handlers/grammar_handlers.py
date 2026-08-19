@@ -3,6 +3,7 @@ import logging
 import random
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from core.locks import callback_guard
 
 from services import db
 from ui import _short_label, back_inline_keyboard, esc, render
@@ -180,16 +181,9 @@ async def start_grammar_quiz(query, context, point_id: int):
     await render(query, msg, reply_markup=_grammar_quiz_keyboard(options, p["id"]))
 
 
-async def handle_grammar_answer(query, context, suffix: str):
-    lock_key = "grammar_answer_lock"
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-    context.user_data[lock_key] = True
 
+@callback_guard("grammar_answer_lock")
+async def handle_grammar_answer(query, context, suffix: str):
     try:
         cur = context.user_data.get("grammar_current")
         if not cur:

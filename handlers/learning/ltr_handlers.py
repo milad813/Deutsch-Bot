@@ -23,6 +23,7 @@ from models import Word
 from option_generator import get_wrong_options, make_options
 from services import db
 from ui import back_inline_keyboard, esc, render
+from core.locks import callback_guard
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +188,7 @@ async def handle_ltr_learned(query, context):
 
 async def _show_test_question(query, context, word_id: int):
     """Show a quiz question with cognitive ladder question type selection."""
-    word = db.words.get_by_id(word_id)
+    word = await run_db(db.words.get_by_id, word_id)
 
     if not word:
         await _route_next_action(query, context)
@@ -392,17 +393,8 @@ async def _render_article_question(query, context, word: Word):
 # Answer Handling
 # ═══════════════════════════════════════════════════════════════════
 
+@callback_guard("grammar_answer_lock")
 async def handle_ltr_answer(query, context, suffix: str):
-    """Handle user's answer to LTR quiz question."""
-    lock_key = "ltr_answer_lock"
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-
-    context.user_data[lock_key] = True
     try:
         try:
             option_index = int(suffix)
@@ -434,7 +426,7 @@ async def handle_ltr_answer(query, context, suffix: str):
             return
 
         is_correct = option_index == correct_index
-        word = db.words.get_by_id(word_id)
+        word = await run_db(db.words.get_by_id, word_id)
 
         # ✅ Record result WITH question type
         ltr.record_test_result(word_id, is_correct, q_type)
