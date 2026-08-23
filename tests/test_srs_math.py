@@ -152,3 +152,106 @@ def test_review_ltr_mapping(monkeypatch):
 
     svc.review_ltr(uid, wid, [])
     assert seen["grade"] == 3  # empty → default Good
+
+
+# ─── long-gap memory decay & spacing effect (edge cases) ─────────
+
+
+def test_retrievability_after_100_days_decays_monotonically():
+    r10 = P.retrievability(10, 10.0)
+    r50 = P.retrievability(50, 10.0)
+    r100 = P.retrievability(100, 10.0)
+
+    assert P.request_retention > r10 > r50 > r100 > 0.0
+    # Forgetting curve is constructed so that R(9*S) ≈ 0.5.
+    assert math.isclose(P.retrievability(90, 10.0), 0.5, rel_tol=0.01)
+
+
+def test_success_after_100_day_gap_multiplies_stability():
+    """Spacing effect: a successful recall after a long gap boosts S hard."""
+    old_s = 10.0
+    r = P.retrievability(100, old_s)
+
+    new_s = P.calc_stability(3, last_s=old_s, last_d=5.0, retrievability=r)
+
+    assert new_s > old_s * 5, "long gap + success should multiply stability"
+    assert new_s <= P.max_stability
+
+
+def test_interval_from_long_gap_stability_is_capped():
+    new_s = P.calc_stability(4, last_s=200.0, last_d=3.0, retrievability=0.95)
+    assert P.next_interval(new_s) <= P.max_interval_days
+
+
+# ─── clock drift (negative elapsed days) ─────────────────────────
+
+
+def test_negative_elapsed_days_is_treated_as_just_reviewed():
+    # Clock skew must never produce R > 1 or negative-day weirdness.
+    assert P.retrievability(-3, 10.0) == 1.0
+    assert P.retrievability(-0.001, 10.0) == 1.0
+
+
+def test_review_with_future_last_review_grants_no_free_stability(monkeypatch):
+    """If last_review lies in the future, elapsed clamps to 0 → R=1 → ΔS=0."""
+    from datetime import datetime, timedelta, timezone
+    from srs_service import FSRSState
+
+    svc = FSRSService(db=None)
+    future = datetime.now(timezone.utc) + timedelta(days=2)
+    frozen = FSRSState(
+        difficulty=5.0,
+        stability=30.0,
+        reps=4,
+        lapses=1,
+        last_review=future,
+        next_review=None,
+        phase="review",
+    )
+
+    captured = {}
+
+    class _WordsRepo:
+        @staticmethod
+        def update_stats_fsrs(**kwargs):
+            captured.update(kwargs)
+
+    class _DB:
+        words = _WordsRepo()
+
+    monkeypatch.setattr(svc, "get_state", lambda u, w: frozen)
+    svc.db = _DB()
+
+    state, _interval = svc.review(1, 2, grade=3)
+
+    assert state.stability == 30.0
+    assert captured["stability"] == 30.0
+
+
+# ─── grade_from_correctness edge inputs ──────────────────────────
+
+
+def test_grade_with_none_response_time_and_unknown_quiz_type():
+    svc = _svc()
+
+    # Unknown quiz_type falls back to the 8s threshold; rt=None skips it.
+    assert (
+        svc.grade_from_correctness(True, 0, response_time_sec=None, quiz_type="telepathy")
+        == 3
+    )
+    # Unknown type + genuinely slow answer → Hard via default threshold.
+    assert (
+        svc.grade_from_correctness(True, 0, response_time_sec=20.0, quiz_type="telepathy")
+        == 2
+    )
+    # Streak-based Easy is unaffected by missing rt/type.
+    assert svc.grade_from_correctness(True, 3, response_time_sec=None, quiz_type=None) == 4
+    # Wrong answers are always Again regardless of timing metadata.
+    assert svc.grade_from_correctness(False, 0, response_time_sec=None, quiz_type="???") == 1
+
+
+def test_grade_threshold_is_strictly_greater():
+    svc = _svc()
+    # Exactly AT the threshold is still fast enough (comparison is `>`).
+    assert svc.grade_from_correctness(True, 0, response_time_sec=8.0, quiz_type="meaning") == 3
+    assert svc.grade_from_correctness(True, 0, response_time_sec=8.01, quiz_type="meaning") == 2

@@ -99,11 +99,11 @@ def _story_suitability_score(w: Dict) -> int:
     except Exception:
         return 3
 
-def _select_smart_words(
+async def _select_smart_words(
     user_id: int, lesson_id: int, exclude_ids: Set[int], level: str = "A1"
 ) -> List[Dict]:
     """انتخاب هوشمند کلمات با استفاده از metadata جدید."""
-    all_words = db.words.get_by_lesson_full(lesson_id)
+    all_words = await run_db(db.words.get_by_lesson_full, lesson_id)
     if not all_words:
         return []
 
@@ -130,7 +130,7 @@ def _select_smart_words(
         if wid in exclude_ids:
             continue
 
-        stats = db.words.get_stats_full(user_id, wid)
+        stats = await run_db(db.words.get_stats_full, user_id, wid)
         if not stats:
             new_words.append(w)
         elif stats.get("phase") == "learning" or (
@@ -366,8 +366,8 @@ async def _generate_story_for_lesson(
     )
 
     # ─── انتخاب هوشمند کلمات ───
-    candidate_words = await run_db(
-        _select_smart_words, user_id, lesson_id, exclude_ids, level
+    candidate_words = await _select_smart_words(
+        user_id, lesson_id, exclude_ids, level
     )
     if len(candidate_words) < MIN_STORY_WORDS:
         logger.warning(

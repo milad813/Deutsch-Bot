@@ -528,6 +528,13 @@ async def show_dashboard_simple(update, context):
 
     # ─── دکمه‌ها ───
     keyboard = []
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                "🚀 تمرین هوشمند امروز", callback_data="smart_plan"
+            )
+        ]
+    )
     if hard > 0:
         keyboard.append(
             [

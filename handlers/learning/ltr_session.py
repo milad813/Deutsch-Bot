@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from models import Word
-from services import db, fsrs
+from services import db, fsrs, run_db
 from ui import _short_label, progress_bar
 
 logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ class LTRSessionManager:
 
     # ─── Learn Phase ─────────────────────────────────────────────────
 
-    def get_next_word_to_learn(self) -> Optional[Word]:
+    async def get_next_word_to_learn(self) -> Optional[Word]:
         """Get next word that hasn't been taught yet."""
         word_ids = self.user_data.get("ltr_words", [])
         learned = set(self.user_data.get("ltr_words_learned", []))
@@ -82,9 +82,9 @@ class LTRSessionManager:
         if word_id in learned:
             # Skip already learned (shouldn't happen but safety)
             self.user_data["ltr_learn_index"] = learn_index + 1
-            return self.get_next_word_to_learn()
+            return await self.get_next_word_to_learn()
 
-        return db.words.get_by_id(word_id)
+        return await run_db(db.words.get_by_id, word_id)
 
     def mark_word_learned(self, word_id: int):
         """Mark a word as learned and schedule delayed test."""
@@ -130,11 +130,11 @@ class LTRSessionManager:
 
         return None
 
-    def get_current_question_word(self) -> Optional[Word]:
+    async def get_current_question_word(self) -> Optional[Word]:
         """Get the word currently being quizzed."""
         word_id = self.user_data.get("ltr_current_question")
         if word_id:
-            return db.words.get_by_id(word_id)
+            return await run_db(db.words.get_by_id, word_id)
         return None
 
     def record_test_result(self, word_id: int, is_correct: bool, q_type: str = "meaning"):
@@ -200,7 +200,7 @@ class LTRSessionManager:
 
     # ─── Session Flow Control ────────────────────────────────────────
 
-    def get_next_action(self) -> str:
+    async def get_next_action(self) -> str:
         """Determine what to do next.
         Returns: 'learn' | 'test' | 'done'
         """
@@ -209,7 +209,7 @@ class LTRSessionManager:
             return "test"
 
         # 2. Check if there are words left to learn
-        if self.get_next_word_to_learn():
+        if await self.get_next_word_to_learn():
             return "learn"
 
         # 3. Check if there are pending tests (not yet due but no more to learn)
@@ -240,7 +240,7 @@ class LTRSessionManager:
 
     # ─── SRS & Stats ─────────────────────────────────────────────────
 
-    def finalize_word(self, word_id: int, user_id: int = None):
+    async def finalize_word(self, word_id: int, user_id: int = None):
         """Finalize word after all tests are done. Update SRS."""
         uid = user_id or self.user_data.get("ltr_user_id")
         if not uid:
@@ -251,25 +251,25 @@ class LTRSessionManager:
             return
 
         # Update SRS based on all results
-        fsrs.review_ltr(uid, word_id, results)
+        await run_db(fsrs.review_ltr, uid, word_id, results)
 
         # Record activity
         correct_count = sum(1 for r in results if r)
         if all(results):
-            db.users.record_activity(uid, 20)
+            await run_db(db.users.record_activity, uid, 20)
         else:
-            db.users.record_activity(uid, 5 * correct_count)
+            await run_db(db.users.record_activity, uid, 5 * correct_count)
 
-    def finalize_all_passed_words(self):
+    async def finalize_all_passed_words(self):
         """Finalize all words that passed."""
         uid = self.user_data.get("ltr_user_id")
         passed = self.user_data.get("ltr_words_passed", [])
         failed = self.user_data.get("ltr_words_failed", [])
 
         for word_id in passed + failed:
-            self.finalize_word(word_id, user_id=uid)
+            await self.finalize_word(word_id, user_id=uid)
 
-    def finalize_partial_session(self):
+    async def finalize_partial_session(self):
         """Finalize words that have at least one recorded result.
 
         This is used when the user exits before the session is fully complete.
@@ -279,7 +279,7 @@ class LTRSessionManager:
 
         for word_id, word_results in results.items():
             if word_results:
-                self.finalize_word(word_id, user_id=uid)
+                await self.finalize_word(word_id, user_id=uid)
 
     # ─── Summary & Progress ──────────────────────────────────────────
 

@@ -96,7 +96,7 @@ async def handle_study_lesson(query, context, suffix: str):
 async def _show_learn_word(query, context):
     """Show a word MINIMALLY for the user to learn."""
     ltr = LTRSessionManager(context)
-    word = await run_db(ltr.get_next_word_to_learn)
+    word = await ltr.get_next_word_to_learn()
 
     # ✅ Guard: prevent infinite recursion
     if not word:
@@ -162,7 +162,7 @@ async def _show_learn_word(query, context):
 async def handle_ltr_learned(query, context):
     """User confirms they learned the word."""
     ltr = LTRSessionManager(context)
-    word = await run_db(ltr.get_next_word_to_learn)
+    word = await ltr.get_next_word_to_learn()
 
     if not word:
         await _route_next_action(query, context)
@@ -512,7 +512,7 @@ async def _route_next_action(query, context, feedback: str = ""):
         return
 
     # 2. Check if there are words left to learn
-    word = await run_db(ltr.get_next_word_to_learn)
+    word = await ltr.get_next_word_to_learn()
     if word:
         await _show_learn_word(query, context)
         return
@@ -537,7 +537,7 @@ async def _show_ltr_summary(query, context, feedback: str = ""):
     ltr = LTRSessionManager(context)
 
     # Finalize all words (update SRS)
-    await run_db(ltr.finalize_all_passed_words)
+    await ltr.finalize_all_passed_words()
     summary = ltr.get_session_summary()
 
     parts = []
@@ -609,7 +609,7 @@ async def handle_ltr_exit(query, context):
     ltr = LTRSessionManager(context)
 
     try:
-        await run_db(ltr.finalize_partial_session)
+        await ltr.finalize_partial_session()
     except Exception as e:
         logger.warning("خطا در finalize کردن LTR هنگام خروج: %s", e)
 

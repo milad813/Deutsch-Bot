@@ -134,7 +134,10 @@ def main_menu_keyboard(
 ) -> ReplyKeyboardMarkup:
     keyboard = []
 
-    # ─── ردیف اول: اقدام فوری (مهم‌ترین) ───
+    # ─── ردیف اول: برنامه‌ی تطبیقی روز (اقدام پیشنهادی) ───
+    keyboard.append(["🚀 تمرین هوشمند"])
+
+    # ─── ردیف اقدام فوری (میان‌بر مستقیم) ───
     if hard_count > 0:
         keyboard.append([f"🔥 مرور کلمات سخت ({hard_count})"])
     elif due_count > 0:

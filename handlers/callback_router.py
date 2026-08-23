@@ -64,6 +64,7 @@ from handlers.story import (
     start_story_quiz,
 )
 from handlers.story.quiz import handle_story_next_question
+from handlers.smart_plan import show_smart_plan
 from handlers.tts_handlers import cleanup_tts, handle_speak_current
 from middleware.rate_limiter import rate_limiter
 from models import CallbackPrefix
@@ -287,6 +288,7 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "flashcard_hard":start_flashcard_hard,
     "daily_learning":handle_daily_learning,
     "ltr_review_weak": handle_ltr_review_weak,
+    "smart_plan": show_smart_plan,
 
 }
 
@@ -310,6 +312,8 @@ def no_suffix(handler):
     return wrapper
 
 # Type-safe callback routing using CallbackPrefix enum
+# همه‌ی handler ها باید با امضای (query, context, suffix) صدا زده شوند؛
+# برای handler هایی که suffix یا int نیاز دارند از no_suffix/int_suffix استفاده می‌شود.
 PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.QUIZ_TYPE.value, _handle_quiz_type),
     (CallbackPrefix.QUIZ_SOURCE.value, _handle_quiz_source),
@@ -321,37 +325,39 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     (CallbackPrefix.FLASHCARD_LESSON.value, _handle_flashcard_lesson),
     (CallbackPrefix.STUDY_LESSON.value, handle_study_lesson),
     (CallbackPrefix.FLIP_CARD.value, handle_flip_card),
-    (CallbackPrefix.SKIP_FLASHCARD.value,handle_skip_flashcard,),
+    (CallbackPrefix.SKIP_FLASHCARD.value, handle_skip_flashcard),
     (CallbackPrefix.RATE_CARD.value, handle_rate_card),
     (CallbackPrefix.SPEAK_CURRENT.value, handle_speak_current),
     (CallbackPrefix.LESSON_WORDS.value, _handle_lesson_words),
     (CallbackPrefix.BOOK.value, _handle_book),
-    (CallbackPrefix.LESSON.value,menus.show_lesson_options,),
-    (CallbackPrefix.LTR_ANS.value,handle_ltr_answer),
-    (CallbackPrefix.GRAMMAR_LESSON.value,show_grammar_menu,),
-    (CallbackPrefix.GRAMMAR_POINT.value,show_grammar_point),
-    (CallbackPrefix.GRAMMAR_QUIZ.value,start_grammar_quiz,),
-    (CallbackPrefix.GRAMMAR_ANS.value,handle_grammar_answer,),
-    (CallbackPrefix.STORY_LESSON.value,show_story_menu),
-    (CallbackPrefix.STORY_VIEW.value,show_story),
-    (CallbackPrefix.STORY_FA.value,show_story_translation,),
-    (CallbackPrefix.STORY_WORDS.value,show_story_words),
-    (CallbackPrefix.STORY_AUDIO.value,play_story_audio),
-    (CallbackPrefix.STORY_HINT.value,show_story_hint),
-    (CallbackPrefix.STORY_LISTEN_READ.value,play_story_listen_read,),
-    (CallbackPrefix.STORY_LISTEN_ONLY.value,play_story_listen_only,),
-    (CallbackPrefix.STORY_REPLAY.value,replay_story),
+    (CallbackPrefix.LESSON.value, menus.show_lesson_options),
+    (CallbackPrefix.LTR_ANS.value, handle_ltr_answer),
+    (CallbackPrefix.GRAMMAR_LESSON.value, show_grammar_menu),
+    (CallbackPrefix.GRAMMAR_POINT.value, show_grammar_point),
+    (CallbackPrefix.GRAMMAR_QUIZ.value, start_grammar_quiz),
+    (CallbackPrefix.GRAMMAR_ANS.value, handle_grammar_answer),
+    (CallbackPrefix.STORY_LESSON.value, show_story_menu),
+    (CallbackPrefix.STORY_VIEW.value, show_story),
+    (CallbackPrefix.STORY_FA.value, show_story_translation),
+    (CallbackPrefix.STORY_WORDS.value, show_story_words),
+    (CallbackPrefix.STORY_AUDIO.value, play_story_audio),
+    (CallbackPrefix.STORY_HINT.value, show_story_hint),
+    (CallbackPrefix.STORY_LISTEN_READ.value, play_story_listen_read),
+    (CallbackPrefix.STORY_LISTEN_ONLY.value, play_story_listen_only),
+    (CallbackPrefix.STORY_REPLAY.value, replay_story),
     (CallbackPrefix.STORY_QUIZ.value, start_story_quiz),
     (CallbackPrefix.STORY_ANS.value, handle_story_answer),
-    (CallbackPrefix.STORY_NEXT_Q.value,handle_story_next_question,),
-    (CallbackPrefix.STORY_NEXT.value, show_story_menu),
+    (CallbackPrefix.STORY_NEXT_Q.value, handle_story_next_question),
+    # «داستان بعدی» شناسه‌ی درس را از suffix می‌گیرد → تبدیل به int
+    (CallbackPrefix.STORY_NEXT.value, int_suffix(show_story_menu)),
     (CallbackPrefix.SET_LEVEL.value, menus.handle_set_level),
     (CallbackPrefix.SET_GOAL.value, menus.handle_set_goal),
-    (CallbackPrefix.LISTENING_START.value,handle_listening_start,),
-    (CallbackPrefix.LISTENING_ANS.value,handle_listening_answer,),
-    (CallbackPrefix.LISTENING_SKIP.value,handle_listening_skip,),
-    (CallbackPrefix.LISTENING_EXIT.value,handle_listening_exit,),
-    (CallbackPrefix.LISTENING_REPLAY.value,handle_listening_replay,),
+    # این handler ها suffix نمی‌گیرند → wrap با no_suffix تا TypeError نگیریم
+    (CallbackPrefix.LISTENING_START.value, no_suffix(handle_listening_start)),
+    (CallbackPrefix.LISTENING_ANS.value, handle_listening_answer),
+    (CallbackPrefix.LISTENING_SKIP.value, no_suffix(handle_listening_skip)),
+    (CallbackPrefix.LISTENING_EXIT.value, no_suffix(handle_listening_exit)),
+    (CallbackPrefix.LISTENING_REPLAY.value, handle_listening_replay),
     (CallbackPrefix.MIXED_EXAM.value, _handle_mixed_exam),
 ]
 

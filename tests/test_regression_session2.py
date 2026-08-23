@@ -84,16 +84,22 @@ async def test_ltr_test_question_renders_without_name_error(word_lookup):
 # ─── B8/B11: speak-current fallback + fallback question body ─────
 
 
-async def test_speak_current_fallback_path_works(word_lookup):
+async def test_speak_current_fallback_path_works(word_lookup, monkeypatch):
     """current_tts_text missing -> resolve from current_flashcard via run_db."""
     from handlers.tts_handlers import handle_speak_current
+
+    # Deterministic: force TTS unavailability regardless of edge-tts install
+    # or cached audio files, so the handler takes the "unavailable" branch.
+    async def _no_tts(_text):
+        return None
+
+    monkeypatch.setattr(services.tts, "get_audio_path", _no_tts)
 
     context = FakeContext()
     context.user_data["current_flashcard"] = {"word_id": 9}
     query = FakeQuery("speak_current:x")
 
-    # edge-tts is unavailable in tests -> get_audio_path returns None,
-    # so the handler should report unavailability instead of crashing.
+    # TTS unavailable -> the handler reports unavailability instead of crashing.
     await handle_speak_current(query, context, suffix="x")
 
     assert any("تلفظ" in t for t in query.message.sent), query.message.sent

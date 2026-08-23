@@ -3,6 +3,7 @@ from services import get_main_menu_keyboard
 
 from . import menus
 from .learning.flashcard_session import start_flashcard_session
+from .smart_plan import show_smart_plan
 
 
 async def handle_text_input(update, context):
@@ -28,6 +29,7 @@ async def handle_text_input(update, context):
             return
 
     menu_actions = {
+        "🚀 تمرین هوشمند": lambda: show_smart_plan(update, context),
         "📚 کتاب و درس‌ها": lambda: menus.show_books(update, context, is_message=True),
         "🎴 فلش‌کارت": lambda: start_flashcard_session(update, context),
         "🤖 کوییز": lambda: menus.show_quiz_menu(update, context),
