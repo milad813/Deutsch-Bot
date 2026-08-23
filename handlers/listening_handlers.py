@@ -8,7 +8,7 @@ from core.locks import callback_guard
 
 from learning_engine import record_quiz_answer
 from option_generator import get_wrong_options
-from services import db, tts
+from services import db, tts, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
@@ -19,9 +19,11 @@ async def start_listening_quiz(query, context, count: int = 5):
     user_id = query.from_user.id
     lesson_id = context.user_data.get("quiz_lesson_id")
 
-    words = db.words.get_due(user_id, limit=count, lesson_id=lesson_id)
+    words = await run_db(db.words.get_due, user_id, limit=count, lesson_id=lesson_id)
     if not words:
-        words = db.words.get_new_word_objects(user_id, lesson_id=lesson_id, limit=count)
+        words = await run_db(
+            db.words.get_new_word_objects, user_id, lesson_id=lesson_id, limit=count
+        )
 
     if not words:
         await render(
@@ -54,8 +56,8 @@ async def _show_listening_question(update, context):
         await _show_listening_question(update, context)
         return
 
-    wrong_options = get_wrong_options(
-        db, word, count=3, attr_getter=lambda w: w.persian
+    wrong_options = await run_db(
+        get_wrong_options, db, word, count=3, attr_getter=lambda w: w.persian
     )
     options = [word.persian] + wrong_options[:3]
     options = list(dict.fromkeys([str(o).strip() for o in options if str(o).strip()]))
@@ -151,118 +153,114 @@ async def _show_listening_summary(query, context):
 
     await render(query, msg, reply_markup=kb)
 
-@callback_guard("grammar_answer_lock")
+@callback_guard("listening_answer_lock")
 async def handle_listening_answer(query, context, suffix: str):
     try:
+        selected_idx = int(suffix)
+    except (ValueError, TypeError):
         try:
-            selected_idx = int(suffix)
-        except (ValueError, TypeError):
-            try:
-                await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
-            except Exception:
-                pass
-            return
+            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+        except Exception:
+            pass
+        return
 
-        current = context.user_data.get("listening_current")
-        session = context.user_data.get("listening_session")
+    current = context.user_data.get("listening_current")
+    session = context.user_data.get("listening_session")
 
-        if not current or not session:
-            return
+    if not current or not session:
+        return
 
-        options = current.get("options", [])
+    options = current.get("options", [])
 
-        if selected_idx < 0 or selected_idx >= len(options):
-            try:
-                await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
-            except Exception:
-                pass
-            return
+    if selected_idx < 0 or selected_idx >= len(options):
+        try:
+            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+        except Exception:
+            pass
+        return
 
+    word_id = current["word_id"]
+    word = await run_db(db.words.get_by_id, word_id)
+
+    if not word:
+        return
+
+    is_correct = selected_idx == current["correct_index"]
+
+    if is_correct:
+        session["correct"] = session.get("correct", 0) + 1
+        feedback = "✅ آفرین! درست بود!"
+    else:
+        session["wrong"] = session.get("wrong", 0) + 1
+        correct_opt = options[current["correct_index"]]
+        feedback = f"❌ اشتباه. جواب درست: <b>{esc(correct_opt)}</b>"
+
+    user_id = query.from_user.id
+
+    # ✅ ثبت مهارت + mistake + FSRS
+    await run_db(
+        record_quiz_answer,
+        user_id=user_id,
+        word_id=word_id,
+        skill_type="listening",
+        is_correct=is_correct,
+        user_answer=options[selected_idx],
+        correct_answer=word.persian,
+        update_srs=True,
+        update_quiz_stats=True,
+        xp=5 if is_correct else 0,
+        quiz_type="listening",
+    )
+
+    session["current"] = session.get("current", 0) + 1
+    context.user_data.pop("listening_current", None)
+
+    try:
+        await query.answer(feedback, show_alert=False)
+    except Exception:
+        pass
+
+    await _show_listening_question(query, context)
+
+
+@callback_guard("listening_skip_lock")
+async def handle_listening_skip(query, context):
+    session = context.user_data.get("listening_session")
+
+    if not session:
+        return
+
+    current = context.user_data.get("listening_current")
+
+    if current:
         word_id = current["word_id"]
         word = await run_db(db.words.get_by_id, word_id)
 
-        if not word:
-            return
-
-        is_correct = selected_idx == current["correct_index"]
-
-        if is_correct:
-            session["correct"] = session.get("correct", 0) + 1
-            feedback = "✅ آفرین! درست بود!"
-        else:
+        if word:
             session["wrong"] = session.get("wrong", 0) + 1
-            correct_opt = options[current["correct_index"]]
-            feedback = f"❌ اشتباه. جواب درست: <b>{esc(correct_opt)}</b>"
 
-        user_id = query.from_user.id
+            user_id = query.from_user.id
 
-        # ✅ ثبت مهارت + mistake + FSRS
-        record_quiz_answer(
-            user_id=user_id,
-            word_id=word_id,
-            skill_type="listening",
-            is_correct=is_correct,
-            user_answer=options[selected_idx],
-            correct_answer=word.persian,
-            update_srs=True,
-            update_quiz_stats=True,
-            xp=5 if is_correct else 0,
-            quiz_type="listening",
-        )
+            # ✅ skip روی FSRS اثر بگذارد، ولی در آمار کلی کوییز ثبت نشود
+            await run_db(
+                record_quiz_answer,
+                user_id=user_id,
+                word_id=word_id,
+                skill_type="listening",
+                is_correct=False,
+                user_answer="(skipped)",
+                correct_answer=word.persian,
+                update_srs=True,
+                update_quiz_stats=False,
+                xp=0,
+                quiz_type="listening",
+            )
 
-        session["current"] = session.get("current", 0) + 1
-        context.user_data.pop("listening_current", None)
+    session["current"] = session.get("current", 0) + 1
+    context.user_data.pop("listening_current", None)
 
-        try:
-            await query.answer(feedback, show_alert=False)
-        except Exception:
-            pass
+    await _show_listening_question(query, context)
 
-        await _show_listening_question(query, context)
-
-    finally:
-        context.user_data.pop(lock_key, None)
-
-@callback_guard("grammar_answer_lock")
-async def handle_listening_skip(query, context):
-    try:
-        session = context.user_data.get("listening_session")
-
-        if not session:
-            return
-
-        current = context.user_data.get("listening_current")
-
-        if current:
-            word_id = current["word_id"]
-            word = await run_db(db.words.get_by_id, word_id)
-
-            if word:
-                session["wrong"] = session.get("wrong", 0) + 1
-
-                user_id = query.from_user.id
-
-                # ✅ skip روی FSRS اثر بگذارد، ولی در آمار کلی کوییز ثبت نشود
-                record_quiz_answer(
-                    user_id=user_id,
-                    word_id=word_id,
-                    skill_type="listening",
-                    is_correct=False,
-                    user_answer="(skipped)",
-                    correct_answer=word.persian,
-                    update_srs=True,
-                    update_quiz_stats=False,
-                    xp=0,
-                    quiz_type="listening",
-                )
-
-        session["current"] = session.get("current", 0) + 1
-        context.user_data.pop("listening_current", None)
-
-        await _show_listening_question(query, context)
-
-    finally:
-        context.user_data.pop(lock_key, None)
 
 
 async def handle_listening_exit(query, context):

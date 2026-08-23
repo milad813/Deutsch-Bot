@@ -21,10 +21,19 @@ def _utc_now() -> datetime:
 class DatabaseConnection:
     """Manages SQLite database connection."""
 
-    def __init__(self, db_name: str = "words.db"):
+    def __init__(
+        self,
+        db_name: str = "words.db",
+        backup_keep_days: int = 14,
+        backup_keep_max: int = 30,
+    ):
         self.db_name = db_name
         self._write_lock = threading.RLock()
         self._op_lock = threading.RLock()
+        # Backup retention is injected (wired from config by the container),
+        # keeping this module free of config imports.
+        self.backup_keep_days = backup_keep_days
+        self.backup_keep_max = backup_keep_max
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
         self._setup_connection()
 
@@ -62,16 +71,9 @@ class DatabaseConnection:
         except Exception as e:
             logger.error("Error closing database: %s", e)
 
-    def _cleanup_old_backups(
-        self, backup_dir: str, keep_days: int = 14, keep_max: int = 30
-    ):
-        try:
-            from config import BACKUP_KEEP_DAYS, BACKUP_KEEP_MAX
-
-            keep_days = BACKUP_KEEP_DAYS
-            keep_max = BACKUP_KEEP_MAX
-        except Exception:
-            pass
+    def _cleanup_old_backups(self, backup_dir: str):
+        keep_days = self.backup_keep_days
+        keep_max = self.backup_keep_max
         try:
             if not os.path.isdir(backup_dir):
                 return

@@ -4,7 +4,7 @@ import logging
 from typing import Dict
 
 import config
-from services import db, tts
+from services import db, run_db, tts
 from ui import strip_html
 
 logger = logging.getLogger(__name__)

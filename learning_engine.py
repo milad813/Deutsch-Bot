@@ -1,14 +1,25 @@
-"""Unified learning engine for recording answers, skills and mistakes."""
+"""Unified learning engine for recording answers, skills and mistakes.
+
+Dependencies are resolved lazily (at call time) instead of importing the
+global singletons at module import — this removes the import-time coupling
+with ``services`` and makes the engine monkeypatch-friendly in tests.
+"""
 
 from typing import Optional
 
-from services import db, fsrs
+
+def _deps():
+    from services import db, fsrs
+
+    return db, fsrs
 
 
 def record_skill(user_id: int, word_id: int, skill_type: str, is_correct: bool) -> None:
     """Record a word skill attempt without affecting SRS directly."""
-    if word_id:
-        db.learning.record_skill(user_id, word_id, skill_type, is_correct)
+    if not word_id:
+        return
+    db, _ = _deps()
+    db.learning.record_skill(user_id, word_id, skill_type, is_correct)
 
 
 def record_mistake(
@@ -22,6 +33,7 @@ def record_mistake(
     correct_answer: Optional[str] = None,
 ) -> None:
     """Record mistake."""
+    db, _ = _deps()
     db.learning.record_mistake(
         user_id=user_id,
         word_id=word_id,
@@ -57,6 +69,7 @@ def record_quiz_answer(
     - XP/activity if xp is provided
     """
     quiz_type = quiz_type or skill_type
+    db, fsrs = _deps()
 
     if update_quiz_stats:
         db.users.update_quiz_stats(user_id, is_correct)

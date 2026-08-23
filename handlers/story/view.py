@@ -4,7 +4,7 @@ import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from services import db
+from services import db, run_db
 from ui import back_inline_keyboard, esc, render, sanitize_html
 from utils import safe_json_list
 
@@ -22,7 +22,7 @@ def _safe_id_list(raw):
 
 
 async def show_story(query, context, story_id: int):
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -32,7 +32,7 @@ async def show_story(query, context, story_id: int):
 
     title = story.get("title_de") or story.get("title_fa") or "داستان"
     target_ids = _safe_id_list(story.get("target_word_ids"))
-    words = db.words.get_by_ids(target_ids) if target_ids else []
+    words = (await run_db(db.words.get_by_ids, target_ids)) if target_ids else []
 
     msg = f"📖 <b>{esc(title)}</b>\n{sanitize_html(story['text_de'])}"
 
@@ -40,7 +40,7 @@ async def show_story(query, context, story_id: int):
         msg += "\n🎯 <b>کلمات این داستان:</b>\n"
         user_id = query.from_user.id
         for w in words[:12]:
-            stats = db.words.get_stats_full(user_id, w.id)
+            stats = await run_db(db.words.get_stats_full, user_id, w.id)
             if not stats:
                 status = "🆕"
             elif stats.get("phase") == "learning" or stats.get("wrong", 0) > stats.get(
@@ -92,7 +92,7 @@ async def show_story(query, context, story_id: int):
 
 async def show_story_hint(query, context, story_id: int):
     """Show progressive hints for the story."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -102,11 +102,11 @@ async def show_story_hint(query, context, story_id: int):
 
     if hint_level == 0:
         target_ids = _safe_id_list(story.get("target_word_ids"))
-        words = db.words.get_by_ids(target_ids) if target_ids else []
+        words = (await run_db(db.words.get_by_ids, target_ids)) if target_ids else []
 
         weak_in_story = []
         for w in words:
-            stats = db.words.get_stats_full(user_id, w.id)
+            stats = await run_db(db.words.get_stats_full, user_id, w.id)
             if not stats:
                 weak_in_story.append(w)
             elif stats.get("wrong", 0) > stats.get("correct", 0):
@@ -194,7 +194,7 @@ async def show_story_hint(query, context, story_id: int):
 
 async def show_story_translation(query, context, story_id: int):
     """Show full Persian translation of the story."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -218,7 +218,7 @@ async def show_story_translation(query, context, story_id: int):
 
 async def play_story_listen_read(query, context, story_id: int):
     """Play audio while showing text (listen and read)."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -236,7 +236,7 @@ async def play_story_listen_read(query, context, story_id: int):
 
 async def play_story_listen_only(query, context, story_id: int):
     """Play audio without showing text (listening only)."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -275,7 +275,7 @@ async def play_story_listen_only(query, context, story_id: int):
 
 async def play_story_audio(query, context, story_id: int):
     """Send story as audio message."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -287,13 +287,13 @@ async def play_story_audio(query, context, story_id: int):
 
 async def show_story_words(query, context, story_id: int):
     """Show vocabulary from the story."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
     target_ids = _safe_id_list(story.get("target_word_ids"))
-    words = db.words.get_by_ids(target_ids) if target_ids else []
+    words = (await run_db(db.words.get_by_ids, target_ids)) if target_ids else []
 
     if not words:
         await render(query, "❌ کلمه‌ای یافت نشد.", reply_markup=back_inline_keyboard())
@@ -303,7 +303,7 @@ async def show_story_words(query, context, story_id: int):
     msg = f"🧩 <b>کلمات داستان</b>\n\n"
 
     for w in words:
-        stats = db.words.get_stats_full(user_id, w.id)
+        stats = await run_db(db.words.get_stats_full, user_id, w.id)
         if not stats:
             status = "🆕 جدید"
         elif stats.get("phase") == "learning":
@@ -340,7 +340,7 @@ async def show_story_words(query, context, story_id: int):
 
 async def replay_story(query, context, story_id: int):
     """Replay story audio."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return

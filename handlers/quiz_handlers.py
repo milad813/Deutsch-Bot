@@ -75,7 +75,7 @@ async def _get_word_for_quiz(user_id, lesson_id, source_filter, exclude_ids):
     )
     if words is not None:
         return random.choice(words) if words else None
-    return db.words.get_random(lesson_id=lesson_id, exclude_ids=exclude_ids)
+    return await run_db(db.words.get_random, lesson_id=lesson_id, exclude_ids=exclude_ids)
 
 
 async def _get_noun_with_article(user_id, lesson_id, source_filter, exclude_ids):
@@ -85,8 +85,11 @@ async def _get_noun_with_article(user_id, lesson_id, source_filter, exclude_ids)
     if words is not None:
         words = [w for w in words if w.article]
         return random.choice(words) if words else None
-    nouns = db.words.get_nouns_with_article(
-        lesson_id=lesson_id, limit=100, exclude_ids=exclude_ids
+    nouns = await run_db(
+        db.words.get_nouns_with_article,
+        lesson_id=lesson_id,
+        limit=100,
+        exclude_ids=exclude_ids,
     )
     return random.choice(nouns) if nouns else None
 
@@ -104,7 +107,8 @@ async def _get_word_with_example(user_id, lesson_id, source_filter, exclude_ids)
         if candidates:
             return random.choice(candidates)
 
-    words = db.words.get_with_examples(
+    words = await run_db(
+        db.words.get_with_examples,
         lesson_id=lesson_id,
         exclude_ids=exclude_ids,
     )
@@ -140,7 +144,8 @@ async def _ensure_example_background(word: Word, level: str) -> None:
 
         if example and example.get("de"):
             # ذخیره در جدول words برای استفاده‌های بعدی
-            db.words.execute(
+            await run_db(
+                db.words.execute,
                 """
                 UPDATE words
                 SET example_de = ?, example_fa = ?
@@ -151,7 +156,8 @@ async def _ensure_example_background(word: Word, level: str) -> None:
             )
 
             # ذخیره در cache جداگانه LLM
-            db.learning.save_llm_example(
+            await run_db(
+                db.learning.save_llm_example,
                 word_id=word.id,
                 level=level,
                 example_de=example.get("de"),
@@ -179,7 +185,8 @@ async def _gen_meaning(word: Word, user_id: int, level: str) -> Optional[Dict]:
     تولید سوال معنی به صورت local-first.
     اگر QUIZ_LLM_GENERATION فعال بود، فقط با timeout خیلی کم LLM را امتحان می‌کند.
     """
-    wrong = get_wrong_options(
+    wrong = await run_db(
+        get_wrong_options,
         db,
         word,
         count=3,
@@ -227,7 +234,8 @@ async def _gen_reverse(word: Word, user_id: int, level: str) -> Optional[Dict]:
         else word.german
     )
 
-    wrong = get_wrong_options(
+    wrong = await run_db(
+        get_wrong_options,
         db,
         word,
         count=3,
@@ -273,7 +281,7 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     ex_de = word.example_de
 
     if not ex_de:
-        cached = db.learning.get_llm_example(word.id, level)
+        cached = await run_db(db.learning.get_llm_example, word.id, level)
         if cached:
             ex_de = cached.get("de")
 
@@ -293,7 +301,8 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
     if not base_cloze:
         return None
 
-    wrong = get_wrong_options(
+    wrong = await run_db(
+        get_wrong_options,
         db,
         word,
         count=3,
@@ -322,7 +331,7 @@ async def _gen_mixed(word: Word, user_id: int, level: str) -> Optional[Dict]:
     # ✅ بررسی example دیتابیس یا cached LLM example
     has_example = bool(word.example_de)
     if not has_example:
-        cached = db.learning.get_llm_example(word.id, level)
+        cached = await run_db(db.learning.get_llm_example, word.id, level)
         has_example = bool(cached and cached.get("de"))
 
     if has_example:
@@ -388,7 +397,7 @@ async def _start_generic_quiz(
         user_id = query.from_user.id
         lesson_id = context.user_data.get("quiz_lesson_id")
 
-        settings = db.users.get_settings(user_id)
+        settings = await run_db(db.users.get_settings, user_id)
         level = settings.get("preferred_level", "A1")
 
         session = context.user_data.get("quiz_session_obj")
@@ -486,7 +495,7 @@ async def start_quiz_by_type(
             exclude = set(exclude_ids or [])
             for wid in fixed_word_ids:
                 if wid not in exclude:
-                    w = db.words.get_by_id(wid)
+                    w = await run_db(db.words.get_by_id, wid)
                     if w:
                         return w
             return None
@@ -637,127 +646,126 @@ async def _show_quiz_summary(query, context, header: str = ""):
 
     await render(query, text, reply_markup=InlineKeyboardMarkup(keyboard))
 
-@callback_guard("grammar_answer_lock")
+@callback_guard("quiz_answer_lock")
 async def handle_quiz_answer(query, context):
-    try:
-        if "current_quiz" not in context.user_data:
-            try:
-                await query.answer("⚠️ کوییز فعال نیست.", show_alert=True)
-            except Exception:
-                pass
-            return
-
-        quiz_info = context.user_data["current_quiz"]
-
+    if "current_quiz" not in context.user_data:
         try:
-            chosen_index = int(query.data.split(":")[1])
-        except (ValueError, IndexError):
-            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+            await query.answer("⚠️ کوییز فعال نیست.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    quiz_info = context.user_data["current_quiz"]
+
+    try:
+        chosen_index = int(query.data.split(":")[1])
+    except (ValueError, IndexError):
+        await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+        return
+
+    options = quiz_info.get("options", [])
+    if chosen_index < 0 or chosen_index >= len(options):
+        await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+        return
+
+    user_id = query.from_user.id
+    is_correct = chosen_index == quiz_info["correct_index"]
+    user_answer_text = options[chosen_index]
+    sent_at = context.user_data.pop("quiz_question_sent_at", None)
+    response_time = None
+    if sent_at:
+        response_time = time.time() - sent_at
+    correct_answer = (
+        quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
+    )
+
+    quiz_type = quiz_info.get("type", "meaning")
+
+    await run_db(
+        record_quiz_answer,
+        user_id=user_id,
+        word_id=quiz_info.get("word_id"),
+        skill_type=quiz_type,
+        is_correct=is_correct,
+        user_answer=user_answer_text,
+        correct_answer=correct_answer,
+        update_srs=True,
+        update_quiz_stats=True,
+        xp=5 if is_correct else 0,
+        quiz_type=quiz_type,
+    )
+    _update_quiz_session(
+        context,
+        is_correct,
+        quiz_info.get("word", ""),
+        quiz_info.get("word_id"),
+        user_answer_text,
+        correct_answer,
+    )
+
+    context.user_data.pop("current_quiz", None)
+
+    if is_correct:
+        try:
+            await query.answer("✅ درست بود!", show_alert=False)
+        except Exception:
+            pass
+
+        if config.QUIZ_AUTO_NEXT_ON_CORRECT:
+            if _is_session_finished(context):
+                await _show_quiz_summary(query, context)
+            else:
+                context.user_data["quiz_flash"] = "✅ درست بود!"
+                await _send_next_quiz(query, context)
             return
 
-        options = quiz_info.get("options", [])
-        if chosen_index < 0 or chosen_index >= len(options):
-            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
-            return
+        feedback = "✅ آفرین! جواب درست بود! 🎉"
+    else:
+        try:
+            await query.answer("❌ اشتباه بود", show_alert=False)
+        except Exception:
+            pass
 
-        user_id = query.from_user.id
-        is_correct = chosen_index == quiz_info["correct_index"]
-        user_answer_text = options[chosen_index]
-        sent_at = context.user_data.pop("quiz_question_sent_at", None)
-        response_time = None
-        if sent_at:
-            response_time = time.time() - sent_at
-        correct_answer = (
-            quiz_info.get("correct_answer") or options[quiz_info["correct_index"]]
-        )
+        feedback = f"❌ اشتباه بود!\n✅ جواب درست: {esc(correct_answer)}"
 
-        await run_db(
-            record_quiz_answer,
-            user_id=user_id,
-            word_id=word_id,
-            skill_type="listening",
-            is_correct=is_correct,
-            user_answer=options[selected_idx],
-            correct_answer=word.persian,
-            update_srs=True,
-            update_quiz_stats=True,
-            xp=5 if is_correct else 0,
-            quiz_type="listening",
-        )
-        _update_quiz_session(
-            context,
-            is_correct,
-            quiz_info.get("word", ""),
-            quiz_info.get("word_id"),
-            user_answer_text,
-            correct_answer,
-        )
-
-        context.user_data.pop("current_quiz", None)
-
-        if is_correct:
+        if config.QUIZ_LLM_EXPLAIN_MISTAKE and llm.is_available():
             try:
-                await query.answer("✅ درست بود!", show_alert=False)
-            except Exception:
-                pass
+                explanation = await asyncio.wait_for(
+                    llm.explain_mistake(
+                        quiz_info.get("word", ""),
+                        user_answer_text,
+                        correct_answer,
+                        quiz_info.get("type", "meaning"),
+                    ),
+                    timeout=config.QUIZ_LLM_TIMEOUT_SECONDS,
+                )
 
-            if config.QUIZ_AUTO_NEXT_ON_CORRECT:
-                if _is_session_finished(context):
-                    await _show_quiz_summary(query, context)
-                else:
-                    context.user_data["quiz_flash"] = "✅ درست بود!"
-                    await _send_next_quiz(query, context)
-                return
+                if explanation:
+                    feedback += f"\n💡 {esc(explanation)}"
 
-            feedback = "✅ آفرین! جواب درست بود! 🎉"
-        else:
-            try:
-                await query.answer("❌ اشتباه بود", show_alert=False)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("LLM explain mistake timeout/fallback: %s", e)
 
-            feedback = f"❌ اشتباه بود!\n✅ جواب درست: {esc(correct_answer)}"
+    if _is_session_finished(context):
+        await _show_quiz_summary(query, context, header=feedback)
+    else:
+        progress = _get_session_progress(context)
+        text = feedback
+        if progress:
+            text += f"\n{esc(progress)}"
 
-            if config.QUIZ_LLM_EXPLAIN_MISTAKE and llm.is_available():
-                try:
-                    explanation = await asyncio.wait_for(
-                        llm.explain_mistake(
-                            quiz_info.get("word", ""),
-                            user_answer_text,
-                            correct_answer,
-                            quiz_info.get("type", "meaning"),
-                        ),
-                        timeout=config.QUIZ_LLM_TIMEOUT_SECONDS,
-                    )
-
-                    if explanation:
-                        feedback += f"\n💡 {esc(explanation)}"
-
-                except Exception as e:
-                    logger.warning("LLM explain mistake timeout/fallback: %s", e)
-
-        if _is_session_finished(context):
-            await _show_quiz_summary(query, context, header=feedback)
-        else:
-            progress = _get_session_progress(context)
-            text = feedback
-            if progress:
-                text += f"\n{esc(progress)}"
-
-            kb = InlineKeyboardMarkup(
+        kb = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("⏭️ سوال بعدی", callback_data="quiz_next")],
                 [
-                    [InlineKeyboardButton("⏭️ سوال بعدی", callback_data="quiz_next")],
-                    [
-                        InlineKeyboardButton(
-                            "🔙 منوی اصلی", callback_data="back_to_main_menu"
-                        )
-                    ],
-                ]
-            )
+                    InlineKeyboardButton(
+                        "🔙 منوی اصلی", callback_data="back_to_main_menu"
+                    )
+                ],
+            ]
+        )
 
-            await render(query, text, reply_markup=kb)
-    finally:
-        context.user_data.pop(lock_key, None)
+        await render(query, text, reply_markup=kb)
 
 
 async def start_quiz_session(
@@ -785,7 +793,7 @@ async def start_wrong_quiz(query, context):
         )
         return
 
-    words = db.words.get_by_ids(wrong_ids)
+    words = await run_db(db.words.get_by_ids, wrong_ids)
     if not words:
         await render(
             query,
@@ -808,7 +816,7 @@ async def start_wrong_quiz(query, context):
 
 async def start_quiz_session_with_words(query, context, word_ids):
     word_ids = list(dict.fromkeys(word_ids or []))
-    words = db.words.get_by_ids(word_ids)
+    words = await run_db(db.words.get_by_ids, word_ids)
     if not words:
         await render(query, "📭 کلمه‌ای پیدا نشد.", reply_markup=back_inline_keyboard())
         return

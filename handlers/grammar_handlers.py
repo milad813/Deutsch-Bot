@@ -5,7 +5,7 @@ import random
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from core.locks import callback_guard
 
-from services import db
+from services import db, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def _grammar_quiz_keyboard(options, point_id):
     return InlineKeyboardMarkup(kb)
 
 async def show_grammar_menu(query, context, lesson_id: int):
-    points = db.grammar.get_by_lesson(lesson_id)
+    points = await run_db(db.grammar.get_by_lesson, lesson_id)
     if not points:
         await render(
             query,
@@ -63,7 +63,7 @@ async def show_grammar_menu(query, context, lesson_id: int):
 
 
 async def show_grammar_point(query, context, point_id: int):
-    p = db.grammar.get_by_id(point_id)
+    p = await run_db(db.grammar.get_by_id, point_id)
     if not p:
         await render(query, "❌ نکته پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -97,7 +97,7 @@ async def show_grammar_point(query, context, point_id: int):
 
 
 async def start_grammar_quiz(query, context, point_id: int):
-    p = db.grammar.get_by_id(point_id)
+    p = await run_db(db.grammar.get_by_id, point_id)
 
     if not p:
         await render(query, "❌ نکته پیدا نشد.", reply_markup=back_inline_keyboard())
@@ -184,71 +184,69 @@ async def start_grammar_quiz(query, context, point_id: int):
 
 @callback_guard("grammar_answer_lock")
 async def handle_grammar_answer(query, context, suffix: str):
-    try:
-        cur = context.user_data.get("grammar_current")
-        if not cur:
-            try:
-                await query.answer("⚠️ تمرینی فعال نیست.", show_alert=True)
-            except Exception:
-                pass
-            return
-
+    cur = context.user_data.get("grammar_current")
+    if not cur:
         try:
-            chosen = int(suffix)
-        except ValueError:
-            return
+            await query.answer("⚠️ تمرینی فعال نیست.", show_alert=True)
+        except Exception:
+            pass
+        return
 
-        options = cur["options"]
-        if chosen < 0 or chosen >= len(options):
-            return
+    try:
+        chosen = int(suffix)
+    except ValueError:
+        return
 
-        is_correct = chosen == cur["correct_index"]
-        user_id = query.from_user.id
+    options = cur["options"]
+    if chosen < 0 or chosen >= len(options):
+        return
 
-        db.learning.record_grammar_answer(user_id, cur["point_id"], is_correct)
+    is_correct = chosen == cur["correct_index"]
+    user_id = query.from_user.id
 
-        if not is_correct:
-            db.learning.record_mistake(
-                user_id=user_id,
-                grammar_point_id=cur["point_id"],
-                skill_type="grammar",
-                quiz_type="grammar",
-                user_answer=options[chosen],
-                correct_answer=cur["correct"],
-            )
+    await run_db(db.learning.record_grammar_answer, user_id, cur["point_id"], is_correct)
 
-        db.users.record_activity(user_id, 10 if is_correct else 0)
-
-        if is_correct:
-            try:
-                await query.answer("✅ درست!", show_alert=False)
-            except Exception:
-                pass
-            msg = "✅ <b>آفرین! درست بود.</b>"
-        else:
-            try:
-                await query.answer(f"❌ جواب: {cur['correct']}", show_alert=True)
-            except Exception:
-                pass
-            msg = f"❌ اشتباه بود.\n✅ جواب درست: <b>{esc(cur['correct'])}</b>"
-            if cur.get("explanation"):
-                msg += f"\n💡 {esc(cur['explanation'])}"
-
-        kb = [
-            [
-                InlineKeyboardButton(
-                    "✍️ تمرین دیگر", callback_data=f"grammar_quiz:{cur['point_id']}"
-                )
-            ]
-        ]
-        kb.append(
-            [
-                InlineKeyboardButton(
-                    "🔙 بازگشت به نکته",
-                    callback_data=f"grammar_point:{cur['point_id']}",
-                )
-            ]
+    if not is_correct:
+        await run_db(
+            db.learning.record_mistake,
+            user_id=user_id,
+            grammar_point_id=cur["point_id"],
+            skill_type="grammar",
+            quiz_type="grammar",
+            user_answer=options[chosen],
+            correct_answer=cur["correct"],
         )
-        await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))
-    finally:
-        context.user_data.pop(lock_key, None)
+
+    await run_db(db.users.record_activity, user_id, 10 if is_correct else 0)
+
+    if is_correct:
+        try:
+            await query.answer("✅ درست!", show_alert=False)
+        except Exception:
+            pass
+        msg = "✅ <b>آفرین! درست بود.</b>"
+    else:
+        try:
+            await query.answer(f"❌ جواب: {cur['correct']}", show_alert=True)
+        except Exception:
+            pass
+        msg = f"❌ اشتباه بود.\n✅ جواب درست: <b>{esc(cur['correct'])}</b>"
+        if cur.get("explanation"):
+            msg += f"\n💡 {esc(cur['explanation'])}"
+
+    kb = [
+        [
+            InlineKeyboardButton(
+                "✍️ تمرین دیگر", callback_data=f"grammar_quiz:{cur['point_id']}"
+            )
+        ]
+    ]
+    kb.append(
+        [
+            InlineKeyboardButton(
+                "🔙 بازگشت به نکته",
+                callback_data=f"grammar_point:{cur['point_id']}",
+            )
+        ]
+    )
+    await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))

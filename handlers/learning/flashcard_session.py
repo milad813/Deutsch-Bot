@@ -10,8 +10,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from models import Word
-from services import db, fsrs, llm
+from services import db, fsrs, llm, run_db
 from ui import _bold_word_in_sentence, back_inline_keyboard, esc, render
+from core.locks import callback_guard
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class FlashcardSessionManager:
         self.user_data["flashcard_skipped_ids"] = set()
         self.user_data["flashcard_again_counts"] = {}
 
-    def load_words(
+    async def load_words(
         self,
         user_id: int,
         limit: int = config.FLASHCARD_QUEUE_LIMIT,
@@ -52,18 +53,21 @@ class FlashcardSessionManager:
         lesson_id = self.user_data.get("active_lesson_id")
 
         if hard_only:
-            return db.words.get_hard_due(
+            return await run_db(
+                db.words.get_hard_due,
                 user_id,
                 limit=limit,
             )
         elif only_due:
-            return db.words.get_due(
+            return await run_db(
+                db.words.get_due,
                 user_id,
                 limit=limit,
                 lesson_id=lesson_id,
             )
         else:
-            return fsrs.get_review_cards(
+            return await run_db(
+                fsrs.get_review_cards,
                 user_id,
                 limit=limit,
                 lesson_id=lesson_id,
@@ -196,7 +200,7 @@ async def _send_or_edit(query, update, text: str, reply_markup):
     await render(query or update, text, reply_markup=reply_markup)
 
 
-def _get_level_for_context(context, user_id: int) -> str:
+async def _get_level_for_context(context, user_id: int) -> str:
     """Get user's preferred level from context or database."""
     lesson_id = (
         context.user_data.get("active_lesson_id")
@@ -205,22 +209,22 @@ def _get_level_for_context(context, user_id: int) -> str:
     )
 
     if lesson_id:
-        level = db.books.get_level_by_lesson(lesson_id)
+        level = await run_db(db.books.get_level_by_lesson, lesson_id)
         if level:
             return level
 
-    settings = db.users.get_settings(user_id)
+    settings = await run_db(db.users.get_settings, user_id)
     return settings.get("preferred_level", "A1")
 
 
-def _should_quick_rate(user_id: Optional[int], word_id: int) -> bool:
+async def _should_quick_rate(user_id: Optional[int], word_id: int) -> bool:
     """شرط نمایش دکمه‌های ارزیابی مستقیم روی سمت جلوی کارت:
     ۱) flag تنظیمات FLASHCARD_QUICK_RATE روشن باشد
     ۲) کلمه قبلاً دیده شده باشد (رکورد word_stats داشته باشد)
     کلمات کاملاً جدید همچنان مسیر فلیپ اجباری را دارند."""
     if not config.FLASHCARD_QUICK_RATE or not user_id:
         return False
-    return db.words.get_stats_full(user_id, word_id) is not None
+    return await run_db(db.words.get_stats_full, user_id, word_id) is not None
 
 async def start_flashcard_session(
     update,
@@ -247,7 +251,7 @@ async def start_flashcard_session(
     )
 
     # Load words
-    words = session.load_words(user_id)
+    words = await session.load_words(user_id)
 
     if not words:
         if hard_only:
@@ -281,7 +285,7 @@ async def _render_flashcard_front(
     # Set current word
     session = FlashcardSessionManager(context)
     session.set_current_word(word.id)
-    quick_rate = _should_quick_rate(user_id, word.id)
+    quick_rate = await _should_quick_rate(user_id, word.id)
 
     # Example priority:
     # 1. Saved example from words table
@@ -295,8 +299,8 @@ async def _render_flashcard_front(
             "fa": word.example_fa,
         }
     else:
-        level = _get_level_for_context(context, user_id) if user_id else "A1"
-        example = db.learning.get_llm_example(word.id, level)
+        level = await _get_level_for_context(context, user_id) if user_id else "A1"
+        example = await run_db(db.learning.get_llm_example, word.id, level)
 
         if not example and user_id and llm.is_available():
             pending_key = (word.id, level)
@@ -353,92 +357,79 @@ async def _render_flashcard_front(
     )
 
 
+@callback_guard("flashcard_flip_lock")
 async def handle_flip_card(query, context, suffix: str = None):
     """Handle flip card action."""
-    lock_key = "flashcard_flip_lock"
+    try:
+        word_id = int(suffix) if suffix else int(query.data.split(":")[1])
+    except (ValueError, IndexError):
+        await render(query, "❌ کارت نامعتبر.", reply_markup=back_inline_keyboard())
+        return
 
-    if context.user_data.get(lock_key):
+    current = context.user_data.get("current_flashcard") or {}
+    if current.get("word_id") != word_id:
         try:
-            await query.answer()
+            await query.answer("⚠️ این کارت منقضی شده.", show_alert=True)
         except Exception:
             pass
         return
 
-    context.user_data[lock_key] = True
+    word = await run_db(db.words.get_by_id, word_id)
+    if not word:
+        await render(
+            query, "❌ کلمه پیدا نشد.", reply_markup=back_inline_keyboard()
+        )
+        return
 
-    try:
-        try:
-            word_id = int(suffix) if suffix else int(query.data.split(":")[1])
-        except (ValueError, IndexError):
-            await render(query, "❌ کارت نامعتبر.", reply_markup=back_inline_keyboard())
-            return
+    fc_data = context.user_data.get("current_flashcard", {}) or {}
+    example = fc_data.get("example")
+    fc_data["flipped"] = True
+    context.user_data["current_flashcard"] = fc_data
+    example_de = None
+    example_fa = None
 
-        current = context.user_data.get("current_flashcard") or {}
-        if current.get("word_id") != word_id:
-            try:
-                await query.answer("⚠️ این کارت منقضی شده.", show_alert=True)
-            except Exception:
-                pass
-            return
+    if example and example.get("de"):
+        example_de = example["de"]
+        example_fa = example.get("fa")
+    elif word.example_de:
+        example_de = word.example_de
+        example_fa = word.example_fa
 
-        word = await run_db(db.words.get_by_id, word_id)
-        if not word:
-            await render(
-                query, "❌ کلمه پیدا نشد.", reply_markup=back_inline_keyboard()
-            )
-            return
+    msg = "🎴 <b>فلش‌کارت</b>\n"
+    speak_text = word.display_german
+    show_example = False
 
-        fc_data = context.user_data.get("current_flashcard", {}) or {}
-        example = fc_data.get("example")
-        fc_data["flipped"] = True
-        context.user_data["current_flashcard"] = fc_data
-        example_de = None
-        example_fa = None
+    if example_de:
+        sentence_with_bold = _bold_word_in_sentence(example_de, word.german)
+        if "<b>" in sentence_with_bold:
+            msg += f"🇩🇪 {sentence_with_bold}\n"
 
-        if example and example.get("de"):
-            example_de = example["de"]
-            example_fa = example.get("fa")
-        elif word.example_de:
-            example_de = word.example_de
-            example_fa = word.example_fa
+        if example_fa:
+            msg += f"🇮🇷 <i>{esc(example_fa)}</i>\n"
 
-        msg = "🎴 <b>فلش‌کارت</b>\n"
-        speak_text = word.display_german
-        show_example = False
+        msg += f"\n📌 <b>{esc(word.display_german)}</b> = {esc(word.persian)}\n"
+        speak_text = example_de
+        show_example = True
 
-        if example_de:
-            sentence_with_bold = _bold_word_in_sentence(example_de, word.german)
-            if "<b>" in sentence_with_bold:
-                msg += f"🇩🇪 {sentence_with_bold}\n"
+    if not show_example:
+        msg += f"🇩🇪 {esc(word.display_german)}\n"
+        msg += f"🇮🇷 <b>{esc(word.persian)}</b>\n"
 
-            if example_fa:
-                msg += f"🇮🇷 <i>{esc(example_fa)}</i>\n"
+        if word.english_meaning:
+            msg += f"🇬🇧 {esc(word.english_meaning)}\n"
 
-            msg += f"\n📌 <b>{esc(word.display_german)}</b> = {esc(word.persian)}\n"
-            speak_text = example_de
-            show_example = True
+        if word.extra_forms_line:
+            msg += f"📖 {esc(word.extra_forms_line)}\n"
 
-        if not show_example:
-            msg += f"🇩🇪 {esc(word.display_german)}\n"
-            msg += f"🇮🇷 <b>{esc(word.persian)}</b>\n"
+        if word.collocation_line:
+            msg += f"🔗 {esc(word.collocation_line)}\n"
 
-            if word.english_meaning:
-                msg += f"🇬🇧 {esc(word.english_meaning)}\n"
+    if not context.user_data.get("fsrs_guide_shown"):
+        context.user_data["fsrs_guide_shown"] = True
+    context.user_data["current_tts_text"] = speak_text
 
-            if word.extra_forms_line:
-                msg += f"📖 {esc(word.extra_forms_line)}\n"
+    await render(query, msg, reply_markup=_flashcard_rate_keyboard(word))
 
-            if word.collocation_line:
-                msg += f"🔗 {esc(word.collocation_line)}\n"
-
-        if not context.user_data.get("fsrs_guide_shown"):
-            context.user_data["fsrs_guide_shown"] = True
-        context.user_data["current_tts_text"] = speak_text
-
-        await render(query, msg, reply_markup=_flashcard_rate_keyboard(word))
-
-    finally:
-        context.user_data.pop(lock_key, None)
 
 
 async def handle_rate_card(query, context, suffix: str = None):
@@ -502,8 +493,8 @@ async def handle_rate_card(query, context, suffix: str = None):
                 requeued = True
 
         # ثبت مهارت فلش‌کارت
-        db.learning.record_skill(user_id, word_id, "flashcard", grade >= 2)
-        db.users.record_activity(user_id, 5)
+        await run_db(db.learning.record_skill, user_id, word_id, "flashcard", grade >= 2)
+        await run_db(db.users.record_activity, user_id, 5)
 
         grade_names = {1: "😵 Again", 2: "😬 Hard", 3: "🙂 Good", 4: "😎 Easy"}
 
@@ -521,7 +512,7 @@ async def handle_rate_card(query, context, suffix: str = None):
         else:
             notice = f"✅ {grade_names.get(grade, grade)} ثبت شد (مرور بعدی: {interval_days} روز)"
         if not current.get("flipped"):
-            rated_word = db.words.get_by_id(word_id)
+            rated_word = await run_db(db.words.get_by_id, word_id)
             if rated_word and rated_word.persian:
                 notice += f"\n📌 {rated_word.display_german} = {rated_word.persian}"
         await _go_next_flashcard(query, context, notice=notice)
@@ -535,27 +526,15 @@ async def handle_next_flashcard(query, context, suffix: str = None):
     await _go_next_flashcard(query, context, notice=None)
 
 
+@callback_guard("flashcard_skip_lock")
 async def handle_skip_flashcard(query, context, suffix: str = None):
     """Handle skip flashcard action."""
-    # ✅ Lock: جلوگیری از double-tap
-    lock_key = "flashcard_skip_lock"
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-    context.user_data[lock_key] = True
-
-    try:
-        fc = context.user_data.get("current_flashcard") or {}
-        word_id = fc.get("word_id")
-        if word_id:
-            session = FlashcardSessionManager(context)
-            session.add_to_skipped(word_id)
-        await _go_next_flashcard(query, context, notice="⏭️ رد شد")
-    finally:
-        context.user_data.pop(lock_key, None)
+    fc = context.user_data.get("current_flashcard") or {}
+    word_id = fc.get("word_id")
+    if word_id:
+        session = FlashcardSessionManager(context)
+        session.add_to_skipped(word_id)
+    await _go_next_flashcard(query, context, notice="⏭️ رد شد")
 
 
 async def _go_next_flashcard(query, context, notice: Optional[str] = None):
@@ -645,7 +624,8 @@ async def _generate_and_cache_example(
         )
 
         if example and example.get("de"):
-            db.learning.save_llm_example(
+            await run_db(
+                db.learning.save_llm_example,
                 word_id=word_id,
                 level=level,
                 example_de=example["de"],

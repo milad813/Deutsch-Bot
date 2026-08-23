@@ -6,7 +6,7 @@ import random
 import re
 from typing import Dict, List, Optional, Set
 
-from services import db, llm
+from services import db, llm, run_db
 from ui import back_inline_keyboard, render
 from utils import safe_id_list
 
@@ -179,9 +179,9 @@ def _select_genre(level: str, lesson_title: str) -> Dict:
     return next((g for g in GENRES if g["id"] == genre_id), GENRES[0])
 
 
-def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
+async def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
     """گرفتن سطح دقیقاً از تنظیمات کاربر (بدون محاسبات پیچیده)."""
-    settings = db.users.get_settings(user_id)
+    settings = await run_db(db.users.get_settings, user_id)
     # اگر کاربر سطحی انتخاب کرده بود، همان را برگردان
     if settings and settings.get("preferred_level"):
         return settings["preferred_level"]
@@ -344,15 +344,15 @@ async def _generate_story_for_lesson(
     user_id: int, lesson_id: int, exclude_ids: Set[int]
 ) -> Optional[Dict]:
     """تابع اصلی تولید داستان هوشمند."""
-    lesson = db.lessons.get_by_id(lesson_id)
+    lesson = await run_db(db.lessons.get_by_id, lesson_id)
     if not lesson:
         return None
 
     lesson_title = lesson[2] or f"درس {lesson[1]}"
-    book_level = db.books.get_level_by_lesson(lesson_id) or "A1"
+    book_level = await run_db(db.books.get_level_by_lesson, lesson_id) or "A1"
     if not book_level:
         book_level = "A1"
-    level = _get_adaptive_level(user_id, book_level)
+    level = await _get_adaptive_level(user_id, book_level)
     if not level:
         level = "A1"
     genre = _select_genre(level, lesson_title)
@@ -366,7 +366,9 @@ async def _generate_story_for_lesson(
     )
 
     # ─── انتخاب هوشمند کلمات ───
-    candidate_words = _select_smart_words(user_id, lesson_id, exclude_ids, level)
+    candidate_words = await run_db(
+        _select_smart_words, user_id, lesson_id, exclude_ids, level
+    )
     if len(candidate_words) < MIN_STORY_WORDS:
         logger.warning(
             "کلمات کافی یافت نشد: %d < %d",
@@ -507,7 +509,8 @@ Text: {story_data["text"]}"""
             except Exception as e:
                 logger.warning("خطا در ترجمه داستان: %s", e)
 
-            story_id = db.stories.add(
+            story_id = await run_db(
+                db.stories.add,
                 lesson_id=lesson_id,
                 title_de=story_data.get("title", ""),
                 title_fa=title_fa,
@@ -529,7 +532,7 @@ Text: {story_data["text"]}"""
                 max_retries,
             )
 
-            return db.stories.get_by_id(story_id)
+            return await run_db(db.stories.get_by_id, story_id)
 
         except json.JSONDecodeError as e:
             logger.warning("خطای JSON (تلاش %d): %s", attempt + 1, e)

@@ -17,7 +17,7 @@ from telegram.ext import (
 
 import config
 from handlers import handle_text_input, inline_handler, show_menu, start
-from services import db, tts, run_db, get_main_menu_keyboard
+from services import app, get_main_menu_keyboard, run_db, tts
 config.setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ async def set_commands(application):
 
 
 async def post_shutdown(application):
-    db.close()
+    app.close()
 
 
 async def daily_backup(context):
@@ -141,6 +141,8 @@ def main():
         .post_shutdown(post_shutdown)
         .build()
     )
+    # Single shared service container (see services/container.py).
+    application.bot_data["app"] = app
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("menu", show_menu))

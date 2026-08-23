@@ -134,15 +134,15 @@ async def _handle_quiz_count(query, context, suffix: str):
         if lesson_id:
             count = await run_db(db.words.get_count_by_lesson, lesson_id)
         elif source_filter == "weak":
-            count = run_db(db.words.get_weak_count,user_id)
+            count = await run_db(db.words.get_weak_count, user_id)
         elif source_filter == "due":
-            count = run_db(db.words.get_due_count,user_id)
+            count = await run_db(db.words.get_due_count, user_id)
         elif source_filter == "mistakes":
-            count = run_db(db.learning.get_mistake_word_count,user_id)
+            count = await run_db(db.learning.get_mistake_word_count, user_id)
         elif source_filter == "seen":
-            count = run_db(db.words.get_seen_count,user_id)
+            count = await run_db(db.words.get_seen_count, user_id)
         else:
-            count = run_db(db.words.get_count)
+            count = await run_db(db.words.get_count)
         count = min(count, config.MAX_QUIZ_ALL_COUNT)
     else:
         try:

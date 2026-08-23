@@ -6,7 +6,7 @@ from core.locks import callback_guard
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from services import db
+from services import db, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
 from utils import safe_json_list
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 async def start_story_quiz(query, context, story_id: int):
     """Start a quiz based on story comprehension questions."""
-    story = db.stories.get_by_id(story_id)
+    story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
@@ -136,135 +136,133 @@ async def _show_story_question(query, context):
 
     await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))
 
-@callback_guard("grammar_answer_lock")
+@callback_guard("story_answer_lock")
 async def handle_story_answer(query, context, suffix: str):
+    quiz = context.user_data.get("story_quiz")
+    if not quiz:
+        await render(
+            query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
+        )
+        return
+
     try:
-        quiz = context.user_data.get("story_quiz")
-        if not quiz:
-            await render(
-                query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
-            )
-            return
+        selected_idx = int(suffix)
+    except ValueError:
+        await render(
+            query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
+        )
+        return
 
-        try:
-            selected_idx = int(suffix)
-        except ValueError:
-            await render(
-                query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
-            )
-            return
+    current_index = quiz.get("current", 0)
+    questions = quiz.get("questions", [])
 
-        current_index = quiz.get("current", 0)
-        questions = quiz.get("questions", [])
+    if current_index >= len(questions):
+        await render(
+            query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
+        )
+        return
 
-        if current_index >= len(questions):
-            await render(
-                query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
-            )
-            return
+    q = questions[current_index]
+    options = list(quiz.get("current_options", []))
 
-        q = questions[current_index]
-        options = list(quiz.get("current_options", []))
+    if not options or selected_idx < 0 or selected_idx >= len(options):
+        await render(
+            query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
+        )
+        return
 
-        if not options or selected_idx < 0 or selected_idx >= len(options):
-            await render(
-                query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
-            )
-            return
+    correct_index = quiz.get("current_correct_index")
 
-        correct_index = quiz.get("current_correct_index")
+    if correct_index is None or correct_index < 0 or correct_index >= len(options):
+        correct = str(q.get("correct_answer") or "").strip()
+        if not correct and "correct_index" in q:
+            idx = q.get("correct_index")
+            opts = q.get("options") or []
+            if isinstance(idx, int) and 0 <= idx < len(opts):
+                correct = str(opts[idx]).strip()
+        if correct and correct not in options:
+            options.append(correct)
+        correct_index = options.index(correct) if correct in options else 0
 
-        if correct_index is None or correct_index < 0 or correct_index >= len(options):
-            correct = str(q.get("correct_answer") or "").strip()
-            if not correct and "correct_index" in q:
-                idx = q.get("correct_index")
-                opts = q.get("options") or []
-                if isinstance(idx, int) and 0 <= idx < len(opts):
-                    correct = str(opts[idx]).strip()
-            if correct and correct not in options:
-                options.append(correct)
-            correct_index = options.index(correct) if correct in options else 0
+    correct = options[correct_index] if 0 <= correct_index < len(options) else ""
+    selected = options[selected_idx]
+    is_correct = selected_idx == correct_index
 
-        correct = options[correct_index] if 0 <= correct_index < len(options) else ""
-        selected = options[selected_idx]
-        is_correct = selected_idx == correct_index
+    q_type = q.get("question_type", "comprehension")
+    if is_correct:
+        quiz["correct"] += 1
+        if q_type == "comprehension":
+            quiz["comprehension_correct"] += 1
+        elif q_type == "vocabulary":
+            quiz["vocabulary_correct"] += 1
+        elif q_type == "detail":
+            quiz["detail_correct"] += 1
+    else:
+        quiz["wrong"] += 1
+        if q_type == "comprehension":
+            quiz["comprehension_wrong"] += 1
+        elif q_type == "vocabulary":
+            quiz["vocabulary_wrong"] += 1
+        elif q_type == "detail":
+            quiz["detail_wrong"] += 1
 
-        q_type = q.get("question_type", "comprehension")
-        if is_correct:
-            quiz["correct"] += 1
-            if q_type == "comprehension":
-                quiz["comprehension_correct"] += 1
-            elif q_type == "vocabulary":
-                quiz["vocabulary_correct"] += 1
-            elif q_type == "detail":
-                quiz["detail_correct"] += 1
-        else:
-            quiz["wrong"] += 1
-            if q_type == "comprehension":
-                quiz["comprehension_wrong"] += 1
-            elif q_type == "vocabulary":
-                quiz["vocabulary_wrong"] += 1
-            elif q_type == "detail":
-                quiz["detail_wrong"] += 1
+    user_id = query.from_user.id
+    story_id = quiz.get("story_id")
 
-        user_id = query.from_user.id
-        story_id = quiz.get("story_id")
+    if not is_correct:
+        await run_db(
+            db.learning.record_mistake,
+            user_id=user_id,
+            story_id=story_id,
+            skill_type="story",
+            quiz_type="story",
+            user_answer=selected,
+            correct_answer=correct,
+        )
 
-        if not is_correct:
-            db.learning.record_mistake(
-                user_id=user_id,
-                story_id=story_id,
-                skill_type="story",
-                quiz_type="story",
-                user_answer=selected,
-                correct_answer=correct,
-            )
+    await run_db(db.users.record_activity, user_id, 10 if is_correct else 0)
+    await run_db(db.learning.record_story_answer, user_id, story_id, is_correct)
 
-        db.users.record_activity(user_id, 10 if is_correct else 0)
-        db.learning.record_story_answer(user_id, story_id, is_correct)
+    try:
+        await query.answer(
+            "✅ درست بود!" if is_correct else "❌ اشتباه بود",
+            show_alert=not is_correct,
+        )
+    except Exception:
+        pass
 
-        try:
-            await query.answer(
-                "✅ درست بود!" if is_correct else "❌ اشتباه بود",
-                show_alert=not is_correct,
-            )
-        except Exception:
-            pass
+    if is_correct:
+        fb_msg = (
+            f"✅ آفرین! پاسخ درست بود.\n"
+            f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
+        )
+    else:
+        fb_msg = (
+            f"❌ نادرست. پاسخ صحیح:\n"
+            f"<b>{esc(correct)}</b>\n"
+            f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
+        )
 
-        if is_correct:
-            fb_msg = (
-                f"✅ آفرین! پاسخ درست بود.\n"
-                f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
-            )
-        else:
-            fb_msg = (
-                f"❌ نادرست. پاسخ صحیح:\n"
-                f"<b>{esc(correct)}</b>\n"
-                f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
-            )
-
-        if quiz["current"] < len(quiz["questions"]) - 1:
-            quiz["current"] += 1
-            kb = InlineKeyboardMarkup(
+    if quiz["current"] < len(quiz["questions"]) - 1:
+        quiz["current"] += 1
+        kb = InlineKeyboardMarkup(
+            [
                 [
-                    [
-                        InlineKeyboardButton(
-                            "➡️ سوال بعدی",
-                            callback_data=f"story_next_q:{quiz['story_id']}",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            "🔙 خروج", callback_data=f"story_view:{quiz['story_id']}"
-                        )
-                    ],
-                ]
-            )
-            await render(query, fb_msg, reply_markup=kb)
-        else:
-            await _show_story_quiz_summary(query, context)
-    finally:
-        context.user_data.pop(lock_key, None)
+                    InlineKeyboardButton(
+                        "➡️ سوال بعدی",
+                        callback_data=f"story_next_q:{quiz['story_id']}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🔙 خروج", callback_data=f"story_view:{quiz['story_id']}"
+                    )
+                ],
+            ]
+        )
+        await render(query, fb_msg, reply_markup=kb)
+    else:
+        await _show_story_quiz_summary(query, context)
 
 
 async def _show_story_quiz_summary(query, context):
@@ -308,7 +306,7 @@ async def _show_story_quiz_summary(query, context):
     else:
         msg += "\n💡 پیشنهاد: داستان را دوباره بخوان و مرور کن."
 
-    story = db.stories.get_by_id(quiz["story_id"])
+    story = await run_db(db.stories.get_by_id, quiz["story_id"])
     lesson_id = story["lesson_id"] if story else 0
 
     kb = InlineKeyboardMarkup(

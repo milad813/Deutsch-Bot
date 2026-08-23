@@ -21,7 +21,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from handlers.learning.ltr_session import LTRSessionManager, _ltr_answer_keyboard
 from models import Word
 from option_generator import get_wrong_options, make_options
-from services import db
+from services import db, run_db
 from ui import back_inline_keyboard, esc, render
 from core.locks import callback_guard
 
@@ -43,12 +43,17 @@ async def handle_study_lesson(query, context, suffix: str):
     user_id = query.from_user.id
     MAX_LTR_WORDS = 10  # حداکثر کلمات یک session LTR
 
-    weak_words = db.words.get_weak_by_lesson(user_id, lesson_id, limit=MAX_LTR_WORDS)
+    weak_words = await run_db(
+        db.words.get_weak_by_lesson, user_id, lesson_id, limit=MAX_LTR_WORDS
+    )
     remaining = MAX_LTR_WORDS - len(weak_words)
     new_words = []
     if remaining > 0:
-        new_words = db.words.get_new_word_objects(
-            user_id, lesson_id=lesson_id, limit=remaining
+        new_words = await run_db(
+            db.words.get_new_word_objects,
+            user_id,
+            lesson_id=lesson_id,
+            limit=remaining,
         )
     if not weak_words and not new_words:
         await render(
@@ -91,7 +96,7 @@ async def handle_study_lesson(query, context, suffix: str):
 async def _show_learn_word(query, context):
     """Show a word MINIMALLY for the user to learn."""
     ltr = LTRSessionManager(context)
-    word = ltr.get_next_word_to_learn()
+    word = await run_db(ltr.get_next_word_to_learn)
 
     # ✅ Guard: prevent infinite recursion
     if not word:
@@ -153,33 +158,21 @@ async def _show_learn_word(query, context):
     )
 
 
+@callback_guard("ltr_learned_lock")
 async def handle_ltr_learned(query, context):
     """User confirms they learned the word."""
-    # ✅ Lock: جلوگیری از double-tap
-    lock_key = "ltr_learned_lock"
-    if context.user_data.get(lock_key):
-        try:
-            await query.answer()
-        except Exception:
-            pass
-        return
-    context.user_data[lock_key] = True
+    ltr = LTRSessionManager(context)
+    word = await run_db(ltr.get_next_word_to_learn)
 
-    try:
-        ltr = LTRSessionManager(context)
-        word = ltr.get_next_word_to_learn()
-
-        if not word:
-            await _route_next_action(query, context)
-            return
-
-        # Mark as learned and schedule delayed test
-        ltr.mark_word_learned(word.id)
-
-        # Route to next action (learn more or test)
+    if not word:
         await _route_next_action(query, context)
-    finally:
-        context.user_data.pop(lock_key, None)
+        return
+
+    # Mark as learned and schedule delayed test
+    ltr.mark_word_learned(word.id)
+
+    # Route to next action (learn more or test)
+    await _route_next_action(query, context)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -252,8 +245,8 @@ async def _render_meaning_question(query, context, word: Word):
     correct_answer = word.persian
 
     # Get wrong Persian options
-    wrong_options = get_wrong_options(
-        db, word, count=3, attr_getter=lambda w: w.persian
+    wrong_options = await run_db(
+        get_wrong_options, db, word, count=3, attr_getter=lambda w: w.persian
     )
 
     options = make_options(correct_answer, wrong_options, total=4, min_options=2)
@@ -288,8 +281,8 @@ async def _render_reverse_question(query, context, word: Word):
 
     correct_answer = word.display_german
 
-    wrong_options = get_wrong_options(
-        db, word, count=3, attr_getter=lambda w: w.display_german
+    wrong_options = await run_db(
+        get_wrong_options, db, word, count=3, attr_getter=lambda w: w.display_german
     )
 
     options = make_options(correct_answer, wrong_options, total=4, min_options=2)
@@ -345,8 +338,8 @@ async def _render_cloze_question(query, context, word: Word):
     blanked = sentence[: match.start()] + "______" + sentence[match.end() :]
     correct_answer = match.group(1)
 
-    wrong_options = get_wrong_options(
-        db, word, count=3, attr_getter=lambda w: w.display_german
+    wrong_options = await run_db(
+        get_wrong_options, db, word, count=3, attr_getter=lambda w: w.display_german
     )
     options = make_options(correct_answer, wrong_options, total=4, min_options=2)
     if not options or len(options) < 2 or correct_answer not in options:
@@ -389,98 +382,119 @@ async def _render_article_question(query, context, word: Word):
     await render(query, msg, reply_markup=_ltr_answer_keyboard(options))
 
 
+async def _render_final_fallback_question(query, context, word: Word):
+    """Last-resort question when no option set could be built for any type.
+
+    Previously this raised NameError (function was called but never defined)
+    whenever a word had too few neighbours for meaning/reverse questions.
+    Instead of crashing or looping we reveal the answer as a single-option
+    question so the session can continue.
+    """
+    correct_answer = word.persian or word.display_german
+    options = [correct_answer]
+    context.user_data["ltr_current_options"] = options
+    context.user_data["ltr_current_correct_index"] = 0
+    context.user_data["ltr_current_correct_text"] = correct_answer
+
+    msg = (
+        "ℹ️ <b>گزینه‌ی کافی برای تست این کلمه موجود نیست.</b>\n"
+        f"🇩🇪 <b>{esc(word.display_german)}</b>"
+        + (f" — {esc(word.persian)}" if word.persian else "")
+        + "\n\nبرای ادامه، دکمه‌ی زیر را بزن:"
+    )
+    await render(query, msg, reply_markup=_ltr_answer_keyboard(options))
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Answer Handling
 # ═══════════════════════════════════════════════════════════════════
 
-@callback_guard("grammar_answer_lock")
+@callback_guard("ltr_answer_lock")
 async def handle_ltr_answer(query, context, suffix: str):
     try:
+        option_index = int(suffix)
+    except (ValueError, TypeError):
         try:
-            option_index = int(suffix)
-        except (ValueError, TypeError):
-            try:
-                await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
-            except Exception:
-                pass
-            return
+            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+        except Exception:
+            pass
+        return
 
-        ltr = LTRSessionManager(context)
-        word_id = context.user_data.get("ltr_current_question")
-        if not word_id:
-            await render(
-                query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard()
-            )
-            return
+    ltr = LTRSessionManager(context)
+    word_id = context.user_data.get("ltr_current_question")
+    if not word_id:
+        await render(
+            query, "⚠️ سوالی فعال نیست.", reply_markup=back_inline_keyboard()
+        )
+        return
 
-        options = context.user_data.get("ltr_current_options", [])
-        correct_index = context.user_data.get("ltr_current_correct_index", -1)
-        correct_text = context.user_data.get("ltr_current_correct_text", "")
-        q_type = context.user_data.get("ltr_question_type", "meaning")  # ← مهم
+    options = context.user_data.get("ltr_current_options", [])
+    correct_index = context.user_data.get("ltr_current_correct_index", -1)
+    correct_text = context.user_data.get("ltr_current_correct_text", "")
+    q_type = context.user_data.get("ltr_question_type", "meaning")  # ← مهم
 
-        if option_index < 0 or option_index >= len(options):
-            try:
-                await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
-            except Exception:
-                pass
-            return
+    if option_index < 0 or option_index >= len(options):
+        try:
+            await query.answer("⚠️ گزینه نامعتبر.", show_alert=True)
+        except Exception:
+            pass
+        return
 
-        is_correct = option_index == correct_index
-        word = await run_db(db.words.get_by_id, word_id)
+    is_correct = option_index == correct_index
+    word = await run_db(db.words.get_by_id, word_id)
 
-        # ✅ Record result WITH question type
-        ltr.record_test_result(word_id, is_correct, q_type)
+    # ✅ Record result WITH question type
+    ltr.record_test_result(word_id, is_correct, q_type)
 
-        # Record skill
-        user_id = query.from_user.id
-        db.learning.record_skill(user_id, word_id, "ltr", is_correct)
-        if not is_correct:
-            db.learning.record_mistake(
-                user_id=user_id,
-                word_id=word_id,
-                skill_type="ltr",
-                quiz_type=q_type,
-                user_answer=(
-                    options[option_index] if option_index < len(options) else None
-                ),
-                correct_answer=correct_text,
-            )
+    # Record skill
+    user_id = query.from_user.id
+    await run_db(db.learning.record_skill, user_id, word_id, "ltr", is_correct)
+    if not is_correct:
+        await run_db(
+            db.learning.record_mistake,
+            user_id=user_id,
+            word_id=word_id,
+            skill_type="ltr",
+            quiz_type=q_type,
+            user_answer=(
+                options[option_index] if option_index < len(options) else None
+            ),
+            correct_answer=correct_text,
+        )
 
-        # ─── Feedback with context ───
-        if is_correct:
-            try:
-                await query.answer("✅ درست بود!", show_alert=False)
-            except Exception:
-                pass
-            feedback = "✅ آفرین! درست بود!"
-        else:
-            try:
-                await query.answer(f"❌ جواب: {correct_text}", show_alert=True)
-            except Exception:
-                pass
-            feedback = f"❌ اشتباه بود.\n✅ جواب درست: <b>{esc(correct_text)}</b>"
+    # ─── Feedback with context ───
+    if is_correct:
+        try:
+            await query.answer("✅ درست بود!", show_alert=False)
+        except Exception:
+            pass
+        feedback = "✅ آفرین! درست بود!"
+    else:
+        try:
+            await query.answer(f"❌ جواب: {correct_text}", show_alert=True)
+        except Exception:
+            pass
+        feedback = f"❌ اشتباه بود.\n✅ جواب درست: <b>{esc(correct_text)}</b>"
 
-        # Add contextual hint
-        if word and word.example_de:
-            feedback += f"\n📝 <i>{esc(word.example_de)}</i>"
-        if word and word.collocation_line:
-            feedback += f"\n🔗 {esc(word.collocation_line)}"
+    # Add contextual hint
+    if word and word.example_de:
+        feedback += f"\n📝 <i>{esc(word.example_de)}</i>"
+    if word and word.collocation_line:
+        feedback += f"\n🔗 {esc(word.collocation_line)}"
 
-        # Clean current question state
-        context.user_data.pop("ltr_current_options", None)
-        context.user_data.pop("ltr_current_correct_index", None)
-        context.user_data.pop("ltr_current_correct_text", None)
-        context.user_data.pop("ltr_question_type", None)
+    # Clean current question state
+    context.user_data.pop("ltr_current_options", None)
+    context.user_data.pop("ltr_current_correct_index", None)
+    context.user_data.pop("ltr_current_correct_text", None)
+    context.user_data.pop("ltr_question_type", None)
 
-        # Check retry info
-        retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
-        if not is_correct and retry_count > 0:
-            feedback += f"\n⚠️ تلاش {retry_count} از {MAX_RETRIES}"
+    # Check retry info
+    retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
+    if not is_correct and retry_count > 0:
+        feedback += f"\n⚠️ تلاش {retry_count} از {MAX_RETRIES}"
 
-        # Route to next action
-        await _route_next_action(query, context, feedback=feedback)
-    finally:
-        context.user_data.pop(lock_key, None)
+    # Route to next action
+    await _route_next_action(query, context, feedback=feedback)
 
 # ═══════════════════════════════════════════════════════════════════
 # Router
@@ -498,7 +512,7 @@ async def _route_next_action(query, context, feedback: str = ""):
         return
 
     # 2. Check if there are words left to learn
-    word = ltr.get_next_word_to_learn()
+    word = await run_db(ltr.get_next_word_to_learn)
     if word:
         await _show_learn_word(query, context)
         return
@@ -523,7 +537,7 @@ async def _show_ltr_summary(query, context, feedback: str = ""):
     ltr = LTRSessionManager(context)
 
     # Finalize all words (update SRS)
-    ltr.finalize_all_passed_words()
+    await run_db(ltr.finalize_all_passed_words)
     summary = ltr.get_session_summary()
 
     parts = []
@@ -546,7 +560,7 @@ async def _show_ltr_summary(query, context, feedback: str = ""):
         parts.append("")
         parts.append("📌 <b>کلماتی که نیاز به مرور دارند:</b>")
         for wid in summary["failed_ids"][:5]:
-            w = db.words.get_by_id(wid)
+            w = await run_db(db.words.get_by_id, wid)
             if w:
                 parts.append(f"  • {esc(w.display_german)} = {esc(w.persian)}")
         if summary["failed_words"] > 5:
@@ -595,7 +609,7 @@ async def handle_ltr_exit(query, context):
     ltr = LTRSessionManager(context)
 
     try:
-        ltr.finalize_partial_session()
+        await run_db(ltr.finalize_partial_session)
     except Exception as e:
         logger.warning("خطا در finalize کردن LTR هنگام خروج: %s", e)
 
@@ -621,8 +635,8 @@ async def handle_ltr_ready(query, context):
 async def handle_daily_learning(query, context):
     """شروع یادگیری کلمات جدید بر اساس هدف روزانه (ترتیب کتاب)."""
     user_id = query.from_user.id
-    daily_goal = db.learning.get_daily_goal(user_id)
-    today_done = db.learning.get_today_new_words_count(user_id)
+    daily_goal = await run_db(db.learning.get_daily_goal, user_id)
+    today_done = await run_db(db.learning.get_today_new_words_count, user_id)
     remaining = daily_goal - today_done
 
     if remaining <= 0:
@@ -638,7 +652,7 @@ async def handle_daily_learning(query, context):
     limit = min(remaining, MAX_LTR_WORDS)
 
     # گرفتن کلمات ندیده به ترتیب کتاب → درس
-    new_words = db.words.get_next_unseen_words(user_id, limit=limit)
+    new_words = await run_db(db.words.get_next_unseen_words, user_id, limit=limit)
 
     if not new_words:
         await render(
@@ -684,7 +698,7 @@ async def handle_ltr_review_weak(query, context):
         return
     
     # Start flashcard session with only these specific words
-    words = db.words.get_by_ids(weak_ids)
+    words = await run_db(db.words.get_by_ids, weak_ids)
     if not words:
         await render(query, "❌ کلمات پیدا نشدند.", reply_markup=back_inline_keyboard())
         return

@@ -16,6 +16,7 @@ WORDS_PER_BATCH = 5  # هر بار چند کلمه یاد بده قبل از ت�
 DELAY_AFTER_LEARN = 5  # چند کلمه بعد، سوال بپرس
 MAX_RETRIES = 3  # اگه اشتباه زد، چند بار دوباره بپرس
 RETRY_DELAY = 2  # تأخیر برای retry
+MIN_SUCCESS_TYPES = 2  # چند «نوع سوال» متفاوت باید درست جواب داده شود تا کلمه پاس شود
 
 
 class LTRSessionManager:

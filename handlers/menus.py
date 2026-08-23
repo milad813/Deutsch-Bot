@@ -89,7 +89,7 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     reset_session(context)
     # ─── Onboarding: پرسیدن سطح از کاربر جدید ───
-    settings = db.users.get_settings(user.id)
+    settings = await run_db(db.users.get_settings, user.id)
     if not settings:  # اگر رکوردی در user_settings نبود
         await show_level_select(update, context)
         return
@@ -200,7 +200,7 @@ async def show_quiz_source(query, context):
 
 
 async def show_books_for_quiz(query, context):
-    books = db.books.get_all()
+    books = await run_db(db.books.get_all)
     if not books:
         await render(query, "📭 کتابی ندارید.", reply_markup=back_inline_keyboard())
         return
@@ -222,7 +222,7 @@ async def show_books_for_quiz(query, context):
     )
 
 async def show_lessons(query, context, book_id: int):
-    lessons = db.lessons.get_by_book(book_id)
+    lessons = await run_db(db.lessons.get_by_book, book_id)
     if not lessons:
         await render(
             query,
@@ -235,7 +235,7 @@ async def show_lessons(query, context, book_id: int):
 
     user_id = query.from_user.id
     # ✅ یک کوئری برای همه درس‌ها (N+1 نمی‌شود)
-    progress_map = db.words.get_learned_counts_by_book(user_id, book_id)
+    progress_map = await run_db(db.words.get_learned_counts_by_book, user_id, book_id)
 
     kb = []
     for lesson_id, num, title in lessons:
@@ -266,7 +266,7 @@ async def start_mixed_exam(query, context, count: int = 20):
     user_id = query.from_user.id
 
     # ✅ فقط کلماتی که کاربر حداقل یک‌بار تعامل داشته
-    available = db.words.get_seen_count(user_id)
+    available = await run_db(db.words.get_seen_count, user_id)
     if available == 0:
         await render(
             query,
@@ -327,7 +327,7 @@ async def show_quiz_count(query, context):
 
 
 async def show_books(update_or_query, context, is_message: bool = False):
-    books = db.books.get_all()
+    books = await run_db(db.books.get_all)
     if not books:
         text = "📭 کتابی ندارید."
         kb = [[InlineKeyboardButton("🔙", callback_data="back_to_main_menu")]]
@@ -347,11 +347,11 @@ async def show_books(update_or_query, context, is_message: bool = False):
 
 
 async def show_lesson_options(query, context, lesson_id: int):
-    lesson = db.lessons.get_by_id(lesson_id)
+    lesson = await run_db(db.lessons.get_by_id, lesson_id)
     lesson_name = (
         _format_lesson_name(lesson[1], lesson[2] or "") if lesson else "این درس"
     )
-    book_id = db.lessons.get_book_id(lesson_id)
+    book_id = await run_db(db.lessons.get_book_id, lesson_id)
     back_cb = f"book_{book_id}" if book_id else "show_books_inline"
     keyboard = [
         [
@@ -394,7 +394,7 @@ async def show_lesson_options(query, context, lesson_id: int):
 
 
 async def show_lesson_words(query, context, lesson_id: int, page: int = 0):
-    words = db.words.get_by_lesson_full(lesson_id)
+    words = await run_db(db.words.get_by_lesson_full, lesson_id)
     if not words:
         await render(
             query,
@@ -503,9 +503,6 @@ async def show_dashboard_simple(update, context):
     accuracy = (correct / total * 100) if total > 0 else 0
     level, into, need = db.level_from_xp(prog["xp"])
 
-    # ─── هدف روزانه (فیکس‌شده) ───
-    today_new = db.learning.get_today_new_words_count(user_id)
-
     goal_bar = progress_bar(today_done, daily_goal)
     bar = progress_bar(into, need)
     library_bar = progress_bar(total_learned, word_count)
@@ -520,8 +517,8 @@ async def show_dashboard_simple(update, context):
         f"   🎯 دقت: <b>{accuracy:.1f}%</b>\n"
         f"   📚 کل آموخته: <b>{total_learned}</b> از {word_count} کلمه  [{library_bar}]\n\n"
         "📅 <b>امروز</b>\n"
-        f"   🎯 هدف: {today_new}/{daily_goal}  [{goal_bar}]\n"
-        f"   🆕 کلمات جدید: {today_new}\n"
+        f"   🎯 هدف: {today_done}/{daily_goal}  [{goal_bar}]\n"
+        f"   🆕 کلمات جدید: {today_done}\n"
         f"   🔄 کل تمرین‌ها (شامل مرور): {total_activity}\n"
         f"   📋 مرور باقی‌مانده: {due_today} کلمه\n"
         f"   ⚡ مرور کلمات سخت: {hard} کلمه\n")
@@ -581,7 +578,7 @@ async def show_settings_menu(update, context):
         if hasattr(update, "effective_user") and update.effective_user
         else update.from_user.id
     )
-    settings = db.users.get_settings(user_id)
+    settings = await run_db(db.users.get_settings, user_id)
     current_level = settings.get("preferred_level", "A1")
     daily_goal = settings.get("daily_goal", 10)
 
@@ -624,7 +621,7 @@ async def show_level_select(update_or_query, context):
         if hasattr(update_or_query, "effective_user") and update_or_query.effective_user
         else update_or_query.from_user.id
     )
-    settings = db.users.get_settings(user_id)
+    settings = await run_db(db.users.get_settings, user_id)
     current_level = settings.get("preferred_level", "A1") if settings else "A1"
     
     keyboard = []
@@ -655,7 +652,7 @@ async def handle_set_level(query, context, suffix: str):
         await render(query, "⚠️ سطح نامعتبر.", reply_markup=back_inline_keyboard())
         return
     user_id = query.from_user.id
-    db.users.update_setting(user_id, level)
+    await run_db(db.users.update_setting, user_id, level)
     await render(
         query,
         f"✅ سطح شما به <b>{level}</b> تغییر کرد!\n"
@@ -680,7 +677,7 @@ GOALS = [5, 10, 15, 20, 30, 50]
 
 async def show_goal_select(query, context):
     user_id = query.from_user.id
-    settings = db.users.get_settings(user_id)
+    settings = await run_db(db.users.get_settings, user_id)
     current_goal = settings.get("daily_goal", 10)
 
     keyboard = []
@@ -711,7 +708,7 @@ async def handle_set_goal(query, context, suffix: str):
         await render(query, "⚠️ هدف نامعتبر.", reply_markup=back_inline_keyboard())
         return
     user_id = query.from_user.id
-    db.learning.set_daily_goal(user_id, goal)
+    await run_db(db.learning.set_daily_goal, user_id, goal)
     await render(
         query,
         f"✅ هدف روزانه شما به <b>{goal}</b> کلمه تغییر کرد!\n"
@@ -735,7 +732,7 @@ async def handle_set_goal(query, context, suffix: str):
 async def show_error_notebook(query, context):
     """نمایش دفترچه اشتباهات حل‌نشده کاربر."""
     user_id = query.from_user.id
-    items = db.learning.get_mistake_words(user_id, limit=10)
+    items = await run_db(db.learning.get_mistake_words, user_id, limit=10)
 
     if not items:
         await render(

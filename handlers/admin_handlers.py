@@ -65,7 +65,7 @@ async def show_admin_users(update, context):
         await render(update, "⛔️ دسترسی ندارید.", reply_markup=back_inline_keyboard())
         return
 
-    users = db.users.get_all_users()
+    users = await run_db(db.users.get_all_users)
     if not users:
         await render(
             update,
@@ -82,6 +82,7 @@ async def show_admin_users(update, context):
         uname = f"@{username}" if username else "بدون یوزرنیم"
 
         # آمار کاربر
+        correct, total = 0, 0
         try:
             prog = await run_db(db.users.get_progress, uid)
             correct, total = await run_db(db.users.get_quiz_stats, uid)
@@ -89,6 +90,7 @@ async def show_admin_users(update, context):
             weak = await run_db(db.words.get_weak_count, uid)
             xp = prog.get("xp", 0)
             streak = prog.get("streak", 0)
+            accuracy = round(correct / total * 100) if total else 0
         except Exception:
             xp, streak, accuracy, due, weak = 0, 0, 0, 0, 0
 
@@ -160,7 +162,7 @@ async def handle_reset_confirm(update, context):
     user_id = user.id
 
     try:
-        db.users.reset_user_progress(user_id)
+        await run_db(db.users.reset_user_progress, user_id)
         logger.info("پیشرفت کاربر %d ریست شد", user_id)
 
         msg = (

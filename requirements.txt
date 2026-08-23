@@ -1,6 +1,9 @@
-python-telegram-bot[job-queue]>=20.0
-groq>=1.0.0
-edge-tts>=6.1.0
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
+# Pinned (verified against the dev environment).
+python-telegram-bot[job-queue]==22.1
+pytest==9.1.1
+pytest-asyncio==1.4.0
+
+# Not installed in the dev venv yet — kept on compatible ranges until pinned:
+groq>=1.0.0        # optional: LLM features (BOT_MODE=offline works without it)
+edge-tts>=6.1.0    # optional: TTS pronunciation (bot degrades gracefully)
 

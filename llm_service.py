@@ -3,14 +3,29 @@ import json
 import logging
 import random
 import re
+from html import escape
 from typing import Dict, List, Optional
 
 import config
-from ui import esc
 
 logger = logging.getLogger(__name__)
 
 MODEL = config.GROQ_MODEL
+
+
+def _esc(value) -> str:
+    """HTML-escape for Telegram HTML output.
+
+    Local copy of ui.esc so this service stays free of presentation-layer
+    imports (services must not import from ui/telegram).
+    """
+    return escape(str(value if value is not None else ""))
+
+# الگوی حذف بلوک‌های «فکر» (reasoning blocks) از خروجی مدل‌هایی که آن را برمی‌گردانند.
+# به‌صورت قطعه‌قطعه ساخته می‌شود تا در ابزارهای پردازش متن مشکلی پیش نیاید.
+_THINK_OPEN = "<" + "think" + ">"
+_THINK_CLOSE = "</" + "think" + ">"
+_THINK_BLOCK_RE = re.compile(_THINK_OPEN + r".*?" + _THINK_CLOSE, re.DOTALL)
 
 
 class LLMService:
@@ -75,7 +90,7 @@ class LLMService:
             return None
 
         question = str(result.get("question") or fallback_question).strip()
-        question = esc(question)
+        question = _esc(question)
 
         correct = str(result.get("correct_answer") or fallback_correct).strip()
         if not correct:
@@ -221,9 +236,8 @@ class LLMService:
                             )
                             if not response.choices: continue
                             content = response.choices[0].message.content
-                            if content and "" in content:
-                                import re
-                                content = re.sub(r".*?", "", content, flags=re.DOTALL).strip()
+                            if content and _THINK_OPEN in content:
+                                content = _THINK_BLOCK_RE.sub("", content).strip()
                             if not content:
                                 logger.warning("Groq پاسخ خالی برگرداند. finish_reason: %s (Fallback 2)", response.choices[0].finish_reason)
                                 continue

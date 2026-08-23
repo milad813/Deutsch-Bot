@@ -1,8 +1,7 @@
 import random
 import re
+from html import escape
 from typing import Dict, List, Optional, Tuple
-
-from ui import esc
 
 ARTICLES = ("der", "die", "das")
 SEPARABLE_PREFIXES = {
@@ -18,6 +17,14 @@ SEPARABLE_PREFIXES = {
     "zu",
     "zurück",
 }
+
+
+def _esc(value) -> str:
+    """HTML-escape for Telegram HTML output (local copy of ui.esc).
+
+    Keeps this service free of presentation-layer imports.
+    """
+    return escape(str(value if value is not None else ""))
 
 
 class QuizService:
@@ -156,8 +163,8 @@ class QuizService:
 
         question = (
             "🎯 آرتیکل صحیح کلمه‌ی زیر چیست؟\n"
-            f"🇩🇪 ______ {esc(noun)}\n"
-            f"🇮🇷 {esc(persian_meaning)}"
+            f"🇩🇪 ______ {_esc(noun)}\n"
+            f"🇮🇷 {_esc(persian_meaning)}"
         )
 
         return {
@@ -177,7 +184,7 @@ class QuizService:
         if not options:
             return None
 
-        question = "🧠 معنی کلمه‌ی زیر چیست؟\n" f"🇩🇪 <b>{esc(german_word)}</b>"
+        question = "🧠 معنی کلمه‌ی زیر چیست؟\n" f"🇩🇪 <b>{_esc(german_word)}</b>"
 
         return {
             "type": "meaning",
@@ -197,7 +204,7 @@ class QuizService:
             return None
 
         question = (
-            "🔄 معادل آلمانی کلمه‌ی زیر چیست؟\n" f"🇮🇷 <b>{esc(persian_meaning)}</b>"
+            "🔄 معادل آلمانی کلمه‌ی زیر چیست؟\n" f"🇮🇷 <b>{_esc(persian_meaning)}</b>"
         )
 
         return {
@@ -279,8 +286,8 @@ class QuizService:
 
         question = (
             "📝 کلمه‌ی مناسب برای جای خالی چیست؟\n"
-            f"🇩🇪 {esc(sentence_with_blank)}\n"
-            f"🇮🇷 {esc(persian_meaning)}"
+            f"🇩🇪 {_esc(sentence_with_blank)}\n"
+            f"🇮🇷 {_esc(persian_meaning)}"
         )
 
         return {
