@@ -1,7 +1,7 @@
 """TTS audio sending and cleanup handlers."""
 
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 import config
 from services import db, run_db, tts
@@ -13,13 +13,20 @@ _tts_jobs: Dict[int, object] = {}
 
 
 async def cleanup_tts(context, user_id: int):
+    """Cancel any pending TTS auto-delete and remove the in-memory job.
+
+    Idempotent: safe to call multiple times for the same user, safe
+    when there is no pending job, safe when ``user_data`` lacks
+    ``tts_message``, and safe when ``context.bot.delete_message`` raises.
+    """
     job = _tts_jobs.pop(user_id, None)
     if job:
         try:
             job.schedule_removal()
         except Exception:
+            # Already-scheduled jobs may refuse re-scheduling. That's fine.
             pass
-    info = context.user_data.pop("tts_message", None)
+    info = context.user_data.pop("tts_message", None) if context is not None else None
     if info:
         try:
             await context.bot.delete_message(chat_id=info[0], message_id=info[1])
@@ -28,11 +35,35 @@ async def cleanup_tts(context, user_id: int):
 
 
 async def _auto_delete_tts(context):
-    chat_id, message_id = context.job.data
+    """TTS auto-delete callback scheduled by ``send_ephemeral_audio``.
+
+    Accepts both the legacy 2-tuple ``(chat_id, message_id)`` format and
+    the new 3-tuple ``(chat_id, message_id, user_id)`` format. With the
+    new format, the corresponding entry is removed from ``_tts_jobs``
+    after the message is deleted so the in-memory map does not grow
+    forever.
+    """
+    data = context.job.data
+    try:
+        chat_id, message_id = data[0], data[1]
+    except (TypeError, IndexError, KeyError):
+        logger.warning("TTS auto-delete called without valid data: %r", data)
+        return
+
+    user_id: Optional[int] = None
+    if isinstance(data, (tuple, list)) and len(data) >= 3:
+        try:
+            user_id = int(data[2])
+        except (TypeError, ValueError):
+            user_id = None
+
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception:
         pass
+
+    if user_id is not None:
+        _tts_jobs.pop(user_id, None)
 
 
 async def send_ephemeral_audio(query, context, text: str):
@@ -76,10 +107,13 @@ async def send_ephemeral_audio(query, context, text: str):
         return
     context.user_data["tts_message"] = (chat_id, sent.message_id)
     if config.TTS_AUTO_DELETE_SECONDS > 0 and context.job_queue:
+        # job.data now carries (chat_id, message_id, user_id) so the
+        # auto-delete callback can clean up the in-memory job map and
+        # avoid leaking completed-job references across long sessions.
         job = context.job_queue.run_once(
             _auto_delete_tts,
             config.TTS_AUTO_DELETE_SECONDS,
-            data=(chat_id, sent.message_id),
+            data=(chat_id, sent.message_id, user_id),
             chat_id=chat_id,
             user_id=user_id,
         )

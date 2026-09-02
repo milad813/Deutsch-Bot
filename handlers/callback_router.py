@@ -72,6 +72,8 @@ from services import db, get_main_menu_keyboard, reset_session, run_db
 from ui import back_inline_keyboard, render
 from handlers.learning.flashcard_session import start_flashcard_due ,start_flashcard_hard
 
+from core.telegram_guard import should_block_non_private
+
 logger = logging.getLogger(__name__)
 
 async def _handle_quiz_type(query, context, suffix: str):
@@ -379,6 +381,14 @@ async def inline_handler(update, context):
     if not rate_limiter.is_allowed(query.from_user.id):
         try:
             await query.answer("⏳ لطفاً کمی صبر کنید.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    # Phase 0 hardening: non-private chats are not supported.
+    if should_block_non_private(query):
+        try:
+            await query.answer("⛔️ لطفاً در چت خصوصی استفاده کنید.", show_alert=True)
         except Exception:
             pass
         return

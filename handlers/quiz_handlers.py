@@ -693,6 +693,7 @@ async def handle_quiz_answer(query, context):
         update_quiz_stats=True,
         xp=5 if is_correct else 0,
         quiz_type=quiz_type,
+        response_time_sec=response_time,
     )
     _update_quiz_session(
         context,

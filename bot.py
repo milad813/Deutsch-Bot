@@ -17,12 +17,24 @@ from telegram.ext import (
 
 import config
 from handlers import handle_text_input, inline_handler, show_menu, start
+from handlers.menus import cancel
 from services import app, get_main_menu_keyboard, run_db, tts
 config.setup_logging()
 logger = logging.getLogger(__name__)
 
 
 async def on_error(update, context):
+    # Phase 0: if a callback query triggered the error, always try to
+    # answer it with a short Persian notice. This stops Telegram's
+    # "loading…" spinner on the user's screen, even for BadRequest /
+    # Forbidden errors that we would otherwise silently ignore.
+    if isinstance(update, Update) and update.callback_query is not None:
+        try:
+            await update.callback_query.answer("⚠️ خطایی رخ داد.")
+        except Exception:
+            # Never let the error handler itself crash the dispatcher.
+            pass
+
     if isinstance(context.error, (BadRequest, Forbidden)):
         logger.debug("خطای قابل‌چشم‌پوشی: %s", context.error)
         return
@@ -40,6 +52,7 @@ async def set_commands(application):
     commands = [
         BotCommand("start", "شروع ربات"),
         BotCommand("menu", "منوی اصلی"),
+        BotCommand("cancel", "لغو عملیات فعلی"),
     ]
     await application.bot.set_my_commands(commands)
 
@@ -146,6 +159,7 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("menu", show_menu))
+    application.add_handler(CommandHandler("cancel", cancel))
     application.add_handler(CallbackQueryHandler(inline_handler))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input)

@@ -6,10 +6,40 @@ import handlers.quiz_handlers as quiz_handlers
 from models import CallbackPrefix
 import asyncio
 
+from core.telegram_guard import should_block_non_private
 from services import db, get_main_menu_keyboard, reset_session, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
 
 ITEMS_PER_PAGE = 5
+
+
+# Persian text shown to non-private chat users.
+_PRIVATE_CHAT_ONLY_MESSAGE = (
+    "⛔️ لطفاً برای استفاده از ربات، به چت خصوصی مراجعه کنید."
+)
+
+
+async def _send_private_chat_only(update) -> None:
+    """Send the polite Persian message via whichever reply target exists.
+
+    The function is intentionally best-effort: if the update shape is
+    unexpected (no message / no callback_query / no reply_text) we
+    silently return so the guard never crashes a handler. Any exception
+    raised by the underlying Telegram send is also swallowed.
+    """
+    try:
+        message = getattr(update, "message", None) or getattr(
+            update, "callback_query", None
+        )
+        target = getattr(message, "message", message)  # callback_query → .message
+        reply_text = getattr(target, "reply_text", None)
+        if reply_text is None:
+            return
+        await reply_text(_PRIVATE_CHAT_ONLY_MESSAGE)
+    except Exception:
+        # Never let a guard fail; the next authorization check will still
+        # block the request.
+        pass
 
 
 def _format_lesson_name(num: int, title: str) -> str:
@@ -31,6 +61,11 @@ async def _menu_stats(user_id: int):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Phase 0 hardening: non-private chats are not supported.
+    if should_block_non_private(update):
+        await _send_private_chat_only(update)
+        return
+
     user = update.effective_user
     if not user:
         return
@@ -73,6 +108,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Phase 0 hardening: non-private chats are not supported.
+    if should_block_non_private(update):
+        await _send_private_chat_only(update)
+        return
+
     user = update.effective_user
     if not user:
         return
@@ -109,6 +149,38 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg,
         reply_markup=get_main_menu_keyboard(due, streak, hard, is_admin=is_admin),
     )
+
+
+async def cancel(update, context):
+    """Cancel the current in-flight operation and return to the main menu.
+
+    Phase-0 goal: give the user a single command to bail out of any
+    flashcard / quiz / LTR / story session. The handler does NOT delete
+    user data — it only clears transient session state via
+    :func:`reset_session` and re-shows the main menu.
+    """
+    user = update.effective_user if update else None
+    if not user:
+        return
+    if not config.is_authorized_user(user.id):
+        return
+
+    # Clear transient session state (quiz, flashcards, LTR, story, etc.).
+    reset_session(context)
+
+    # Short confirmation + the main menu keyboard.
+    message = getattr(update, "message", None)
+    if message is not None:
+        try:
+            await message.reply_text("❌ عملیات فعلی لغو شد.")
+        except Exception:
+            # We never want the cancel command itself to fail.
+            pass
+
+    # Re-show the main menu so the user can pick the next action.
+    await show_menu(update, context)
+
+
 async def show_quiz_menu(update, context):
     keyboard = [
         [
