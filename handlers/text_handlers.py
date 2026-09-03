@@ -1,4 +1,5 @@
 import config
+from core.telegram_guard import should_block_non_private
 from services import get_main_menu_keyboard
 
 from . import menus
@@ -7,6 +8,13 @@ from .smart_plan import show_smart_plan
 
 
 async def handle_text_input(update, context):
+    # Phase 0 hardening: silently drop messages that originate from
+    # non-private chats (groups, supergroups, channels). Unknown chat
+    # types are allowed through so we don't break unusual Telegram
+    # update shapes.
+    if should_block_non_private(update):
+        return
+
     user = update.effective_user
     if not config.is_authorized_user(user.id):
         return

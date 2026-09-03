@@ -38,6 +38,20 @@ class BookRepository(BaseRepository):
         )
         return row[0] if row else None
 
+    def get_count(self) -> int:
+        """Return the total number of books in the catalogue.
+
+        Used by the admin ``/status`` view. Returns 0 for an empty or
+        missing table so the admin page never crashes mid-render.
+        """
+        import sqlite3
+
+        try:
+            row = self.fetch_one("SELECT COUNT(*) FROM books")
+        except sqlite3.OperationalError:
+            return 0
+        return row[0] if row else 0
+
 
 class LessonRepository(BaseRepository):
     def __init__(self, connection: DatabaseConnection):
@@ -77,6 +91,20 @@ class LessonRepository(BaseRepository):
             (title, lesson_id),
             commit=True,
         )
+
+    def get_count(self) -> int:
+        """Return the total number of lessons in the catalogue.
+
+        Used by the admin ``/status`` view. Returns 0 for an empty or
+        missing table so the admin page never crashes mid-render.
+        """
+        import sqlite3
+
+        try:
+            row = self.fetch_one("SELECT COUNT(*) FROM lessons")
+        except sqlite3.OperationalError:
+            return 0
+        return row[0] if row else 0
 
 
 class UserRepository(BaseRepository):
@@ -131,7 +159,8 @@ class UserRepository(BaseRepository):
 
     def get_settings(self, user_id: int) -> dict:
         row = self.fetch_one(
-            "SELECT preferred_level, daily_goal FROM user_settings WHERE user_id = ?",
+            "SELECT preferred_level, daily_goal, reminders_enabled, "
+            "timezone_offset_minutes FROM user_settings WHERE user_id = ?",
             (user_id,),
         )
         if not row:
@@ -139,6 +168,8 @@ class UserRepository(BaseRepository):
         return {
             "preferred_level": row[0] or "A1",
             "daily_goal": row[1] if row[1] else 10,
+            "reminders_enabled": bool(row[2]) if row[2] is not None else False,
+            "timezone_offset_minutes": row[3] if row[3] is not None else 210,
         }
 
     def update_setting(self, user_id: int, preferred_level: str) -> None:
@@ -178,6 +209,250 @@ class UserRepository(BaseRepository):
             (f"-{days} days",),
         )
         return row[0] if row else 0
+
+    # ─────────────────────────────
+    # Daily reminder opt-in (Phase 0 hardening)
+    # ─────────────────────────────
+    def get_reminders_enabled(self, user_id: int) -> bool:
+        """Read the reminder opt-in flag; default = False (opt-out)."""
+        row = self.fetch_one(
+            "SELECT reminders_enabled FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        )
+        if not row or row[0] is None:
+            return False
+        return bool(row[0])
+
+    def set_reminders_enabled(self, user_id: int, enabled: bool) -> None:
+        """Upsert the reminder flag; bootstrap defaults for other columns.
+
+        If no ``user_settings`` row exists yet, insert one with the same
+        defaults the schema uses (``preferred_level='A1'``,
+        ``daily_goal=10``) so we never trip a NOT NULL constraint.
+        """
+        self.execute(
+            """
+            INSERT INTO user_settings
+                (user_id, preferred_level, daily_goal, reminders_enabled,
+                 timezone_offset_minutes)
+            VALUES (?, 'A1', 10, ?, 210)
+            ON CONFLICT(user_id) DO UPDATE SET
+                reminders_enabled = excluded.reminders_enabled
+            """,
+            (user_id, 1 if enabled else 0),
+            commit=True,
+        )
+
+    def toggle_reminders(self, user_id: int) -> bool:
+        """Flip the reminder flag and return the new value."""
+        current = self.get_reminders_enabled(user_id)
+        new_value = not current
+        self.set_reminders_enabled(user_id, new_value)
+        return new_value
+
+    def get_reminder_user_ids(self) -> List[int]:
+        """Return ids of users who opted in AND were active in the last 30 days.
+
+        Inactive users are filtered out so we never ping someone who has
+        effectively stopped using the bot.
+        """
+        rows = self.fetch_all(
+            """
+            SELECT u.user_id
+            FROM users u
+            JOIN user_settings s ON s.user_id = u.user_id
+            WHERE s.reminders_enabled = 1
+              AND u.last_active_at IS NOT NULL
+              AND u.last_active_at >= datetime('now', '-30 days')
+            """
+        )
+        return [r[0] for r in rows]
+
+    # ─────────────────────────────────────────────────────────────────
+    # Batched reminder stats (Phase 1, item 5)
+    # ─────────────────────────────────────────────────────────────────
+    # The daily reminder job used to run FOUR queries per recipient
+    # (due count + hard count + daily goal + today-new count). With a
+    # few hundred active users that meant a few hundred round-trips
+    # through ``asyncio.to_thread`` and the SQLite write lock. The
+    # four helpers below let the job process a batch of recipients in
+    # a single query each, so the total work is 4 queries per batch
+    # instead of 4·N queries per reminder run.
+    #
+    # Shared contract:
+    #   * ``user_ids`` MUST be a list of int.  Empty list short-
+    #     circuits to an empty dict (no SQL is executed) so a "no
+    #     opted-in users today" job costs zero DB calls.
+    #   * The returned dict only contains entries for users that
+    #     actually have data; users with no rows are omitted (the
+    #     caller treats absence as the default — see Task 5 spec).
+    #   * Inactive / opted-out filtering is the caller's job — these
+    #     methods are pure aggregators.
+    def _check_int_user_ids(self, user_ids: List[int]) -> None:
+        """Validate ``user_ids`` for the batch helpers.
+
+        A bad list (None, wrong type, mixed types) is a programmer
+        error and must surface loudly. We explicitly reject ``bool``
+        even though ``bool`` is a subclass of ``int`` in Python,
+        because ``True`` / ``False`` silently passed to a SQLite
+        ``IN`` clause would either filter the wrong user or, worse,
+        count as 1 and bias the result.
+        """
+        if not isinstance(user_ids, list):
+            raise TypeError(
+                f"user_ids must be a list[int], got {type(user_ids).__name__}"
+            )
+        for uid in user_ids:
+            if isinstance(uid, bool) or not isinstance(uid, int):
+                raise TypeError(
+                    f"user_ids must contain only int (got {uid!r} of type "
+                    f"{type(uid).__name__})"
+                )
+
+    def _int_placeholders(self, n: int) -> str:
+        """Return ``"?,?,?,…"`` for ``n`` SQLite placeholders."""
+        return ",".join("?" for _ in range(n))
+
+    def get_due_counts_for_users(self, user_ids: List[int]) -> Dict[int, int]:
+        """Return ``{user_id: due_count}`` for the given recipients.
+
+        A user with no rows in ``word_stats`` is **omitted** from the
+        returned dict; the caller treats that as 0 due words.  One
+        ``SELECT user_id, COUNT(*) ... GROUP BY user_id`` query
+        regardless of batch size.
+        """
+        self._check_int_user_ids(user_ids)
+        if not user_ids:
+            return {}
+
+        placeholders = self._int_placeholders(len(user_ids))
+        rows = self.fetch_all(
+            f"""
+            SELECT ws.user_id, COUNT(*) AS due_count
+            FROM word_stats ws
+            WHERE ws.user_id IN ({placeholders})
+              AND ws.next_review <= datetime('now')
+            GROUP BY ws.user_id
+            """,
+            tuple(user_ids),
+        )
+        return {uid: int(cnt) for uid, cnt in rows}
+
+    def get_hard_due_counts_for_users(
+        self, user_ids: List[int]
+    ) -> Dict[int, int]:
+        """Return ``{user_id: hard_due_count}`` for the given recipients.
+
+        Mirrors ``count_hard_due(user_id)`` (phase = 'learning' AND
+        next_review <= now) but does it for the whole batch in one
+        round-trip.
+        """
+        self._check_int_user_ids(user_ids)
+        if not user_ids:
+            return {}
+
+        placeholders = self._int_placeholders(len(user_ids))
+        rows = self.fetch_all(
+            f"""
+            SELECT ws.user_id, COUNT(*) AS hard_count
+            FROM word_stats ws
+            WHERE ws.user_id IN ({placeholders})
+              AND ws.phase = 'learning'
+              AND ws.next_review <= datetime('now')
+            GROUP BY ws.user_id
+            """,
+            tuple(user_ids),
+        )
+        return {uid: int(cnt) for uid, cnt in rows}
+
+    def get_daily_goals_for_users(self, user_ids: List[int]) -> Dict[int, int]:
+        """Return ``{user_id: daily_goal}`` for the given recipients.
+
+        Users with no ``user_settings`` row default to **10** (the
+        schema default and the value ``get_daily_goal`` already
+        returns).  This matches the single-user behaviour of
+        ``LearningRepository.get_daily_goal`` so the reminder text is
+        unchanged for any user.
+        """
+        self._check_int_user_ids(user_ids)
+        if not user_ids:
+            return {}
+
+        placeholders = self._int_placeholders(len(user_ids))
+        rows = self.fetch_all(
+            f"""
+            SELECT user_id, daily_goal
+            FROM user_settings
+            WHERE user_id IN ({placeholders})
+            """,
+            tuple(user_ids),
+        )
+        # Pre-seed every requested user with the schema default so
+        # that callers can rely on ``out[uid]`` for *every* uid in
+        # ``user_ids``, not just the ones that have a settings row.
+        # This mirrors the single-user behaviour of
+        # ``LearningRepository.get_daily_goal`` (which also returns
+        # 10 when the row is missing).
+        out: Dict[int, int] = {int(uid): 10 for uid in user_ids}
+        for uid, goal in rows:
+            # Treat a NULL / 0 / negative goal the same as "no row"
+            # and fall back to the schema default.
+            try:
+                g = int(goal) if goal is not None else 0
+            except (TypeError, ValueError):
+                g = 0
+            out[int(uid)] = g if g > 0 else 10
+        return out
+
+    def get_today_new_counts_for_users(
+        self, user_ids: List[int]
+    ) -> Dict[int, int]:
+        """Return ``{user_id: today_new_count}`` for the given recipients.
+
+        "Today" is computed in the configured user-local timezone,
+        matching ``LearningRepository.get_today_new_words_count``.  We
+        do the timezone math in Python (one datetime) and pass the
+        UTC cut-off string to SQLite; the GROUP BY is the only
+        difference vs the single-user path.
+        """
+        self._check_int_user_ids(user_ids)
+        if not user_ids:
+            return {}
+
+        # Local-day boundary -> UTC timestamp string. Mirrors the
+        # per-user implementation so a migration from one to the
+        # other does not change a single digit in the reminder text.
+        from config import (
+            USER_TIMEZONE_OFFSET_HOURS,
+            USER_TIMEZONE_OFFSET_MINUTES,
+        )
+
+        tz = timezone(
+            timedelta(
+                hours=USER_TIMEZONE_OFFSET_HOURS,
+                minutes=USER_TIMEZONE_OFFSET_MINUTES,
+            )
+        )
+        now_local = datetime.now(tz)
+        today_start_local = now_local.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        today_start_utc = today_start_local.astimezone(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        placeholders = self._int_placeholders(len(user_ids))
+        rows = self.fetch_all(
+            f"""
+            SELECT user_id, COUNT(DISTINCT word_id) AS new_count
+            FROM word_stats
+            WHERE user_id IN ({placeholders})
+              AND last_reviewed >= ?
+            GROUP BY user_id
+            """,
+            tuple(user_ids) + (today_start_utc,),
+        )
+        return {int(uid): int(cnt) for uid, cnt in rows}
 
     def reset_user_progress(self, user_id: int):
         for sql in [

@@ -5,9 +5,10 @@ from typing import Any, Dict, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from models import Word
+from models import CallbackPrefix, Word
 from services import db, fsrs, run_db
 from ui import _short_label, progress_bar
+from core.callbacks import cb_safe
 
 logger = logging.getLogger(__name__)
 
@@ -154,10 +155,16 @@ class LTRSessionManager:
 
         if is_correct:
             # ✅ Record successful question type
+            # NOTE: stored as list[str] (not set) so user_data stays
+            # JSON-serializable. Uniqueness is preserved by checking
+            # membership before appending.
             success_types = self.user_data.setdefault("ltr_word_success_types", {})
-            if word_id not in success_types:
-                success_types[word_id] = set()
-            success_types[word_id].add(q_type)
+            if word_id not in success_types or not isinstance(
+                success_types[word_id], list
+            ):
+                success_types[word_id] = []
+            if q_type not in success_types[word_id]:
+                success_types[word_id].append(q_type)
 
             # Check if we have enough different successful types
             if len(success_types[word_id]) >= MIN_SUCCESS_TYPES:
@@ -375,7 +382,7 @@ def _ltr_answer_keyboard(options: list) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     _short_label(opt, 64),
-                    callback_data=f"ltr_ans:{i}"
+                    callback_data=cb_safe(CallbackPrefix.LTR_ANS, i)
                 )
             ]
         )

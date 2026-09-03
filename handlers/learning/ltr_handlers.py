@@ -194,7 +194,10 @@ async def _show_test_question(query, context, word_id: int):
     # ─── Select question type based on attempt number ───
     ltr = LTRSessionManager(context)
     retry_count = ltr.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
-    success_types = ltr.user_data.get("ltr_word_success_types", {}).get(word_id, set())
+    # `ltr_word_success_types` is stored as dict[word_id, list[str]]
+    # (not set) so that user_data stays JSON-serializable. Only the
+    # length is consumed here, so a list default is fine.
+    success_types = ltr.user_data.get("ltr_word_success_types", {}).get(word_id, [])
     
     # Determine attempt number (1 = first test, 2+ = retry or second test)
     attempt_number = 1 if len(success_types) == 0 and retry_count == 0 else 2

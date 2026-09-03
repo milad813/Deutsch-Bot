@@ -11,7 +11,7 @@ Conventions:
 - Bump SCHEMA_VERSION whenever adding tables/columns here.
 """
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 
 # ─────────────────────────────────────────────────────────────────────
 # Tables
@@ -65,7 +65,9 @@ TABLE_STATEMENTS = (
     CREATE TABLE IF NOT EXISTS user_settings (
         user_id INTEGER PRIMARY KEY,
         preferred_level TEXT DEFAULT 'A1',
-        daily_goal INTEGER DEFAULT 10
+        daily_goal INTEGER DEFAULT 10,
+        reminders_enabled INTEGER DEFAULT 0,
+        timezone_offset_minutes INTEGER DEFAULT 210
     )
     """,
     """
@@ -217,6 +219,19 @@ TABLE_STATEMENTS = (
         UNIQUE(word_id, level)
     )
     """,
+    # Daily LLM usage quota tracking (per user, per local-day date string).
+    # One row per (user_id, usage_date); UPSERT on increment so the table
+    # never grows beyond active-user-count × number-of-active-days.
+    """
+    CREATE TABLE IF NOT EXISTS user_llm_usage (
+        user_id INTEGER NOT NULL,
+        usage_date TEXT NOT NULL,
+        story_count INTEGER DEFAULT 0,
+        example_count INTEGER DEFAULT 0,
+        last_updated TIMESTAMP,
+        PRIMARY KEY (user_id, usage_date)
+    )
+    """,
 )
 
 # ─────────────────────────────────────────────────────────────────────
@@ -242,6 +257,7 @@ INDEX_STATEMENTS = (
     "CREATE INDEX IF NOT EXISTS idx_mistake_stats_unresolved ON mistake_stats(user_id, resolved_at)",
     "CREATE INDEX IF NOT EXISTS idx_grammar_progress_user ON grammar_progress(user_id, next_review)",
     "CREATE INDEX IF NOT EXISTS idx_story_progress_user ON story_progress(user_id, story_id)",
+    "CREATE INDEX IF NOT EXISTS idx_user_llm_usage_user_date ON user_llm_usage(user_id, usage_date)",
 )
 
 # ─────────────────────────────────────────────────────────────────────
@@ -329,6 +345,9 @@ MIGRATION_STATEMENTS = (
     "ALTER TABLE word_skills ADD COLUMN correct_streak INTEGER DEFAULT 0",
     "ALTER TABLE grammar_progress ADD COLUMN correct_streak INTEGER DEFAULT 0",
     "ALTER TABLE story_progress ADD COLUMN next_review TIMESTAMP",
+    # Daily reminder opt-in (Phase 0 hardening)
+    "ALTER TABLE user_settings ADD COLUMN reminders_enabled INTEGER DEFAULT 0",
+    "ALTER TABLE user_settings ADD COLUMN timezone_offset_minutes INTEGER DEFAULT 210",
 )
 
 

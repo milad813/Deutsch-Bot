@@ -7,6 +7,7 @@ from html import escape
 from typing import Dict, List, Optional
 
 import config
+from core.logging_utils import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,13 @@ class LLMService:
 
             except asyncio.TimeoutError:
                 logger.warning("Groq timeout (کلید %d)، تلاش بعدی", attempt + 1)
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "llm_timeout",
+                    attempt=attempt + 1,
+                    model=MODEL,
+                )
                 continue
             except Exception as e:
                 error_str = str(e).lower()
@@ -249,6 +257,13 @@ class LLMService:
                 continue
                 
         logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
+        log_event(
+            logger,
+            logging.ERROR,
+            "llm_failure",
+            model=MODEL,
+            total_attempts=len(GROQ_API_KEYS) if GROQ_API_KEYS else 0,
+        )
         return None
     
     async def generate_quiz_question(

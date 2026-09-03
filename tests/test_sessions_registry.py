@@ -31,7 +31,7 @@ LEGACY_SESSION_KEYS = {
     "ltr_answer_lock", "ltr_learned_lock", "flashcard_rate_lock",
     "flashcard_flip_lock", "flashcard_skip_lock", "story_answer_lock",
     "grammar_answer_lock", "listening_answer_lock", "listening_skip_lock",
-    "story_generating",
+    "story_generating", "story_active_job_name",
 }
 
 

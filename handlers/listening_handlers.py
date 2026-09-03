@@ -5,6 +5,8 @@ import random
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from core.locks import callback_guard
+from core.callbacks import cb_safe
+from models import CallbackPrefix
 
 from learning_engine import record_quiz_answer
 from option_generator import get_wrong_options
@@ -117,14 +119,14 @@ async def _show_listening_question(update, context):
             [
                 InlineKeyboardButton(
                     _short_label(opt, 64),
-                    callback_data=f"listening_ans:{i}",
+                    callback_data=cb_safe(CallbackPrefix.LISTENING_ANS, i),
                 )
             ]
         )
     kb_rows.append(
         [
             InlineKeyboardButton(
-                "🔊 پخش دوباره", callback_data=f"listening_replay:{word_id}"
+                "🔊 پخش دوباره", callback_data=cb_safe(CallbackPrefix.LISTENING_REPLAY, word_id)
             )
         ]
     )

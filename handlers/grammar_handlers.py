@@ -4,6 +4,8 @@ import random
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from core.locks import callback_guard
+from core.callbacks import cb_safe
+from models import CallbackPrefix
 
 from services import db, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
@@ -18,7 +20,7 @@ def _grammar_quiz_keyboard(options, point_id):
             [
                 InlineKeyboardButton(
                     _short_label(opt, 64),
-                    callback_data=f"grammar_ans:{i}"
+                    callback_data=cb_safe(CallbackPrefix.GRAMMAR_ANS, i)
                 )
             ]
         )
@@ -27,7 +29,7 @@ def _grammar_quiz_keyboard(options, point_id):
         [
             InlineKeyboardButton(
                 "🔙 بازگشت به نکته",
-                callback_data=f"grammar_point:{point_id}"
+                callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, point_id)
             )
         ]
     )
@@ -50,11 +52,11 @@ async def show_grammar_menu(query, context, lesson_id: int):
             [
                 InlineKeyboardButton(
                     _short_label(f"📘 {title}"),
-                    callback_data=f"grammar_point:{p['id']}",
+                    callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, p['id']),
                 )
             ]
         )
-    kb.append([InlineKeyboardButton("🔙 بازگشت", callback_data=f"lesson_{lesson_id}")])
+    kb.append([InlineKeyboardButton("🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.LESSON, lesson_id))])
     await render(
         query,
         "📐 <b>گرامر این درس</b>\nیک نکته را انتخاب کن:",
@@ -82,14 +84,14 @@ async def show_grammar_point(query, context, point_id: int):
     kb = [
         [
             InlineKeyboardButton(
-                "✍️ تمرین این نکته", callback_data=f"grammar_quiz:{p['id']}"
+                "✍️ تمرین این نکته", callback_data=cb_safe(CallbackPrefix.GRAMMAR_QUIZ, p['id'])
             )
         ]
     ]
     kb.append(
         [
             InlineKeyboardButton(
-                "🔙 بازگشت", callback_data=f"grammar_lesson:{p['lesson_id']}"
+                "🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.GRAMMAR_LESSON, p['lesson_id'])
             )
         ]
     )
@@ -237,7 +239,7 @@ async def handle_grammar_answer(query, context, suffix: str):
     kb = [
         [
             InlineKeyboardButton(
-                "✍️ تمرین دیگر", callback_data=f"grammar_quiz:{cur['point_id']}"
+                "✍️ تمرین دیگر", callback_data=cb_safe(CallbackPrefix.GRAMMAR_QUIZ, cur['point_id'])
             )
         ]
     ]
@@ -245,7 +247,7 @@ async def handle_grammar_answer(query, context, suffix: str):
         [
             InlineKeyboardButton(
                 "🔙 بازگشت به نکته",
-                callback_data=f"grammar_point:{cur['point_id']}",
+                callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, cur['point_id']),
             )
         ]
     )

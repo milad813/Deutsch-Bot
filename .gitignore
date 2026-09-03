@@ -33,6 +33,8 @@ target/
 .env
 .env.local
 *.env.*
+# But keep the public template (no real secrets).
+!.env.example
 
 # Editors
 .vscode/
@@ -69,3 +71,4 @@ htmlcov/
 *.lzo
 words.db
 *.db
+words.db

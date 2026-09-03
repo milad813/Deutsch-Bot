@@ -6,6 +6,7 @@ import random
 import re
 from typing import Dict, List, Optional, Set
 
+from core.logging_utils import log_event
 from services import db, llm, run_db
 from ui import back_inline_keyboard, render
 from utils import safe_id_list
@@ -544,19 +545,60 @@ Text: {story_data["text"]}"""
     return None
 
 async def show_story_menu(query, context, lesson_id: int):
-    """منوی داستان - همیشه تولید داستان جدید."""
-    from handlers.story.view import show_story
+    """Story entry point: answer immediately, schedule a background job.
+
+    Phase 1, item 4 splits this handler into two phases so the LLM
+    call no longer blocks the bot's update-dispatch loop:
+
+    1. This callback handler runs synchronously and only:
+       * answers the callback,
+       * checks the LLM availability and daily quota,
+       * reserves the quota slot,
+       * sends a "⏳" progress message,
+       * schedules :func:`handlers.story.jobs.generate_story_job` on
+         the job queue with a 0.1 s delay.
+    2. The background job performs the LLM call and edits the
+       progress message with the final story view (or an error).
+
+    Concurrency guard: the canonical deduplication mechanism is a
+    ``JobQueue.get_jobs_by_name`` lookup using the unique name
+    ``story_gen:<user_id>``.  The legacy ``user_data["story_generating"]``
+    flag is kept as a defensive secondary check for environments
+    where the queue lookup is unavailable (tests, custom job queues).
+    """
+    from handlers.story.jobs import (
+        _story_job_name,
+        generate_story_job,
+        has_active_story_job,
+        register_active_story_job,
+    )
 
     user_id = query.from_user.id
+    chat_id = (
+        getattr(getattr(query, "message", None), "chat_id", None)
+        or getattr(query, "chat_id", None)
+    )
+    job_name = _story_job_name(user_id)
 
-    # ✅ جلوگیری از کلیک‌های مکرر
-    if context.user_data.get("story_generating"):
+    # ─── 1) Deduplication check ─────────────────────────────────────
+    # ``JobQueue.get_jobs_by_name`` is the source of truth.
+    job_queue = getattr(context, "job_queue", None)
+    existing_jobs = []
+    if job_queue is not None and hasattr(job_queue, "get_jobs_by_name"):
+        try:
+            existing_jobs = list(job_queue.get_jobs_by_name(job_name) or [])
+        except Exception:
+            existing_jobs = []
+    if existing_jobs or has_active_story_job(user_id) or context.user_data.get(
+        "story_generating"
+    ):
         try:
             await query.answer("⏳ در حال ساخت داستان قبلی...", show_alert=True)
         except Exception:
             pass
         return
 
+    # ─── 2) LLM availability ──────────────────────────────────────
     if not llm.is_available():
         await render(
             query,
@@ -566,29 +608,147 @@ async def show_story_menu(query, context, lesson_id: int):
         )
         return
 
-    context.user_data["story_generating"] = True
+    # ─── 3) Quota check + reservation ─────────────────────────────
+    allowed = await run_db(db.learning.is_llm_action_allowed, user_id, "story")
+    if not allowed:
+        log_event(
+            logger,
+            logging.INFO,
+            "llm_quota_exceeded",
+            user_id=int(user_id),
+            feature="story",
+            lesson_id=int(lesson_id),
+        )
+        await render(
+            query,
+            "⛔️ سهمیه‌ی ساخت داستان امروز تمام شده است. لطفاً فردا دوباره تلاش کن.",
+            reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
+        )
+        return
 
+    # Reserve the quota slot *before* scheduling the job so a flood
+    # of clicks cannot spawn parallel LLM calls.
+    await run_db(db.learning.increment_llm_usage, user_id, "story")
+
+    log_event(
+        logger,
+        logging.INFO,
+        "story_generation_started",
+        user_id=int(user_id),
+        lesson_id=int(lesson_id),
+        chat_id=int(chat_id) if chat_id is not None else None,
+    )
+
+    # ─── 4) Answer the callback ────────────────────────────────────
     try:
-        session_stories = context.user_data.get("story_session_word_ids", [])
-        exclude_ids = set(session_stories)
+        await query.answer("📖 در حال ساخت داستان جدید...", show_alert=False)
+    except Exception:
+        pass
 
+    # ─── 5) Send the progress message ─────────────────────────────
+    progress_text = "⏳ در حال ساخت داستان جدید..."
+    progress_mid = None
+    bot = getattr(context, "bot", None)
+    if bot is not None and chat_id is not None:
         try:
-            await query.answer("📖 در حال ساخت داستان جدید...", show_alert=False)
-        except Exception:
-            pass
+            sent = await bot.send_message(
+                chat_id=chat_id, text=progress_text
+            )
+            progress_mid = getattr(sent, "message_id", None)
+        except Exception as e:
+            logger.warning("show_story_menu: could not send progress message: %s", e)
 
-        story = await _generate_story_for_lesson(user_id, lesson_id, exclude_ids)
+    # If we cannot post a progress message AND cannot schedule a
+    # job, the user would never see anything — fall back to a direct
+    # render so the bot still works in degraded environments
+    # (e.g. a test bot with no chat to send to).
+    if progress_mid is None or job_queue is None:
+        # Synchronous fallback for test environments without a real
+        # JobQueue.  Kept as a single fallback so production can
+        # rely on the async path; the prior blocking flow runs
+        # here in exactly the same shape as before.
+        from handlers.story.view import show_story
 
+        session_stories = list(
+            context.user_data.get("story_session_word_ids", [])
+        )
+        exclude_ids = set(session_stories)
+        try:
+            story = await _generate_story_for_lesson(
+                user_id, lesson_id, exclude_ids
+            )
+        except Exception as e:
+            logger.exception("show_story_menu sync fallback failed: %s", e)
+            story = None
         if story:
             target_ids = safe_id_list(story.get("target_word_ids"))
-            session_stories.extend(target_ids)
+            for tid in target_ids:
+                if tid not in session_stories:
+                    session_stories.append(tid)
             context.user_data["story_session_word_ids"] = session_stories
             await show_story(query, context, story["id"])
         else:
             await render(
                 query,
                 "❌ ساخت داستان ناموفق بود. دوباره تلاش کن.",
-                reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
+                reply_markup=back_inline_keyboard(
+                    "🔙 بازگشت", f"lesson_{lesson_id}"
+                ),
             )
-    finally:
+        return
+
+    # ─── 6) Build payload + schedule the job ──────────────────────
+    session_stories = list(
+        context.user_data.get("story_session_word_ids", [])
+    )
+    payload = {
+        "user_id": int(user_id),
+        "chat_id": int(chat_id),
+        "lesson_id": int(lesson_id),
+        "progress_message_id": int(progress_mid),
+        "exclude_ids": [int(i) for i in session_stories],
+        "user_data": dict(context.user_data),
+        "job_name": job_name,
+    }
+
+    # Mark the user as busy and remember the job name so the
+    # /cancel and reset paths can find it.
+    context.user_data["story_generating"] = True
+    context.user_data["story_active_job_name"] = job_name
+    register_active_story_job(user_id, job_name)
+
+    try:
+        job_queue.run_once(
+            generate_story_job,
+            when=0.1,
+            data=payload,
+            name=job_name,
+            user_id=int(user_id),
+            chat_id=int(chat_id),
+        )
+    except Exception as e:
+        logger.exception("show_story_menu: scheduling failed: %s", e)
+        log_event(
+            logger,
+            logging.ERROR,
+            "story_generation_failed",
+            user_id=int(user_id),
+            lesson_id=int(lesson_id),
+            stage="scheduling",
+            error_type=type(e).__name__,
+        )
+        # Roll back the busy markers so the user can retry.
         context.user_data.pop("story_generating", None)
+        context.user_data.pop("story_active_job_name", None)
+        from handlers.story.jobs import clear_active_story_job
+        clear_active_story_job(user_id, job_name)
+        try:
+            await query.message.reply_text(
+                "❌ ساخت داستان ناموفق بود. دوباره تلاش کن.",
+                reply_markup=back_inline_keyboard(
+                    "🔙 بازگشت", f"lesson_{lesson_id}"
+                ),
+            )
+        except Exception:
+            pass
+

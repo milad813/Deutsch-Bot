@@ -6,10 +6,41 @@ import handlers.quiz_handlers as quiz_handlers
 from models import CallbackPrefix
 import asyncio
 
+from core.telegram_guard import should_block_non_private
+from core.callbacks import cb_safe
 from services import db, get_main_menu_keyboard, reset_session, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
 
 ITEMS_PER_PAGE = 5
+
+
+# Persian text shown to non-private chat users.
+_PRIVATE_CHAT_ONLY_MESSAGE = (
+    "⛔️ لطفاً برای استفاده از ربات، به چت خصوصی مراجعه کنید."
+)
+
+
+async def _send_private_chat_only(update) -> None:
+    """Send the polite Persian message via whichever reply target exists.
+
+    The function is intentionally best-effort: if the update shape is
+    unexpected (no message / no callback_query / no reply_text) we
+    silently return so the guard never crashes a handler. Any exception
+    raised by the underlying Telegram send is also swallowed.
+    """
+    try:
+        message = getattr(update, "message", None) or getattr(
+            update, "callback_query", None
+        )
+        target = getattr(message, "message", message)  # callback_query → .message
+        reply_text = getattr(target, "reply_text", None)
+        if reply_text is None:
+            return
+        await reply_text(_PRIVATE_CHAT_ONLY_MESSAGE)
+    except Exception:
+        # Never let a guard fail; the next authorization check will still
+        # block the request.
+        pass
 
 
 def _format_lesson_name(num: int, title: str) -> str:
@@ -31,6 +62,11 @@ async def _menu_stats(user_id: int):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Phase 0 hardening: non-private chats are not supported.
+    if should_block_non_private(update):
+        await _send_private_chat_only(update)
+        return
+
     user = update.effective_user
     if not user:
         return
@@ -73,6 +109,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Phase 0 hardening: non-private chats are not supported.
+    if should_block_non_private(update):
+        await _send_private_chat_only(update)
+        return
+
     user = update.effective_user
     if not user:
         return
@@ -109,42 +150,85 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg,
         reply_markup=get_main_menu_keyboard(due, streak, hard, is_admin=is_admin),
     )
+
+
+async def cancel(update, context):
+    """Cancel the current in-flight operation and return to the main menu.
+
+    Phase-0 goal: give the user a single command to bail out of any
+    flashcard / quiz / LTR / story session. The handler does NOT delete
+    user data — it only clears transient session state via
+    :func:`reset_session` and re-shows the main menu.
+    """
+    user = update.effective_user if update else None
+    if not user:
+        return
+    if not config.is_authorized_user(user.id):
+        return
+
+    # Clear transient session state (quiz, flashcards, LTR, story, etc.).
+    reset_session(context)
+
+    # Also cancel any pending TTS auto-delete job for this user and
+    # remove the audio message. ``reset_session`` only touches
+    # ``user_data["tts_delete_job"]``; the module-level ``_tts_jobs`` map
+    # in ``handlers.tts_handlers`` is drained per-user here.
+    try:
+        from handlers.tts_handlers import cleanup_tts as _cleanup_tts
+        await _cleanup_tts(context, user.id)
+    except Exception:
+        # Never let /cancel fail on TTS bookkeeping.
+        pass
+
+    # Short confirmation + the main menu keyboard.
+    message = getattr(update, "message", None)
+    if message is not None:
+        try:
+            await message.reply_text("❌ عملیات فعلی لغو شد.")
+        except Exception:
+            # We never want the cancel command itself to fail.
+            pass
+
+    # Re-show the main menu so the user can pick the next action.
+    await show_menu(update, context)
+
+
 async def show_quiz_menu(update, context):
     keyboard = [
         [
             InlineKeyboardButton(
                 "📝 آزمون ترکیبی (پیشنهادی)",
-                callback_data=f"{CallbackPrefix.MIXED_EXAM.value}20",
+                callback_data=cb_safe(CallbackPrefix.MIXED_EXAM, 20),
             )
         ],
         [
             InlineKeyboardButton(
                 "🧠 معنی (آلمانی→فارسی)",
-                callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}meaning",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_TYPE, "meaning"),
             )
         ],
         [
             InlineKeyboardButton(
                 "🔄 معکوس (فارسی→آلمانی)",
-                callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}reverse",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_TYPE, "reverse"),
             )
         ],
         [
             InlineKeyboardButton(
                 "🎯 آرتیکل (der/die/das)",
-                callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}article",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_TYPE, "article"),
             )
         ],
         [
             InlineKeyboardButton(
                 "📝 جای خالی",
-                callback_data=f"{CallbackPrefix.QUIZ_TYPE.value}cloze",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_TYPE, "cloze"),
             )
         ],
         [
             InlineKeyboardButton(
                 "🎧 شنیداری",
-                callback_data=f"{CallbackPrefix.LISTENING_START.value}",
+                callback_data=cb_safe(CallbackPrefix.LISTENING_START),
             )
         ],
         [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
@@ -159,29 +243,29 @@ async def show_quiz_source(query, context):
         [
             InlineKeyboardButton(
                 "📚 کل کتابخانه من",
-                callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}all",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_SOURCE, "all"),
             )
         ],
         [
             InlineKeyboardButton(
                 "📖 از درس خاص",
-                callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}lesson",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_SOURCE, "lesson"),
             )
         ],
         [
             InlineKeyboardButton(
-                "❌ کلمات ضعیف", callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}weak"
+                "❌ کلمات ضعیف", callback_data=cb_safe(CallbackPrefix.QUIZ_SOURCE, "weak")
             )
         ],
         [
             InlineKeyboardButton(
-                "📅 موعد امروز", callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}due"
+                "📅 موعد امروز", callback_data=cb_safe(CallbackPrefix.QUIZ_SOURCE, "due")
             )
         ],
         [
             InlineKeyboardButton(
                 "📒 اشتباهات من",
-                callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}mistakes",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_SOURCE, "mistakes"),
             )
         ],
         [InlineKeyboardButton("🔙 مرحله قبل", callback_data="show_quiz_menu")],
@@ -210,7 +294,7 @@ async def show_books_for_quiz(query, context):
             [
                 InlineKeyboardButton(
                     _short_label(f"📖 {name} ({level})"),
-                    callback_data=f"{CallbackPrefix.QUIZ_BOOK.value}{book_id}",
+                    callback_data=cb_safe(CallbackPrefix.QUIZ_BOOK, book_id),
                 )
             ]
         )
@@ -252,7 +336,7 @@ async def show_lessons(query, context, book_id: int):
             [
                 InlineKeyboardButton(
                     _short_label(label),
-                    callback_data=f"lesson_{lesson_id}",
+                    callback_data=cb_safe(CallbackPrefix.LESSON, lesson_id),
                 )
             ]
         )
@@ -297,24 +381,24 @@ async def show_quiz_count(query, context):
     keyboard = [
         [
             InlineKeyboardButton(
-                "⚡ ۵ سوال سریع", callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}5"
+                "⚡ ۵ سوال سریع", callback_data=cb_safe(CallbackPrefix.QUIZ_COUNT, 5)
             )
         ],
         [
             InlineKeyboardButton(
                 "🎯 ۱۰ سوال استاندارد",
-                callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}10",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_COUNT, 10),
             )
         ],
         [
             InlineKeyboardButton(
-                "💪 ۲۰ سوال جدی", callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}20"
+                "💪 ۲۰ سوال جدی", callback_data=cb_safe(CallbackPrefix.QUIZ_COUNT, 20)
             )
         ],
         [
             InlineKeyboardButton(
                 "🔥 همه کلمات این منبع",
-                callback_data=f"{CallbackPrefix.QUIZ_COUNT.value}all",
+                callback_data=cb_safe(CallbackPrefix.QUIZ_COUNT, "all"),
             )
         ],
         [InlineKeyboardButton("🔙 مرحله قبل", callback_data=back_cb)],
@@ -337,7 +421,7 @@ async def show_books(update_or_query, context, is_message: bool = False):
             [
                 InlineKeyboardButton(
                     _short_label(f"📖 {name} ({level})"),
-                    callback_data=f"book_{book_id}",
+                    callback_data=cb_safe(CallbackPrefix.BOOK, book_id),
                 )
             ]
             for book_id, name, level in books
@@ -356,32 +440,32 @@ async def show_lesson_options(query, context, lesson_id: int):
     keyboard = [
         [
             InlineKeyboardButton(
-                "📋 مشاهده لیست کلمات", callback_data=f"lesson_words_{lesson_id}_0"
+                "📋 مشاهده لیست کلمات", callback_data=cb_safe(CallbackPrefix.LESSON_WORDS, f"{lesson_id}_0")
             )
         ],
         [
             InlineKeyboardButton(
-                "🧠 تمرین عمیق (LTR)", callback_data=f"study_lesson:{lesson_id}"
+                "🧠 تمرین عمیق (LTR)", callback_data=cb_safe(CallbackPrefix.STUDY_LESSON, lesson_id)
             )
         ],
         [
             InlineKeyboardButton(
-                "📖 داستان این درس", callback_data=f"story_lesson:{lesson_id}"
+                "📖 داستان این درس", callback_data=cb_safe(CallbackPrefix.STORY_LESSON, lesson_id)
             )
         ],
         [
             InlineKeyboardButton(
-                "🎴 فلش‌کارت", callback_data=f"flashcard_lesson:{lesson_id}"
+                "🎴 فلش‌کارت", callback_data=cb_safe(CallbackPrefix.FLASHCARD_LESSON, lesson_id)
             )
         ],
         [
             InlineKeyboardButton(
-                "🤖 کوییز", callback_data=f"quiz_from_lesson:{lesson_id}"
+                "🤖 کوییز", callback_data=cb_safe(CallbackPrefix.QUIZ_FROM_LESSON, lesson_id)
             )
         ],
         [
             InlineKeyboardButton(
-                "📐 گرامر این درس", callback_data=f"grammar_lesson:{lesson_id}"
+                "📐 گرامر این درس", callback_data=cb_safe(CallbackPrefix.GRAMMAR_LESSON, lesson_id)
             )
         ],
         [InlineKeyboardButton("🔙 بازگشت به لیست درس‌ها", callback_data=back_cb)],
@@ -455,19 +539,19 @@ async def show_lesson_words(query, context, lesson_id: int, page: int = 0):
     if page > 0:
         nav.append(
             InlineKeyboardButton(
-                "⬅️ قبلی", callback_data=f"lesson_words_{lesson_id}_{page - 1}"
+                "⬅️ قبلی", callback_data=cb_safe(CallbackPrefix.LESSON_WORDS, f"{lesson_id}_{page - 1}")
             )
         )
     if end < total:
         nav.append(
             InlineKeyboardButton(
-                "➡️ بعدی", callback_data=f"lesson_words_{lesson_id}_{page + 1}"
+                "➡️ بعدی", callback_data=cb_safe(CallbackPrefix.LESSON_WORDS, f"{lesson_id}_{page + 1}")
             )
         )
     if nav:
         keyboard.append(nav)
     keyboard.append(
-        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=f"lesson_{lesson_id}")]
+        [InlineKeyboardButton("🔙 بازگشت به درس", callback_data=cb_safe(CallbackPrefix.LESSON, lesson_id))]
     )
     await render(query, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -588,6 +672,11 @@ async def show_settings_menu(update, context):
     settings = await run_db(db.users.get_settings, user_id)
     current_level = settings.get("preferred_level", "A1")
     daily_goal = settings.get("daily_goal", 10)
+    reminders_enabled = settings.get("reminders_enabled", False)
+
+    reminder_label = (
+        "🔔 یادآور: فعال" if reminders_enabled else "🔕 یادآور: غیرفعال"
+    )
 
     keyboard = [
         [InlineKeyboardButton(f"📐 سطح فعلی: {current_level}", callback_data="noop")],
@@ -597,6 +686,7 @@ async def show_settings_menu(update, context):
                 f"🎯 هدف روزانه: {daily_goal}", callback_data="show_goal_select"
             )
         ],
+        [InlineKeyboardButton(reminder_label, callback_data="toggle_reminders")],
     ]
 
     # ─── فقط برای ادمین ───
@@ -622,6 +712,35 @@ async def show_settings_menu(update, context):
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
+
+async def toggle_reminders(query, context):
+    """Toggle the daily reminder opt-in flag and bounce back to settings."""
+    user = query.from_user if query is not None else None
+    if not user:
+        return
+    if not config.is_authorized_user(user.id):
+        try:
+            await query.answer("⛔️ دسترسی ندارید.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    new_value = await run_db(db.users.toggle_reminders, user.id)
+    confirmation = (
+        "✅ یادآور روزانه فعال شد."
+        if new_value
+        else "🔕 یادآور روزانه غیرفعال شد."
+    )
+
+    try:
+        await query.answer(confirmation, show_alert=False)
+    except Exception:
+        pass
+
+    # Refresh the settings menu so the button label flips immediately.
+    await show_settings_menu(query, context)
+
+
 async def show_level_select(update_or_query, context):
     user_id = (
         update_or_query.effective_user.id
@@ -635,7 +754,7 @@ async def show_level_select(update_or_query, context):
     for lvl in LEVELS:
         marker = "✅ " if lvl == current_level else ""
         keyboard.append(
-            [InlineKeyboardButton(f"{marker}{lvl}", callback_data=f"set_level:{lvl}")]
+            [InlineKeyboardButton(f"{marker}{lvl}", callback_data=cb_safe(CallbackPrefix.SET_LEVEL, lvl))]
         )
     # اگر از تنظیمات آمده باشد دکمه بازگشت به تنظیمات، وگرنه منوی اصلی
     back_cb = "show_settings" if settings else "back_to_main_menu"
@@ -693,7 +812,7 @@ async def show_goal_select(query, context):
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    f"{marker}{goal} کلمه", callback_data=f"set_goal:{goal}"
+                    f"{marker}{goal} کلمه", callback_data=cb_safe(CallbackPrefix.SET_GOAL, goal)
                 )
             ]
         )
@@ -769,7 +888,7 @@ async def show_error_notebook(query, context):
             [
                 InlineKeyboardButton(
                     "🎯 تمرین اشتباهات",
-                    callback_data=f"{CallbackPrefix.QUIZ_SOURCE.value}mistakes",
+                    callback_data=cb_safe(CallbackPrefix.QUIZ_SOURCE, "mistakes"),
                 )
             ],
             [
