@@ -42,6 +42,7 @@ def test_ensure_schema_creates_all_tables():
             "grammar_progress",
             "story_progress",
             "llm_examples",
+            "user_llm_usage",
         }
         missing = expected - names
         assert not missing, f"tables not created: {missing}"
@@ -64,6 +65,6 @@ def test_ensure_schema_is_idempotent():
 
 def test_statement_counts_unchanged():
     """Guard against accidental schema loss during refactors."""
-    assert len(TABLE_STATEMENTS) == 16
-    assert len(INDEX_STATEMENTS) == 18
-    assert len(MIGRATION_STATEMENTS) == 70
+    assert len(TABLE_STATEMENTS) == 17
+    assert len(INDEX_STATEMENTS) == 19
+    assert len(MIGRATION_STATEMENTS) == 72

@@ -3,6 +3,8 @@
 import logging
 import random
 from core.locks import callback_guard
+from core.callbacks import cb_safe
+from models import CallbackPrefix
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -35,7 +37,7 @@ async def start_story_quiz(query, context, story_id: int):
                 [
                     [
                         InlineKeyboardButton(
-                            "📖 بازگشت", callback_data=f"story_view:{story_id}"
+                            "📖 بازگشت", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id)
                         )
                     ],
                 ]
@@ -121,7 +123,7 @@ async def _show_story_question(query, context):
             [
                 InlineKeyboardButton(
                     _short_label(opt, 64),
-                    callback_data=f"story_ans:{i}"
+                    callback_data=cb_safe(CallbackPrefix.STORY_ANS, i)
                 )
             ]
         )
@@ -129,7 +131,7 @@ async def _show_story_question(query, context):
     kb.append(
         [
             InlineKeyboardButton(
-                "🔙 خروج", callback_data=f"story_view:{quiz['story_id']}"
+                "🔙 خروج", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz['story_id'])
             )
         ]
     )
@@ -250,12 +252,12 @@ async def handle_story_answer(query, context, suffix: str):
                 [
                     InlineKeyboardButton(
                         "➡️ سوال بعدی",
-                        callback_data=f"story_next_q:{quiz['story_id']}",
+                        callback_data=cb_safe(CallbackPrefix.STORY_NEXT_Q, quiz['story_id']),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        "🔙 خروج", callback_data=f"story_view:{quiz['story_id']}"
+                        "🔙 خروج", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz['story_id'])
                     )
                 ],
             ]
@@ -314,17 +316,17 @@ async def _show_story_quiz_summary(query, context):
             [
                 InlineKeyboardButton(
                     "📖 بازگشت به داستان",
-                    callback_data=f"story_view:{quiz['story_id']}",
+                    callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz['story_id']),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🔁 تکرار کوییز", callback_data=f"story_quiz:{quiz['story_id']}"
+                    "🔁 تکرار کوییز", callback_data=cb_safe(CallbackPrefix.STORY_QUIZ, quiz['story_id'])
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🔙 بازگشت به درس", callback_data=f"lesson_{lesson_id}"
+                    "🔙 بازگشت به درس", callback_data=cb_safe(CallbackPrefix.LESSON, lesson_id)
                 )
             ],
         ]

@@ -126,6 +126,7 @@ SESSION_FEATURES: Dict[str, SessionFeature] = {
                 "story_hint_level",
                 "story_answer_lock",
                 "story_generating",
+                "story_active_job_name",
             ),
         ),
         SessionFeature(

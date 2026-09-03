@@ -6,7 +6,6 @@ learning_engine -> update session -> render feedback/summary.
 """
 
 from handlers.quiz_handlers import handle_quiz_answer
-from models import QuizSession
 
 
 class FakeUser:
@@ -45,6 +44,20 @@ def _make_quiz(correct_index: int) -> dict:
     }
 
 
+def _make_session(quiz_type: str = "meaning", total_questions: int = 1) -> dict:
+    """Build a JSON-safe quiz session dict matching the new shape."""
+    return {
+        "quiz_type": quiz_type,
+        "total_questions": total_questions,
+        "current_index": 0,
+        "correct_count": 0,
+        "wrong_count": 0,
+        "question_ids": [],
+        "source_filter": None,
+        "lesson_id": None,
+    }
+
+
 async def test_correct_answer_completes_without_error():
     context = FakeContext()
     context.user_data["current_quiz"] = _make_quiz(correct_index=1)
@@ -60,16 +73,16 @@ async def test_correct_answer_completes_without_error():
 
 async def test_wrong_answer_updates_session_and_shows_summary():
     context = FakeContext()
-    session = QuizSession(quiz_type="meaning", total_questions=1)
+    session = _make_session(quiz_type="meaning", total_questions=1)
     context.user_data["quiz_session_obj"] = session
     context.user_data["current_quiz"] = _make_quiz(correct_index=0)
     query = FakeQuery("quiz_ans:2")
 
     await handle_quiz_answer(query, context)
 
-    assert session.current_index == 1
-    assert session.correct_count == 0
-    assert session.wrong_count == 1
+    assert session["current_index"] == 1
+    assert session["correct_count"] == 0
+    assert session["wrong_count"] == 1
     assert "current_quiz" not in context.user_data
     assert query.edits, "expected summary to be rendered"
     # No word_id -> nothing tracked for retry
@@ -78,7 +91,7 @@ async def test_wrong_answer_updates_session_and_shows_summary():
 
 async def test_wrong_answer_tracks_word_for_retry():
     context = FakeContext()
-    session = QuizSession(quiz_type="meaning", total_questions=2)
+    session = _make_session(quiz_type="meaning", total_questions=2)
     context.user_data["quiz_session_obj"] = session
     quiz = _make_quiz(correct_index=0)
     quiz["word_id"] = 7
@@ -88,7 +101,7 @@ async def test_wrong_answer_tracks_word_for_retry():
     await handle_quiz_answer(query, context)
 
     assert context.user_data.get("quiz_wrong_word_ids") == [7]
-    assert session.question_ids == [7]
+    assert session["question_ids"] == [7]
 
 
 async def test_inactive_quiz_shows_alert_and_returns():

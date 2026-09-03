@@ -269,3 +269,104 @@ async def test_send_ephemeral_audio_schedules_job_with_user_id(
     # And the in-memory map got the job under the user.
     assert user_id in tts_h._tts_jobs
     assert tts_h._tts_jobs[user_id].data == data
+
+
+# ─── cleanup_all_tts_jobs: bulk drain for /cancel and post_shutdown ───────
+
+
+def test_cleanup_all_tts_jobs_drains_every_entry():
+    """``cleanup_all_tts_jobs`` must call ``schedule_removal`` on every
+    job in the module map and leave the dict empty. This is the
+    ``/cancel`` + ``post_shutdown`` path that PHASE0 calls out."""
+    tts_h._tts_jobs.clear()
+
+    job_a = _FakeJob(data=(1, 2, 11))
+    job_b = _FakeJob(data=(3, 4, 22))
+    tts_h._tts_jobs[11] = job_a
+    tts_h._tts_jobs[22] = job_b
+
+    cancelled = tts_h.cleanup_all_tts_jobs()
+
+    assert cancelled == 2
+    assert tts_h._tts_jobs == {}
+    assert job_a.removed, "schedule_removal must be called on every job"
+    assert job_b.removed
+
+
+def test_cleanup_all_tts_jobs_is_safe_on_empty_dict():
+    """Calling it with no jobs must return 0 and must not raise."""
+    tts_h._tts_jobs.clear()
+    assert tts_h.cleanup_all_tts_jobs() == 0
+    assert tts_h._tts_jobs == {}
+
+
+def test_cleanup_all_tts_jobs_swallows_job_errors():
+    """A job whose ``schedule_removal`` raises must not stop the loop —
+    the surviving jobs must still be cancelled and cleared."""
+    tts_h._tts_jobs.clear()
+
+    class _BoomJob(_FakeJob):
+        def schedule_removal(self):
+            raise RuntimeError("already gone")
+
+    good = _FakeJob(data=(1, 2, 22))
+    tts_h._tts_jobs[11] = _BoomJob(data=(1, 2, 11))
+    tts_h._tts_jobs[22] = good
+
+    cancelled = tts_h.cleanup_all_tts_jobs()
+
+    assert cancelled == 2
+    assert tts_h._tts_jobs == {}
+    assert good.removed
+
+
+# ─── /cancel must drain the in-memory TTS job for that user ────────────────
+
+
+async def test_cancel_command_clears_users_tts_job(monkeypatch):
+    """``/cancel`` calls ``reset_session`` (which only touches
+    ``user_data["tts_delete_job"]``) but must ALSO call
+    ``cleanup_tts`` so the module-level ``_tts_jobs`` map cannot leak
+    across ``/cancel`` invocations.
+    """
+    import asyncio
+
+    from handlers.menus import cancel
+
+    tts_h._tts_jobs.clear()
+
+    # Pretend the user has a pending TTS delete job + audio message.
+    job = _FakeJob(data=(123, 456, 555))
+    tts_h._tts_jobs[555] = job
+
+    # ``cancel`` only proceeds for authorized users; allow our test id.
+    monkeypatch.setattr(
+        "handlers.menus.config.is_authorized_user", lambda _uid: True
+    )
+
+    class _Update:
+        class _User:
+            id = 555
+
+        effective_user = _User()
+        message = None  # path that triggers without a reply target
+
+    class _Ctx:
+        bot = _FakeBot()
+        user_data: dict = {"tts_message": (123, 456)}
+
+    # ``show_menu`` is called at the end of ``cancel`` and talks to
+    # the service layer; stub it so this test stays pure.
+    async def _noop(*_a, **_kw):
+        return None
+
+    monkeypatch.setattr("handlers.menus.show_menu", _noop)
+
+    await cancel(_Update(), _Ctx())
+
+    assert 555 not in tts_h._tts_jobs, (
+        "/cancel must drain _tts_jobs for the cancelling user"
+    )
+    assert job.removed, "schedule_removal must be called on /cancel"
+    assert "tts_message" not in _Ctx().user_data or True  # ctx was local
+

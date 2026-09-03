@@ -2,6 +2,8 @@
 
 import logging
 
+from telegram import InlineKeyboardButton
+
 from models import CallbackPrefix
 from core.callbacks import (
     CALLBACK_DATA_MAX_BYTES,
@@ -10,6 +12,7 @@ from core.callbacks import (
     parse,
     parse_int,
 )
+from ui import callback_button
 
 
 def test_cb_builds_prefix_data():
@@ -85,3 +88,51 @@ def test_parse_int():
     assert parse_int("quiz_book:12") == 12
     assert parse_int("quiz_count:all") is None
     assert parse_int("noop") is None
+
+
+def test_callback_button_returns_inline_keyboard_button_with_safe_callback_data():
+    """callback_button() must return an InlineKeyboardButton whose
+    callback_data is built by cb_safe() and therefore stays within the
+    64-byte Telegram limit even for huge suffixes.
+    """
+    btn = callback_button(
+        "Lesson 3",
+        CallbackPrefix.LESSON,
+        3,
+    )
+    assert isinstance(btn, InlineKeyboardButton)
+    assert btn.text == "Lesson 3"
+    assert btn.callback_data == "lesson_3"
+    assert len(btn.callback_data.encode("utf-8")) <= CALLBACK_DATA_MAX_BYTES
+
+    # An over-long suffix must degrade to "noop" (cb_safe semantics),
+    # but the helper must still return a valid InlineKeyboardButton.
+    huge = "x" * 200
+    btn = callback_button(
+        "Big",
+        CallbackPrefix.LESSON_WORDS,
+        huge,
+    )
+    assert isinstance(btn, InlineKeyboardButton)
+    assert btn.callback_data == "noop"
+
+
+def test_button_labels_truncated_to_64_characters():
+    """Telegram caps button text at 64 chars; callback_button() must
+    truncate via ui._short_label so callers don't have to think about it.
+    """
+    long_label = "A" * 200
+    btn = callback_button(
+        long_label,
+        CallbackPrefix.QUIZ_TYPE,
+        "meaning",
+    )
+    # _short_label yields <= 64 chars total, ending with "..." for clarity.
+    assert len(btn.text) <= 64
+    assert btn.text.endswith("...")
+
+    # Short labels pass through untouched.
+    btn = callback_button("OK", CallbackPrefix.QUIZ_TYPE, "meaning")
+    assert btn.text == "OK"
+    # And the callback_data is still routed through cb_safe.
+    assert btn.callback_data == "quiz_type:meaning"

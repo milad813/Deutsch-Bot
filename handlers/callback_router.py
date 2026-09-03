@@ -5,6 +5,7 @@ from telegram.error import BadRequest
 
 import config
 import asyncio
+from core.logging_utils import log_event
 
 from handlers.admin_handlers import (
     show_admin_panel,
@@ -12,6 +13,7 @@ from handlers.admin_handlers import (
     handle_reset_progress,
     handle_reset_confirm,
     handle_reset_cancel,
+    show_status,
 )
 from handlers.grammar_handlers import (
     show_grammar_menu,
@@ -266,6 +268,7 @@ async def _handle_back_to_main_menu(query, context):
 EXACT_ROUTES: Dict[str, Callable] = {
     "admin_panel": show_admin_panel,
     "admin_users": show_admin_users,
+    "admin_status": show_status,
     "reset_progress":handle_reset_progress,
     "reset_confirm":handle_reset_confirm,
     "reset_cancel":handle_reset_cancel,
@@ -291,6 +294,7 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "daily_learning":handle_daily_learning,
     "ltr_review_weak": handle_ltr_review_weak,
     "smart_plan": show_smart_plan,
+    "toggle_reminders": menus.toggle_reminders,
 
 }
 
@@ -375,6 +379,13 @@ async def inline_handler(update, context):
             await query.answer("⛔️ دسترسی ندارید.", show_alert=True)
         except Exception:
             pass
+        log_event(
+            logger,
+            logging.INFO,
+            "unauthorized_access_attempt",
+            user_id=getattr(getattr(query, "from_user", None), "id", None),
+            callback_data=str(getattr(query, "data", ""))[:64],
+        )
         return
 
     # Rate limiting
@@ -383,6 +394,13 @@ async def inline_handler(update, context):
             await query.answer("⏳ لطفاً کمی صبر کنید.", show_alert=True)
         except Exception:
             pass
+        log_event(
+            logger,
+            logging.INFO,
+            "rate_limited",
+            user_id=query.from_user.id,
+            callback_data=str(getattr(query, "data", ""))[:64],
+        )
         return
 
     # Phase 0 hardening: non-private chats are not supported.
@@ -426,6 +444,13 @@ async def inline_handler(update, context):
             return
 
     logger.warning("Callback ناشناخته: %s", data)
+    log_event(
+        logger,
+        logging.WARNING,
+        "callback_unknown",
+        user_id=getattr(getattr(query, "from_user", None), "id", None),
+        callback_data=str(data or "")[:64],
+    )
     try:
         await render(query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard())
     except BadRequest:

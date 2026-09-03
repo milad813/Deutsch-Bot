@@ -8,7 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import asyncio
 import config
 from learning_engine import record_quiz_answer
-from models import QuizSession, Word
+from models import Word
 from option_generator import get_wrong_options
 from services import db, llm, quiz_service, run_db
 from ui import back_inline_keyboard, esc, quiz_answer_keyboard, render
@@ -115,10 +115,17 @@ async def _get_word_with_example(user_id, lesson_id, source_filter, exclude_ids)
 
     return random.choice(words) if words else None
 
-async def _ensure_example_background(word: Word, level: str) -> None:
+async def _ensure_example_background(
+    word: Word, level: str, user_id: Optional[int] = None
+) -> None:
     """
     اگر کلمه مثال ندارد، در پس‌زمینه مثال LLM بساز و ذخیره کن.
     این تابع هرگز نباید کوییز را بلاک کند.
+
+    ``user_id`` (optional) is used to enforce the per-user daily LLM
+    example quota: if the user has already used their full
+    ``LLM_DAILY_EXAMPLE_LIMIT`` for today, no LLM call is made.
+    A successful save counts as one consumption.
     """
     if not word or not word.id:
         return
@@ -131,6 +138,18 @@ async def _ensure_example_background(word: Word, level: str) -> None:
 
     if word.id in _pending_quiz_examples:
         return
+
+    # ✅ بررسی سهمیه روزانه مثال پیش از فراخوانی LLM
+    if user_id is not None:
+        allowed = await run_db(
+            db.learning.is_llm_action_allowed, user_id, "example"
+        )
+        if not allowed:
+            logger.info(
+                "سهمیه روزانه مثال LLM برای user_id=%s تمام شد، تولید لغو شد",
+                user_id,
+            )
+            return
 
     _pending_quiz_examples.add(word.id)
 
@@ -163,6 +182,12 @@ async def _ensure_example_background(word: Word, level: str) -> None:
                 example_de=example.get("de"),
                 example_fa=example.get("fa"),
             )
+
+            # فقط در صورت ذخیره موفق، سهمیه را مصرف کن
+            if user_id is not None:
+                await run_db(
+                    db.learning.increment_llm_usage, user_id, "example"
+                )
 
             logger.info("مثال پس‌زمینه برای word_id=%s ذخیره شد", word.id)
 
@@ -287,7 +312,9 @@ async def _gen_cloze(word: Word, user_id: int, level: str) -> Optional[Dict]:
 
     if not ex_de:
         if config.QUIZ_LLM_GENERATION and llm.is_available():
-            _spawn_background(_ensure_example_background(word, level))
+            _spawn_background(
+                _ensure_example_background(word, level, user_id=user_id)
+            )
         return None
 
     base_cloze = quiz_service.create_cloze_quiz(
@@ -401,7 +428,7 @@ async def _start_generic_quiz(
         level = settings.get("preferred_level", "A1")
 
         session = context.user_data.get("quiz_session_obj")
-        exclude_ids = set(session.question_ids) if session else set()
+        exclude_ids = set(session.get("question_ids", [])) if session else set()
 
         word = None
         quiz = None
@@ -430,7 +457,7 @@ async def _start_generic_quiz(
             exclude_ids.add(word.id)
 
         if not word or not quiz:
-            if session and session.current_index > 0:
+            if session and session.get("current_index", 0) > 0:
                 await _show_quiz_summary(
                     query, context, header="⚠️ کلمه‌ی مناسب دیگری پیدا نشد."
                 )
@@ -519,27 +546,34 @@ def _init_quiz_session(
     source_filter: Optional[str] = None,
     lesson_id: Optional[int] = None,
 ):
-    """Initialize quiz session using typed QuizSession model."""
+    """Initialize quiz session as a JSON-safe plain dict.
+
+    The session is stored under ``quiz_session_obj`` as a ``dict`` with
+    eight primitive/built-in fields, instead of a ``QuizSession``
+    dataclass instance.  This keeps ``context.user_data`` JSON-serializable
+    so we can later migrate from ``PicklePersistence`` to
+    ``JSONPersistence`` without rewriting every consumer.
+    """
     # ✅ پاک‌سازی stateهای قدیمی قبل از شروع session جدید
     context.user_data.pop("quiz_wrong_word_ids", None)
     context.user_data.pop("quiz_flash", None)
     context.user_data.pop("quiz_fixed_word_ids", None)
     context.user_data.pop("current_quiz", None)
     context.user_data.pop("quiz_question_sent_at", None)
-    context.user_data["quiz_session_obj"] = QuizSession(
-        quiz_type=quiz_type,
-        total_questions=total_questions,
-        current_index=0,
-        correct_count=0,
-        wrong_count=0,
-        question_ids=[],
-        source_filter=source_filter,
-        lesson_id=lesson_id,
-    )
+    context.user_data["quiz_session_obj"] = {
+        "quiz_type": str(quiz_type),
+        "total_questions": int(total_questions),
+        "current_index": 0,
+        "correct_count": 0,
+        "wrong_count": 0,
+        "question_ids": [],
+        "source_filter": source_filter,
+        "lesson_id": lesson_id,
+    }
 
 
-def _get_quiz_session(context) -> Optional[QuizSession]:
-    """Get current quiz session object."""
+def _get_quiz_session(context) -> Optional[dict]:
+    """Get current quiz session dict (or ``None`` if not started)."""
     return context.user_data.get("quiz_session_obj")
 
 
@@ -554,14 +588,20 @@ def _update_quiz_session(
     session = _get_quiz_session(context)
     if not session:
         return
-    session.current_index += 1
+    session["current_index"] += 1
     if is_correct:
-        session.correct_count += 1
+        session["correct_count"] += 1
     else:
-        session.wrong_count += 1
+        session["wrong_count"] += 1
     if word_id:
-        session.question_ids.append(word_id)
-        # ردیابی کلمات اشتباه در context (نه روی dataclass)
+        # Coerce a stale dataclass value back into a list so the dict
+        # shape stays consistent for subsequent writes.
+        qids = session.get("question_ids")
+        if not isinstance(qids, list):
+            qids = []
+            session["question_ids"] = qids
+        qids.append(word_id)
+        # ردیابی کلمات اشتباه در context (نه روی session dict)
         if not is_correct:
             wrong_ids = context.user_data.setdefault("quiz_wrong_word_ids", [])
             if word_id not in wrong_ids:
@@ -575,12 +615,13 @@ def _get_session_progress(context) -> str:
     session = _get_quiz_session(context)
     if not session:
         return ""
-    cur = session.current_index + 1
-    tot = session.total_questions or 1
+    cur = int(session.get("current_index", 0)) + 1
+    tot = int(session.get("total_questions") or 1)
     bar = progress_bar(cur, tot)
     return (
         f"[{bar}] سوال {cur} از {tot} | "
-        f"✅ {session.correct_count} | ❌ {session.wrong_count}"
+        f"✅ {session.get('correct_count', 0)} | "
+        f"❌ {session.get('wrong_count', 0)}"
     )
 
 
@@ -589,7 +630,9 @@ def _is_session_finished(context) -> bool:
     session = _get_quiz_session(context)
     if not session:
         return True
-    return session.current_index >= session.total_questions
+    return int(session.get("current_index", 0)) >= int(
+        session.get("total_questions", 0)
+    )
 
 
 async def _show_quiz_summary(query, context, header: str = ""):
@@ -606,9 +649,13 @@ async def _show_quiz_summary(query, context, header: str = ""):
     if not wrong_ids:
         context.user_data.pop("quiz_wrong_word_ids", None)
 
-    answered = session.correct_count + session.wrong_count
+    correct_count = int(session.get("correct_count", 0))
+    wrong_count = int(session.get("wrong_count", 0))
+    total_questions = int(session.get("total_questions", 0))
 
-    accuracy = (session.correct_count / answered * 100) if answered > 0 else 0
+    answered = correct_count + wrong_count
+
+    accuracy = (correct_count / answered * 100) if answered > 0 else 0
 
     lines = []
 
@@ -617,11 +664,11 @@ async def _show_quiz_summary(query, context, header: str = ""):
 
     lines.append("<b>🏁 کوییز تمام شد!</b>")
 
-    if answered < session.total_questions:
-        lines.append(f"📊 پاسخ داده‌شده: {answered} از {session.total_questions}")
+    if answered < total_questions:
+        lines.append(f"📊 پاسخ داده‌شده: {answered} از {total_questions}")
 
-    lines.append(f"✅ درست: {session.correct_count}")
-    lines.append(f"❌ اشتباه: {session.wrong_count}")
+    lines.append(f"✅ درست: {correct_count}")
+    lines.append(f"❌ اشتباه: {wrong_count}")
     lines.append(f"🎯 دقت: {accuracy:.1f}%")
 
     text = "\n".join(lines)

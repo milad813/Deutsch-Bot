@@ -3,20 +3,41 @@
 import asyncio
 import logging
 import time
-from collections import deque
-from typing import Optional, Set
+from collections.abc import Iterable
+from typing import Any, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
-from models import Word
+from models import CallbackPrefix, Word
 from services import db, fsrs, llm, run_db
 from ui import _bold_word_in_sentence, back_inline_keyboard, esc, render
 from core.locks import callback_guard
+from core.callbacks import cb_safe
 
 logger = logging.getLogger(__name__)
 
 _pending_examples: dict = {}  # key -> timestamp
+
+
+def _coerce_to_list(value: Any) -> list:
+    """Return ``value`` as a list.
+
+    Used to normalize session state that may have been persisted as a
+    ``deque`` or ``set`` by older code paths (or by PicklePersistence
+    carrying legacy shapes).  New code stores plain lists so that
+    ``context.user_data`` stays JSON-serializable.
+    """
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, Iterable):
+        return list(value)
+    return []
+
+
+
 
 
 class FlashcardSessionManager:
@@ -38,7 +59,7 @@ class FlashcardSessionManager:
         self.user_data["flashcard_only_new"] = only_new
         self.user_data["flashcard_only_due"] = only_due
         self.user_data["flashcard_hard_only"] = hard_only
-        self.user_data["flashcard_skipped_ids"] = set()
+        self.user_data["flashcard_skipped_ids"] = []
         self.user_data["flashcard_again_counts"] = {}
 
     async def load_words(
@@ -77,8 +98,14 @@ class FlashcardSessionManager:
             )
 
     def set_queue(self, words: list[Word]) -> None:
-        """Set the flashcard queue from word list."""
-        self.user_data["flashcard_queue"] = deque([w.id for w in words[1:]])
+        """Set the flashcard queue from word list.
+
+        Stores a plain ``list[int]`` so that ``context.user_data`` stays
+        JSON-serializable.  The current word (``words[0]``) is rendered
+        immediately by the caller; the rest are queued for subsequent
+        cards.
+        """
+        self.user_data["flashcard_queue"] = [w.id for w in words[1:]]
 
     def get_current_word_id(self) -> Optional[int]:
         """Get current flashcard word ID."""
@@ -91,27 +118,54 @@ class FlashcardSessionManager:
         self.user_data.pop("flashcard_rate_lock", None)
 
     def add_to_skipped(self, word_id: int) -> None:
-        """Add word to skipped set."""
-        skipped = self.user_data.setdefault("flashcard_skipped_ids", set())
-        skipped.add(word_id)
+        """Add word to the skipped list (idempotent)."""
+        skipped = self.user_data.get("flashcard_skipped_ids")
+        if not isinstance(skipped, list):
+            # Coerce legacy values (e.g. ``set`` from older sessions)
+            # into the new list shape and write them back.
+            skipped = _coerce_to_list(skipped)
+            self.user_data["flashcard_skipped_ids"] = skipped
+        if word_id not in skipped:
+            skipped.append(word_id)
 
-    def get_skipped_ids(self) -> Set[int]:
-        """Get set of skipped word IDs."""
-        return self.user_data.get("flashcard_skipped_ids", set())
+    def get_skipped_ids(self) -> List[int]:
+        """Return the list of skipped word IDs.
+
+        Returned as a list rather than a ``set`` so that
+        ``context.user_data`` stays JSON-serializable.  Callers needing
+        set semantics should wrap the result in ``set(...)``.
+        """
+        value = self.user_data.get("flashcard_skipped_ids")
+        if isinstance(value, list):
+            return value
+        # Coerce legacy ``set``/``tuple``/etc. values from older sessions
+        # back into the new list shape and write them back.
+        coerced = _coerce_to_list(value)
+        self.user_data["flashcard_skipped_ids"] = coerced
+        return coerced
 
     def pop_queue(self) -> Optional[int]:
-        """Pop next word ID from queue."""
+        """Pop next word ID from queue.
+
+        Returns the front element and removes it.  The list is bounded by
+        ``config.FLASHCARD_QUEUE_LIMIT`` (≤ 20), so ``list.pop(0)`` is
+        cheap enough.
+        """
         queue = self.user_data.get("flashcard_queue")
-        if not isinstance(queue, deque):
-            queue = deque(queue or [])
+        if not isinstance(queue, list):
+            queue = _coerce_to_list(queue)
             self.user_data["flashcard_queue"] = queue
 
-        return queue.popleft() if queue else None
+        if not queue:
+            return None
+        return queue.pop(0)
 
     def get_remaining_count(self) -> int:
-        """Get remaining cards count."""
+        """Get remaining cards count (including the one currently shown)."""
         queue = self.user_data.get("flashcard_queue")
-        return (len(queue) + 1) if isinstance(queue, deque) else 1
+        if isinstance(queue, list):
+            return len(queue) + 1
+        return 1
 
     def clear_session(self) -> None:
         """Clear all flashcard session data."""
@@ -139,7 +193,7 @@ def _flashcard_front_keyboard(
     rows = [
         [
             InlineKeyboardButton(
-                "👀 نمایش معنی", callback_data=f"flip_card:{word.id}"
+                "👀 نمایش معنی", callback_data=cb_safe(CallbackPrefix.FLIP_CARD, word.id)
             )
         ],
     ]
@@ -147,16 +201,16 @@ def _flashcard_front_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    "😵 Again", callback_data=f"rate_card:{word.id}:1"
+                    "😵 Again", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:1")
                 ),
                 InlineKeyboardButton(
-                    "😬 Hard", callback_data=f"rate_card:{word.id}:2"
+                    "😬 Hard", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:2")
                 ),
                 InlineKeyboardButton(
-                    "🙂 Good", callback_data=f"rate_card:{word.id}:3"
+                    "🙂 Good", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:3")
                 ),
                 InlineKeyboardButton(
-                    "😎 Easy", callback_data=f"rate_card:{word.id}:4"
+                    "😎 Easy", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:4")
                 ),
             ]
         )
@@ -164,7 +218,7 @@ def _flashcard_front_keyboard(
         [
             InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:front"),
             InlineKeyboardButton(
-                "⏭️ رد شدن", callback_data=f"skip_flashcard:{word.id}"
+                "⏭️ رد شدن", callback_data=cb_safe(CallbackPrefix.SKIP_FLASHCARD, word.id)
             ),
         ]
     )
@@ -179,11 +233,11 @@ def _flashcard_rate_keyboard(word: Word) -> InlineKeyboardMarkup:
             [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:back")],
             [
                 InlineKeyboardButton(
-                    "😵 Again", callback_data=f"rate_card:{word.id}:1"
+                    "😵 Again", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:1")
                 ),
-                InlineKeyboardButton("😬 Hard", callback_data=f"rate_card:{word.id}:2"),
-                InlineKeyboardButton("🙂 Good", callback_data=f"rate_card:{word.id}:3"),
-                InlineKeyboardButton("😎 Easy", callback_data=f"rate_card:{word.id}:4"),
+                InlineKeyboardButton("😬 Hard", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:2")),
+                InlineKeyboardButton("🙂 Good", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:3")),
+                InlineKeyboardButton("😎 Easy", callback_data=cb_safe(CallbackPrefix.RATE_CARD, f"{word.id}:4")),
             ],
         ]
     )
@@ -321,6 +375,7 @@ async def _render_flashcard_front(
                         meaning=word.persian,
                         level=level,
                         pending_key=pending_key,
+                        user_id=user_id,
                     )
                 )
 
@@ -328,7 +383,7 @@ async def _render_flashcard_front(
 
     # Build message
     queue = context.user_data.get("flashcard_queue")
-    remaining = (len(queue) + 1) if isinstance(queue, deque) else 1
+    remaining = (len(queue) + 1) if isinstance(queue, list) else 1
 
     parts = []
     if notice:
@@ -485,10 +540,10 @@ async def handle_rate_card(query, context, suffix: str = None):
             # حداکثر ۲ بار تکرار فوری در همان جلسه
             if again_counts[word_id] <= 2:
                 queue = context.user_data.get("flashcard_queue")
-                if not isinstance(queue, deque):
-                    queue = deque(queue or [])
+                if not isinstance(queue, list):
+                    queue = _coerce_to_list(queue)
 
-                queue.appendleft(word_id)
+                queue.insert(0, word_id)
                 context.user_data["flashcard_queue"] = queue
                 requeued = True
 
@@ -613,8 +668,29 @@ async def _generate_and_cache_example(
     meaning: str,
     level: str,
     pending_key: tuple,
+    user_id: Optional[int] = None,
 ):
-    """Generate LLM example in background and cache it."""
+    """Generate LLM example in background and cache it.
+
+    ``user_id`` is used to enforce the per-user daily LLM-example quota:
+    no LLM call is made if the user has already used their full
+    ``LLM_DAILY_EXAMPLE_LIMIT`` for today. A successful LLM response
+    (one that actually produces a cached example) counts as one
+    consumption.
+    """
+    # ✅ بررسی سهمیه روزانه مثال پیش از فراخوانی LLM
+    if user_id is not None:
+        allowed = await run_db(
+            db.learning.is_llm_action_allowed, user_id, "example"
+        )
+        if not allowed:
+            logger.info(
+                "سهمیه روزانه مثال LLM برای user_id=%s تمام شد، تولید لغو شد",
+                user_id,
+            )
+            _pending_examples.pop(pending_key, None)
+            return
+
     try:
         example = await llm.generate_contextual_example(
             german,
@@ -631,6 +707,11 @@ async def _generate_and_cache_example(
                 example_de=example["de"],
                 example_fa=example.get("fa"),
             )
+            # فقط در صورت ذخیره موفق، سهمیه را مصرف کن
+            if user_id is not None:
+                await run_db(
+                    db.learning.increment_llm_usage, user_id, "example"
+                )
             logger.info("مثال LLM برای word_id=%s ذخیره شد", word_id)
 
     except Exception as e:

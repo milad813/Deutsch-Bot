@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Optional
 
 import config
+from core.logging_utils import log_event
 from services import db, run_db, tts
 from ui import strip_html
 
@@ -32,6 +33,37 @@ async def cleanup_tts(context, user_id: int):
             await context.bot.delete_message(chat_id=info[0], message_id=info[1])
         except Exception:
             pass
+
+
+def cleanup_all_tts_jobs() -> int:
+    """Cancel and drop every entry in the module-level ``_tts_jobs`` map.
+
+    Phase-0 hardening: the in-memory TTS-job map must be drained on
+    ``/cancel`` and on bot shutdown (``post_shutdown``) so it never leaks
+    completed-job references between long-running sessions.
+
+    Synchronous on purpose: ``post_shutdown`` does not have a Telegram
+    context to send delete requests to, and we never need to delete the
+    actual audio message here — the user already lost the chat, and the
+    auto-delete job (if it still fires) is a no-op because the bot is
+    stopping. We only need to stop the *scheduled* callbacks from
+    running, which ``schedule_removal()`` does.
+
+    Returns the number of jobs that were cancelled (useful for tests /
+    metrics). Never raises — ``schedule_removal`` can legitimately refuse
+    to reschedule already-finished jobs, so we wrap it.
+    """
+    count = 0
+    # Snapshot the keys first so we can mutate the dict while iterating.
+    for user_id, job in list(_tts_jobs.items()):
+        try:
+            job.schedule_removal()
+        except Exception:
+            # Job may already be gone or refuse re-scheduling. That's fine.
+            pass
+        _tts_jobs.pop(user_id, None)
+        count += 1
+    return count
 
 
 async def _auto_delete_tts(context):
@@ -102,6 +134,13 @@ async def send_ephemeral_audio(query, context, text: str):
                     allow_sending_without_reply=True,
                 )
     except Exception as e:
+        log_event(
+            logger,
+            logging.ERROR,
+            "tts_send_failed",
+            user_id=int(user_id),
+            error_type=type(e).__name__,
+        )
         logger.error("Failed to send audio: %s", e)
         await query.message.reply_text("❌ خطا در پخش صدا")
         return
