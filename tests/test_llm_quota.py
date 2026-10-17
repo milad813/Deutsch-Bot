@@ -84,12 +84,8 @@ async def _clean_and_reload():
 
 async def test_is_llm_action_allowed_true_when_below_limit():
     """A fresh user with zero usage must be allowed for both features."""
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_BELOW, "story"
-    ) is True
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_BELOW, "example"
-    ) is True
+    assert await run_db(db.learning.is_llm_action_allowed, UID_BELOW, "story") is True
+    assert await run_db(db.learning.is_llm_action_allowed, UID_BELOW, "example") is True
 
 
 async def test_is_llm_action_allowed_false_when_story_limit_reached():
@@ -102,21 +98,15 @@ async def test_is_llm_action_allowed_false_when_story_limit_reached():
     config.LLM_DAILY_STORY_LIMIT = 2
 
     # First call: still allowed.
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_STORY_LIMIT, "story"
-    ) is True
+    assert await run_db(db.learning.is_llm_action_allowed, UID_STORY_LIMIT, "story") is True
     await run_db(db.learning.increment_llm_usage, UID_STORY_LIMIT, "story")
 
     # Second call: count is now 1, still under limit of 2.
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_STORY_LIMIT, "story"
-    ) is True
+    assert await run_db(db.learning.is_llm_action_allowed, UID_STORY_LIMIT, "story") is True
     await run_db(db.learning.increment_llm_usage, UID_STORY_LIMIT, "story")
 
     # Third check: count is 2, equal to limit -> not allowed.
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_STORY_LIMIT, "story"
-    ) is False
+    assert await run_db(db.learning.is_llm_action_allowed, UID_STORY_LIMIT, "story") is False
 
 
 async def test_is_llm_action_allowed_false_when_example_limit_reached():
@@ -124,17 +114,11 @@ async def test_is_llm_action_allowed_false_when_example_limit_reached():
     config.LLM_DAILY_EXAMPLE_LIMIT = 3
 
     for _ in range(3):
-        assert await run_db(
-            db.learning.is_llm_action_allowed, UID_EXAMPLE_LIMIT, "example"
-        ) is True
-        await run_db(
-            db.learning.increment_llm_usage, UID_EXAMPLE_LIMIT, "example"
-        )
+        assert await run_db(db.learning.is_llm_action_allowed, UID_EXAMPLE_LIMIT, "example") is True
+        await run_db(db.learning.increment_llm_usage, UID_EXAMPLE_LIMIT, "example")
 
     # 4th request hits the cap -> denied.
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_EXAMPLE_LIMIT, "example"
-    ) is False
+    assert await run_db(db.learning.is_llm_action_allowed, UID_EXAMPLE_LIMIT, "example") is False
 
 
 async def test_is_llm_action_allowed_uses_strict_less_than():
@@ -146,15 +130,11 @@ async def test_is_llm_action_allowed_uses_strict_less_than():
     config.LLM_DAILY_STORY_LIMIT = 1
 
     # Brand-new user: 0 < 1 -> allowed.
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_FRESH, "story"
-    ) is True
+    assert await run_db(db.learning.is_llm_action_allowed, UID_FRESH, "story") is True
     # Consume the single allowed call.
     await run_db(db.learning.increment_llm_usage, UID_FRESH, "story")
     # Now 1 is NOT < 1 -> denied.
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_FRESH, "story"
-    ) is False
+    assert await run_db(db.learning.is_llm_action_allowed, UID_FRESH, "story") is False
 
 
 async def test_is_llm_action_allowed_unknown_feature_is_denied():
@@ -163,12 +143,8 @@ async def test_is_llm_action_allowed_unknown_feature_is_denied():
     Otherwise a typo like ``"stroy"`` would let every request through
     because the method would just return ``True`` for the no-row case.
     """
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_BELOW, "stroy"
-    ) is False
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_BELOW, ""
-    ) is False
+    assert await run_db(db.learning.is_llm_action_allowed, UID_BELOW, "stroy") is False
+    assert await run_db(db.learning.is_llm_action_allowed, UID_BELOW, "") is False
 
 
 async def test_is_llm_action_allowed_independent_per_feature():
@@ -178,12 +154,8 @@ async def test_is_llm_action_allowed_independent_per_feature():
 
     # Use up the example quota; story quota should still be open.
     await run_db(db.learning.increment_llm_usage, UID_DAILY_OTHER, "example")
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_DAILY_OTHER, "example"
-    ) is False
-    assert await run_db(
-        db.learning.is_llm_action_allowed, UID_DAILY_OTHER, "story"
-    ) is True
+    assert await run_db(db.learning.is_llm_action_allowed, UID_DAILY_OTHER, "example") is False
+    assert await run_db(db.learning.is_llm_action_allowed, UID_DAILY_OTHER, "story") is True
 
 
 # ─── increment_llm_usage ──────────────────────────────────────────────────
@@ -249,30 +221,18 @@ async def test_usage_is_separated_by_date():
     so the test is independent of the actual wall-clock day.
     """
     # Day A: two stories consumed.
-    await run_db(
-        db.learning.increment_llm_usage, UID_DAILY_OTHER, "story", _DATE_A
-    )
-    await run_db(
-        db.learning.increment_llm_usage, UID_DAILY_OTHER, "story", _DATE_A
-    )
+    await run_db(db.learning.increment_llm_usage, UID_DAILY_OTHER, "story", _DATE_A)
+    await run_db(db.learning.increment_llm_usage, UID_DAILY_OTHER, "story", _DATE_A)
 
     # Day B: nothing consumed yet.
-    day_b_usage = await run_db(
-        db.learning.get_llm_usage, UID_DAILY_OTHER, _DATE_B
-    )
+    day_b_usage = await run_db(db.learning.get_llm_usage, UID_DAILY_OTHER, _DATE_B)
     assert day_b_usage == {"story": 0, "example": 0}
 
     # Adding 1 on day B must not change day A.
-    await run_db(
-        db.learning.increment_llm_usage, UID_DAILY_OTHER, "example", _DATE_B
-    )
+    await run_db(db.learning.increment_llm_usage, UID_DAILY_OTHER, "example", _DATE_B)
 
-    day_a_after = await run_db(
-        db.learning.get_llm_usage, UID_DAILY_OTHER, _DATE_A
-    )
-    day_b_after = await run_db(
-        db.learning.get_llm_usage, UID_DAILY_OTHER, _DATE_B
-    )
+    day_a_after = await run_db(db.learning.get_llm_usage, UID_DAILY_OTHER, _DATE_A)
+    day_b_after = await run_db(db.learning.get_llm_usage, UID_DAILY_OTHER, _DATE_B)
 
     assert day_a_after == {"story": 2, "example": 0}
     assert day_b_after == {"story": 0, "example": 1}

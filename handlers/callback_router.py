@@ -1,3 +1,4 @@
+from handlers.learning.lifecycle import suspend_ltr
 import logging
 from typing import Callable, Dict, List, Tuple
 
@@ -43,6 +44,9 @@ from handlers.learning import (
     start_flashcard_session,
 )
 from handlers.learning.ltr_handlers import (
+    handle_ltr_action,
+    handle_ltr_size,
+    handle_ltr_details,
     handle_daily_learning,
     handle_ltr_answer,
     handle_ltr_exit,
@@ -72,11 +76,12 @@ from middleware.rate_limiter import rate_limiter
 from models import CallbackPrefix
 from services import db, get_main_menu_keyboard, reset_session, run_db
 from ui import back_inline_keyboard, render
-from handlers.learning.flashcard_session import start_flashcard_due ,start_flashcard_hard
+from handlers.learning.flashcard_session import start_flashcard_due, start_flashcard_hard
 
 from core.telegram_guard import should_block_non_private
 
 logger = logging.getLogger(__name__)
+
 
 async def _handle_quiz_type(query, context, suffix: str):
     context.user_data["quiz_type"] = suffix
@@ -169,9 +174,7 @@ async def _handle_quiz_count(query, context, suffix: str):
     # پاک کردن quiz_lesson_preset قبل از شروع session
     context.user_data.pop("quiz_lesson_preset", None)
 
-    await start_quiz_session(
-        query, context, quiz_type, count, source_filter
-    )
+    await start_quiz_session(query, context, quiz_type, count, source_filter)
 
 
 async def _handle_quiz_book(query, context, suffix: str):
@@ -213,7 +216,6 @@ async def _handle_book(query, context, suffix: str):
     await menus.show_lessons(query, context, book_id)
 
 
-
 async def _handle_mixed_exam(query, context, suffix: str):
     """آزمون ترکیبی سریع."""
     try:
@@ -223,12 +225,14 @@ async def _handle_mixed_exam(query, context, suffix: str):
     count = max(5, min(count, config.MAX_QUIZ_ALL_COUNT))
     await menus.start_mixed_exam(query, context, count)
 
+
 async def _handle_back_to_main_menu(query, context):
     try:
         await query.answer()
     except Exception:
         pass
     await cleanup_tts(context, query.from_user.id)
+    await suspend_ltr(context)
     reset_session(context)
 
     if query.message:
@@ -236,9 +240,7 @@ async def _handle_back_to_main_menu(query, context):
             run_db(db.words.get_due_count, query.from_user.id),
             run_db(db.words.count_hard_due, query.from_user.id),
         )
-        is_admin = bool(
-            config.ADMIN_USER_ID and query.from_user.id == config.ADMIN_USER_ID
-        )
+        is_admin = bool(config.ADMIN_USER_ID and query.from_user.id == config.ADMIN_USER_ID)
 
         if hard_count > 0:
             msg = f"🏠 <b>منوی اصلی</b>\n🔥 {hard_count} کلمه سخت معوق داری!"
@@ -269,9 +271,9 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "admin_panel": show_admin_panel,
     "admin_users": show_admin_users,
     "admin_status": show_status,
-    "reset_progress":handle_reset_progress,
-    "reset_confirm":handle_reset_confirm,
-    "reset_cancel":handle_reset_cancel,
+    "reset_progress": handle_reset_progress,
+    "reset_confirm": handle_reset_confirm,
+    "reset_cancel": handle_reset_cancel,
     "back_to_main_menu": None,
     "noop": None,
     "show_dashboard": menus.show_dashboard_simple,
@@ -290,12 +292,11 @@ EXACT_ROUTES: Dict[str, Callable] = {
     "ltr_summary": handle_ltr_summary,
     "ltr_exit": handle_ltr_exit,
     "flashcard_due": start_flashcard_due,
-    "flashcard_hard":start_flashcard_hard,
-    "daily_learning":handle_daily_learning,
+    "flashcard_hard": start_flashcard_hard,
+    "daily_learning": handle_daily_learning,
     "ltr_review_weak": handle_ltr_review_weak,
     "smart_plan": show_smart_plan,
     "toggle_reminders": menus.toggle_reminders,
-
 }
 
 
@@ -317,10 +318,15 @@ def no_suffix(handler):
 
     return wrapper
 
+
 # Type-safe callback routing using CallbackPrefix enum
 # همه‌ی handler ها باید با امضای (query, context, suffix) صدا زده شوند؛
 # برای handler هایی که suffix یا int نیاز دارند از no_suffix/int_suffix استفاده می‌شود.
 PREFIX_ROUTES: List[Tuple[str, Callable]] = [
+    ("ltr_action:", handle_ltr_action),
+    ("ltr_size:", handle_ltr_size),
+    ("ltr_details:", handle_ltr_details),
+    ("ltr_learned:", handle_ltr_learned),
     (CallbackPrefix.QUIZ_TYPE.value, _handle_quiz_type),
     (CallbackPrefix.QUIZ_SOURCE.value, _handle_quiz_source),
     (CallbackPrefix.QUIZ_COUNT.value, _handle_quiz_count),
@@ -361,13 +367,11 @@ PREFIX_ROUTES: List[Tuple[str, Callable]] = [
     # این handler ها suffix نمی‌گیرند → wrap با no_suffix تا TypeError نگیریم
     (CallbackPrefix.LISTENING_START.value, no_suffix(handle_listening_start)),
     (CallbackPrefix.LISTENING_ANS.value, handle_listening_answer),
-    (CallbackPrefix.LISTENING_SKIP.value, no_suffix(handle_listening_skip)),
+    (CallbackPrefix.LISTENING_SKIP.value, handle_listening_skip),
     (CallbackPrefix.LISTENING_EXIT.value, no_suffix(handle_listening_exit)),
     (CallbackPrefix.LISTENING_REPLAY.value, handle_listening_replay),
     (CallbackPrefix.MIXED_EXAM.value, _handle_mixed_exam),
 ]
-
-
 
 
 async def inline_handler(update, context):

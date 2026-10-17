@@ -65,15 +65,10 @@ def _set_last_active_sync(user_id: int, days_ago: int) -> None:
 
 def _delete_for(uid: int) -> None:
     """Wipe every row this test created for a user (cleanup helper)."""
-    db.users.execute(
-        "DELETE FROM word_stats WHERE user_id = ?", (uid,), commit=True
-    )
-    db.users.execute(
-        "DELETE FROM words WHERE user_id = ?", (uid,), commit=True
-    )
-    db.users.execute(
-        "DELETE FROM user_settings WHERE user_id = ?", (uid,), commit=True
-    )
+    db.users.execute("DELETE FROM word_stats WHERE user_id = ?", (uid,), commit=True)
+    db.users.execute("DELETE FROM word_first_seen WHERE user_id = ?", (uid,), commit=True)
+    db.users.execute("DELETE FROM words WHERE user_id = ?", (uid,), commit=True)
+    db.users.execute("DELETE FROM user_settings WHERE user_id = ?", (uid,), commit=True)
     db.users.execute("DELETE FROM users WHERE user_id = ?", (uid,), commit=True)
 
 
@@ -97,14 +92,10 @@ def _seed_word_stats_sync(
     so we need a fresh parent ``words`` row per stat row.
     """
     _delete_words_for(user_id)
-    db.users.execute(
-        "DELETE FROM word_stats WHERE user_id = ?", (user_id,), commit=True
-    )
+    db.users.execute("DELETE FROM word_stats WHERE user_id = ?", (user_id,), commit=True)
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    overdue = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    overdue = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
 
     total = due + hard + new_today
     # Insert one parent word per stat row so the UNIQUE(user_id,
@@ -121,19 +112,13 @@ def _seed_word_stats_sync(
     rows: List[tuple] = []
     idx = 0
     for _ in range(due):
-        rows.append(
-            (user_id, word_ids[idx], 0, 0, 2.5, 1.0, 0, now, overdue, "review")
-        )
+        rows.append((user_id, word_ids[idx], 0, 0, 2.5, 1.0, 0, now, overdue, "review"))
         idx += 1
     for _ in range(hard):
-        rows.append(
-            (user_id, word_ids[idx], 0, 0, 2.5, 1.0, 0, now, overdue, "learning")
-        )
+        rows.append((user_id, word_ids[idx], 0, 0, 2.5, 1.0, 0, now, overdue, "learning"))
         idx += 1
     for _ in range(new_today):
-        rows.append(
-            (user_id, word_ids[idx], 0, 0, 2.5, 1.0, 0, now, None, "new")
-        )
+        rows.append((user_id, word_ids[idx], 0, 0, 2.5, 1.0, 0, now, None, "new"))
         idx += 1
 
     for r in rows:
@@ -146,12 +131,15 @@ def _seed_word_stats_sync(
             commit=True,
         )
 
+    for wid in word_ids[-new_today:] if new_today else []:
+        db.users.execute(
+            "INSERT OR IGNORE INTO word_first_seen VALUES (?,?,?)", (user_id, wid, now), commit=True
+        )
+
 
 def _delete_words_for(user_id: int) -> None:
     """Wipe any parent words this test created for ``user_id``."""
-    db.users.execute(
-        "DELETE FROM words WHERE user_id = ?", (user_id,), commit=True
-    )
+    db.users.execute("DELETE FROM words WHERE user_id = ?", (user_id,), commit=True)
 
 
 @pytest.fixture(autouse=True)
@@ -345,18 +333,10 @@ def _patch_job(monkeypatch, *, recipients, due_map, hard_map, goal_map, today_ma
     """
     bot = _FakeBot()
     monkeypatch.setattr(db.users, "get_reminder_user_ids", lambda: recipients)
-    monkeypatch.setattr(
-        db.users, "get_due_counts_for_users", lambda ids: due_map
-    )
-    monkeypatch.setattr(
-        db.users, "get_hard_due_counts_for_users", lambda ids: hard_map
-    )
-    monkeypatch.setattr(
-        db.users, "get_daily_goals_for_users", lambda ids: goal_map
-    )
-    monkeypatch.setattr(
-        db.users, "get_today_new_counts_for_users", lambda ids: today_map
-    )
+    monkeypatch.setattr(db.users, "get_due_counts_for_users", lambda ids: due_map)
+    monkeypatch.setattr(db.users, "get_hard_due_counts_for_users", lambda ids: hard_map)
+    monkeypatch.setattr(db.users, "get_daily_goals_for_users", lambda ids: goal_map)
+    monkeypatch.setattr(db.users, "get_today_new_counts_for_users", lambda ids: today_map)
     # Allow every "user" through the auth check.
     monkeypatch.setattr(config, "is_authorized_user", lambda uid: True)
     # Pin a tiny batch size so the test exercises the batching path

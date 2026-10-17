@@ -47,9 +47,7 @@ async def _seed():
     the suite (which share the temp DB) start from a known state.
     """
     for uid in (UID_ENABLED, UID_DISABLED, UID_INACTIVE, UID_NO_SETTINGS):
-        db.users.execute(
-            "DELETE FROM user_settings WHERE user_id = ?", (uid,), commit=True
-        )
+        db.users.execute("DELETE FROM user_settings WHERE user_id = ?", (uid,), commit=True)
         db.users.execute("DELETE FROM users WHERE user_id = ?", (uid,), commit=True)
 
     await _register_user(UID_ENABLED, "rem_enabled")
@@ -67,10 +65,9 @@ async def _seed():
     yield
 
     for uid in (UID_ENABLED, UID_DISABLED, UID_INACTIVE, UID_NO_SETTINGS):
-        db.users.execute(
-            "DELETE FROM user_settings WHERE user_id = ?", (uid,), commit=True
-        )
+        db.users.execute("DELETE FROM user_settings WHERE user_id = ?", (uid,), commit=True)
         db.users.execute("DELETE FROM users WHERE user_id = ?", (uid,), commit=True)
+
 
 # ─── default behavior ────────────────────────────────────────────────────────
 
@@ -166,9 +163,7 @@ async def test_get_reminder_user_ids_handles_no_settings_rows():
     """Users with no settings row at all must be skipped (not crash the join)."""
     # Wipe UID_ENABLED's settings row but keep the user; the join must
     # silently drop it because there's nothing to opt into.
-    db.users.execute(
-        "DELETE FROM user_settings WHERE user_id = ?", (UID_ENABLED,), commit=True
-    )
+    db.users.execute("DELETE FROM user_settings WHERE user_id = ?", (UID_ENABLED,), commit=True)
     assert await run_db(db.users.get_reminder_user_ids) == []
 
 
@@ -196,4 +191,3 @@ async def test_get_settings_dict_includes_new_keys():
     assert "timezone_offset_minutes" in settings
     assert settings["reminders_enabled"] is True
     assert settings["timezone_offset_minutes"] == 210
-

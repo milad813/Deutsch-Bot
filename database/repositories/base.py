@@ -3,6 +3,7 @@
 from typing import List, Optional, Tuple
 
 from database.connection import DatabaseConnection
+from database.time_utils import local_day_bounds
 
 
 class BaseRepository:
@@ -38,6 +39,21 @@ class BaseRepository:
         with self.cursor(commit=True) as c:
             c.execute(query, params)
             return c.lastrowid
+
+    def timezone_offset(self, user_id: int) -> int:
+        from config import USER_TIMEZONE_OFFSET_HOURS, USER_TIMEZONE_OFFSET_MINUTES
+
+        row = self.fetch_one(
+            "SELECT timezone_offset_minutes FROM user_settings WHERE user_id=?", (user_id,)
+        )
+        default = USER_TIMEZONE_OFFSET_HOURS * 60 + USER_TIMEZONE_OFFSET_MINUTES
+        offset = row[0] if row and row[0] is not None else default
+        return (
+            int(offset) if isinstance(offset, (int, float)) and -1440 < offset < 1440 else default
+        )
+
+    def day_bounds(self, user_id: int):
+        return local_day_bounds(self.timezone_offset(user_id))
 
     def _not_in_clause(
         self, exclude_ids: Optional[List[int]], column: str = "id"

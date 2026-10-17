@@ -7,8 +7,6 @@ slice a chunk right in the middle of ``<b>...</b>`` and trigger
 ``BadRequest: can't parse entities``.
 """
 
-import pytest
-
 from ui import split_html_text, to_plain_text
 
 
@@ -155,11 +153,11 @@ def test_malformed_html_does_not_crash():
     not raise; the splitter falls back to a plain-text chunking.
     """
     cases = [
-        "</b>orphan",          # close with no opener
-        "<b></i>",             # mismatched pair
-        "<b><b></b>",          # unclosed outer
-        "<<<>>>",              # not really HTML
-        "<b" + "x" * 10,       # truncated open tag
+        "</b>orphan",  # close with no opener
+        "<b></i>",  # mismatched pair
+        "<b><b></b>",  # unclosed outer
+        "<<<>>>",  # not really HTML
+        "<b" + "x" * 10,  # truncated open tag
     ]
     max_len = 200
     for text in cases:

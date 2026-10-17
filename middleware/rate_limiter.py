@@ -25,9 +25,7 @@ class RateLimiter:
         """
         now = time.time()
         # Remove old requests outside the window
-        self._requests[user_id] = [
-            t for t in self._requests[user_id] if now - t < self.window
-        ]
+        self._requests[user_id] = [t for t in self._requests[user_id] if now - t < self.window]
         if len(self._requests[user_id]) >= self.max_requests:
             return False
         self._requests[user_id].append(now)
@@ -65,4 +63,3 @@ rate_limiter = RateLimiter(
     max_requests=config.RATE_LIMIT_MAX_REQUESTS,
     window_seconds=config.RATE_LIMIT_WINDOW_SECONDS,
 )
-

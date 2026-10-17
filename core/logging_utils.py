@@ -237,9 +237,10 @@ class JsonFormatter(logging.Formatter):
         }
 
         payload: Dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(
-                record.created, tz=timezone.utc
-            ).strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(record.msecs):03d}Z",
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%S."
+            )
+            + f"{int(record.msecs):03d}Z",
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -261,9 +262,7 @@ class JsonFormatter(logging.Formatter):
                 payload["stack"] = "<failed to render stack>"
 
         try:
-            return json.dumps(
-                payload, default=_bounded_json_default, ensure_ascii=False
-            )
+            return json.dumps(payload, default=_bounded_json_default, ensure_ascii=False)
         except (TypeError, ValueError) as exc:
             fallback = {
                 "timestamp": payload.get("timestamp"),

@@ -138,11 +138,7 @@ async def show_smart_plan(update, context):
             "برای گرم نگه داشتن ذهن، یک آزمون ترکیبی کوتاه پیشنهاد می‌کنم:"
         )
         keyboard = [
-            [
-                InlineKeyboardButton(
-                    "🤖 آزمون ترکیبی ۱۰ سؤالی", callback_data="mixed_exam:10"
-                )
-            ],
+            [InlineKeyboardButton("🤖 آزمون ترکیبی ۱۰ سؤالی", callback_data="mixed_exam:10")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")],
         ]
         await render(update, msg, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -150,9 +146,7 @@ async def show_smart_plan(update, context):
 
     # ─── کارت برنامه ───
     goal_bar = progress_bar(state["done"], state["goal"])
-    plan_block = "\n".join(
-        f"{idx}. {stage['plan']}" for idx, stage in enumerate(stages, start=1)
-    )
+    plan_block = "\n".join(f"{idx}. {stage['plan']}" for idx, stage in enumerate(stages, start=1))
 
     streak_line = ""
     if state["streak"] > 0:
@@ -173,13 +167,7 @@ async def show_smart_plan(update, context):
 
     # دکمه‌ی اصلی = مرحله‌ی اولویت‌دار فعلی
     primary = stages[0]
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                f"▶️ {primary['button']}", callback_data=primary["callback"]
-            )
-        ]
-    ]
+    keyboard = [[InlineKeyboardButton(f"▶️ {primary['button']}", callback_data=primary["callback"])]]
 
     # بقیه‌ی مراحل به‌صورت دکمه‌های دوم (دوتایی در هر ردیف)
     secondary = stages[1:]
@@ -192,12 +180,8 @@ async def show_smart_plan(update, context):
         )
 
     # به‌روزرسانی برنامه پس از پایان هر مرحله (زنجیره‌سازی سبک)
-    keyboard.append(
-        [InlineKeyboardButton("🔄 به‌روزرسانی برنامه", callback_data="smart_plan")]
-    )
-    keyboard.append(
-        [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")]
-    )
+    keyboard.append([InlineKeyboardButton("🔄 به‌روزرسانی برنامه", callback_data="smart_plan")])
+    keyboard.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main_menu")])
 
     await render(update, msg, reply_markup=InlineKeyboardMarkup(keyboard))
 

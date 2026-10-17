@@ -16,6 +16,7 @@ tests pin down:
 from types import SimpleNamespace
 
 import handlers.tts_handlers as tts_h
+import services
 
 
 # ─── fakes ──────────────────────────────────────────────────────────────────
@@ -193,9 +194,7 @@ async def test_cleanup_tts_handles_bot_error():
 # ─── send_ephemeral_audio: 3-tuple job data ────────────────────────────────
 
 
-async def test_send_ephemeral_audio_schedules_job_with_user_id(
-    monkeypatch, tmp_path
-):
+async def test_send_ephemeral_audio_schedules_job_with_user_id(monkeypatch, tmp_path):
     """``send_ephemeral_audio`` must schedule ``_auto_delete_tts`` with
     a 3-tuple job data that includes ``user_id``, and must register the
     job in ``_tts_jobs``."""
@@ -213,16 +212,19 @@ async def test_send_ephemeral_audio_schedules_job_with_user_id(
 
     class _FakeJobQueue:
         def run_once(self, callback, when, data=None, **kw):
-            scheduled.append({
-                "callback": callback,
-                "when": when,
-                "data": data,
-                "kw": kw,
-            })
+            scheduled.append(
+                {
+                    "callback": callback,
+                    "when": when,
+                    "data": data,
+                    "kw": kw,
+                }
+            )
             return _FakeJob(data=data)
 
-    # Monkeypatch the module-level symbols the function depends on.
-    monkeypatch.setattr(tts_h.tts, "get_audio_path", _fake_get_audio_path)
+    # Monkeypatch the underlying TTSService instance that the
+    # ``tts_h.tts`` proxy forwards to (R2: proxies are read-through).
+    monkeypatch.setattr(services.get_app().tts, "get_audio_path", _fake_get_audio_path)
     monkeypatch.setattr(tts_h.config, "TTS_AUTO_DELETE_SECONDS", 5)
     monkeypatch.setattr(tts_h.config, "TTS_SEND_AS_DOCUMENT", False)
 
@@ -329,7 +331,6 @@ async def test_cancel_command_clears_users_tts_job(monkeypatch):
     ``cleanup_tts`` so the module-level ``_tts_jobs`` map cannot leak
     across ``/cancel`` invocations.
     """
-    import asyncio
 
     from handlers.menus import cancel
 
@@ -340,9 +341,7 @@ async def test_cancel_command_clears_users_tts_job(monkeypatch):
     tts_h._tts_jobs[555] = job
 
     # ``cancel`` only proceeds for authorized users; allow our test id.
-    monkeypatch.setattr(
-        "handlers.menus.config.is_authorized_user", lambda _uid: True
-    )
+    monkeypatch.setattr("handlers.menus.config.is_authorized_user", lambda _uid: True)
 
     class _Update:
         class _User:
@@ -364,9 +363,6 @@ async def test_cancel_command_clears_users_tts_job(monkeypatch):
 
     await cancel(_Update(), _Ctx())
 
-    assert 555 not in tts_h._tts_jobs, (
-        "/cancel must drain _tts_jobs for the cancelling user"
-    )
+    assert 555 not in tts_h._tts_jobs, "/cancel must drain _tts_jobs for the cancelling user"
     assert job.removed, "schedule_removal must be called on /cancel"
     assert "tts_message" not in _Ctx().user_data or True  # ctx was local
-

@@ -1,24 +1,10 @@
-"""Shared utility functions."""
+"""Backwards-compatibility shim (Phase R3).
 
-import json
-from typing import Any, List
+The real module moved to ``domain.utils``; this keeps the historical
+``from utils import safe_json_list`` call sites working until they
+migrate.
+"""
 
+from domain.utils import safe_id_list, safe_json_list
 
-def safe_json_list(raw: Any) -> List[Any]:
-    """Safely parse a JSON array string. Returns [] on failure."""
-    try:
-        data = json.loads(raw or "[]")
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
-
-
-def safe_id_list(raw: Any) -> List[int]:
-    """Safely parse a JSON array of IDs. Returns [] on failure."""
-    result = []
-    for item in safe_json_list(raw):
-        try:
-            result.append(int(item))
-        except Exception:
-            continue
-    return result
+__all__ = ["safe_id_list", "safe_json_list"]

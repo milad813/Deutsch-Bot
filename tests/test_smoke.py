@@ -39,8 +39,7 @@ def test_every_callback_prefix_is_routed():
     missing = [
         member.name
         for member in CallbackPrefix
-        if member.value not in prefix_routes
-        and member.value not in exact_routes
+        if member.value not in prefix_routes and member.value not in exact_routes
     ]
     assert not missing, f"unrouted CallbackPrefix members: {missing}"
 
@@ -50,9 +49,7 @@ def test_route_handlers_are_callable():
         assert callable(handler), f"route {prefix!r} -> handler not callable"
 
     for key, handler in callback_router.EXACT_ROUTES.items():
-        assert handler is None or callable(handler), (
-            f"exact route {key!r} -> handler not callable"
-        )
+        assert handler is None or callable(handler), f"exact route {key!r} -> handler not callable"
 
 
 def test_no_undefined_lock_key_references_in_handlers():
@@ -112,9 +109,7 @@ def test_answer_lock_keys_are_distinct_per_feature():
                 func_name = getattr(getattr(node, "parent", None), "name", "?")
                 key = node.args[0].value
                 if key.endswith("_answer_lock"):
-                    found.setdefault(key, []).append(
-                        f"{path.name}:{func_name}"
-                    )
+                    found.setdefault(key, []).append(f"{path.name}:{func_name}")
     # Each *_answer_lock key should be used by exactly one handler function
     duplicates = {k: v for k, v in found.items() if len(v) > 1}
     assert not duplicates, f"shared answer-lock keys: {duplicates}"

@@ -8,7 +8,6 @@ from models import Word
 
 
 class ExtendedWordRepository(BaseRepository):
-
     def __init__(self, connection: DatabaseConnection):
         super().__init__(connection)
 
@@ -61,15 +60,19 @@ class ExtendedWordRepository(BaseRepository):
         user_id: int,
         limit: int = 100,
         exclude_ids: Optional[Iterable[int]] = None,
+        lesson_id: Optional[int] = None,
     ) -> List[Word]:
         """کلماتی که کاربر حداقل یک‌بار تعامل داشته (رکورد در word_stats)."""
         query = f"""
-            SELECT {self._word_columns('w')}
+            SELECT {self._word_columns("w")}
             FROM words w
             JOIN word_stats ws ON w.id = ws.word_id
             WHERE ws.user_id = ?
         """
         params: List = [user_id]
+        if lesson_id is not None:
+            query += " AND w.lesson_id=?"
+            params.append(lesson_id)
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
         query += exclude_sql + " ORDER BY RANDOM() LIMIT ?"
         params.extend(exclude_params)
@@ -84,7 +87,6 @@ class ExtendedWordRepository(BaseRepository):
             (user_id,),
         )
         return row[0] if row else 0
-
 
     def get_by_type(
         self,
@@ -106,25 +108,20 @@ class ExtendedWordRepository(BaseRepository):
         return [self._row_to_word(row) for row in rows]
 
     def get_mistake_words(
-        self, user_id: int, limit: int = 30, exclude_ids=None
+        self, user_id: int, limit: int = 30, exclude_ids=None, lesson_id: Optional[int] = None
     ) -> List[Word]:
+        query = f"""SELECT {self._word_columns("w")} FROM words w JOIN (
+                    SELECT word_id, SUM(wrong_count) AS wrongs, MAX(last_wrong_at) AS last_wrong
+                    FROM mistake_stats WHERE user_id=? AND resolved_at IS NULL AND wrong_count>0
+                    GROUP BY word_id) ms ON ms.word_id=w.id WHERE 1=1"""
+        params = [user_id]
+        if lesson_id is not None:
+            query += " AND w.lesson_id=?"
+            params.append(lesson_id)
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
-        query = f"""
-            SELECT {self._word_columns('w')}
-            FROM words w
-            WHERE w.id IN (
-                SELECT ms.word_id FROM mistake_stats ms
-                WHERE ms.user_id = ? AND ms.resolved_at IS NULL AND ms.wrong_count > 0
-                GROUP BY ms.word_id
-                ORDER BY SUM(ms.wrong_count) DESC, MAX(ms.last_wrong_at) DESC
-                LIMIT ?
-            )
-            {exclude_sql}
-            ORDER BY RANDOM() LIMIT ?
-        """
-        params = [user_id, limit] + exclude_params + [limit]
-        rows = self.fetch_all(query, tuple(params))
-        return [self._row_to_word(row) for row in rows]
+        query += exclude_sql + " ORDER BY ms.wrongs DESC, ms.last_wrong DESC LIMIT ?"
+        params += exclude_params + [limit]
+        return [self._row_to_word(row) for row in self.fetch_all(query, tuple(params))]
 
     def get_weak_by_lesson(
         self,
@@ -134,7 +131,7 @@ class ExtendedWordRepository(BaseRepository):
         exclude_ids: Optional[Iterable[int]] = None,
     ) -> List[Word]:
         query = f"""
-            SELECT {self._word_columns('w')}
+            SELECT {self._word_columns("w")}
             FROM words w JOIN word_stats ws ON w.id = ws.word_id
             WHERE ws.user_id = ? AND w.lesson_id = ? AND ws.wrong_count > ws.correct_count
         """
@@ -323,9 +320,7 @@ class ExtendedWordRepository(BaseRepository):
         return row[0] if row else 0
 
     def get_count_by_lesson(self, lesson_id: int) -> int:
-        row = self.fetch_one(
-            "SELECT COUNT(*) FROM words WHERE lesson_id=?", (lesson_id,)
-        )
+        row = self.fetch_one("SELECT COUNT(*) FROM words WHERE lesson_id=?", (lesson_id,))
         return row[0] if row else 0
 
     def get_random(
@@ -348,7 +343,9 @@ class ExtendedWordRepository(BaseRepository):
         limit: int = 100,
         exclude_ids: Optional[Iterable[int]] = None,
     ) -> List[Word]:
-        query = f"SELECT {self._word_columns()} FROM words WHERE article IS NOT NULL AND article != ''"
+        query = (
+            f"SELECT {self._word_columns()} FROM words WHERE article IS NOT NULL AND article != ''"
+        )
         params = []
         if lesson_id:
             query += " AND lesson_id = ?"
@@ -380,13 +377,11 @@ class ExtendedWordRepository(BaseRepository):
         exclude_ids: Optional[Iterable[int]] = None,
         only_studied_lessons: bool = True,
     ) -> List[Word]:
-        query = f"""SELECT {self._word_columns('w')} FROM words w
+        query = f"""SELECT {self._word_columns("w")} FROM words w
                     LEFT JOIN word_stats ws ON ws.word_id = w.id AND ws.user_id = ?
                     WHERE ws.word_id IS NULL"""
         if lesson_id is None and only_studied_lessons:
-            row = self.fetch_one(
-                "SELECT COUNT(*) FROM word_stats WHERE user_id=?", (user_id,)
-            )
+            row = self.fetch_one("SELECT COUNT(*) FROM word_stats WHERE user_id=?", (user_id,))
             if not row or (row[0] or 0) == 0:
                 only_studied_lessons = False
         params: List = [user_id]
@@ -400,7 +395,9 @@ class ExtendedWordRepository(BaseRepository):
                 WHERE w2.lesson_id IS NOT NULL)"""
             params.append(user_id)
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
-        query += exclude_sql + """ ORDER BY 
+        query += (
+            exclude_sql
+            + """ ORDER BY
             CASE w.cefr_estimated 
                 WHEN 'A1' THEN 1 
                 WHEN 'A2' THEN 2 
@@ -410,6 +407,7 @@ class ExtendedWordRepository(BaseRepository):
             END, 
             w.id ASC 
         LIMIT ?"""
+        )
         params.extend(exclude_params)
         params.append(limit)
         return [self._row_to_word(row) for row in self.fetch_all(query, tuple(params))]
@@ -421,7 +419,7 @@ class ExtendedWordRepository(BaseRepository):
         lesson_id: int = None,
         exclude_ids: Optional[Iterable[int]] = None,
     ) -> List[Word]:
-        query = f"""SELECT {self._word_columns('w')} FROM words w
+        query = f"""SELECT {self._word_columns("w")} FROM words w
                     JOIN word_stats ws ON w.id = ws.word_id
                     WHERE ws.user_id = ? AND ws.next_review <= datetime('now')"""
         params = [user_id]
@@ -435,12 +433,19 @@ class ExtendedWordRepository(BaseRepository):
         return [self._row_to_word(row) for row in self.fetch_all(query, tuple(params))]
 
     def get_weak(
-        self, user_id: int, limit: int = 20, exclude_ids: Optional[Iterable[int]] = None
+        self,
+        user_id: int,
+        limit: int = 20,
+        exclude_ids: Optional[Iterable[int]] = None,
+        lesson_id: Optional[int] = None,
     ) -> List[Word]:
-        query = f"""SELECT {self._word_columns('w')} FROM words w
+        query = f"""SELECT {self._word_columns("w")} FROM words w
                     JOIN word_stats ws ON w.id = ws.word_id
                     WHERE ws.user_id = ? AND ws.wrong_count > ws.correct_count"""
         params = [user_id]
+        if lesson_id is not None:
+            query += " AND w.lesson_id=?"
+            params.append(lesson_id)
         exclude_sql, exclude_params = self._not_in_clause(exclude_ids, "w.id")
         query += exclude_sql + " ORDER BY ws.wrong_count DESC LIMIT ?"
         params.extend(exclude_params)
@@ -502,6 +507,21 @@ class ExtendedWordRepository(BaseRepository):
             limit=limit,
             exclude_ids=exclude_ids,
         )
+
+    def get_ltr_due(self, user_id: int, limit: int = 5, lesson_id=None) -> List[Word]:
+        """Resume unfinished learning, including observations with no scored attempts."""
+        query = f"""SELECT {self._word_columns("w")} FROM words w
+                    JOIN word_stats ws ON ws.word_id=w.id
+                    WHERE ws.user_id=? AND ws.phase='learning'
+                    AND ws.next_review <= datetime('now')"""
+        params = [user_id]
+        if lesson_id is not None:
+            query += " AND w.lesson_id=?"
+            params.append(lesson_id)
+        query += " ORDER BY ws.next_review, w.id LIMIT ?"
+        params.append(limit)
+        return [self._row_to_word(row) for row in self.fetch_all(query, tuple(params))]
+
     def get_due_today(self, user_id: int) -> List[Tuple]:
         query = """SELECT w.id, w.german, w.persian FROM words w
                    JOIN word_stats ws ON w.id = ws.word_id
@@ -517,10 +537,7 @@ class ExtendedWordRepository(BaseRepository):
         )
         return row[0] if row else 0
 
-
-    def get_learned_counts_by_book(
-        self, user_id: int, book_id: int
-    ) -> dict:
+    def get_learned_counts_by_book(self, user_id: int, book_id: int) -> dict:
         """تعداد آموخته/کل کلمات هر درس در یک کتاب (یک کوئری)."""
         rows = self.fetch_all(
             """
@@ -538,12 +555,10 @@ class ExtendedWordRepository(BaseRepository):
         )
         return {row[0]: {"learned": row[2], "total": row[1]} for row in rows}
 
-    def get_next_unseen_words(
-        self, user_id: int, limit: int = 20
-    ) -> list:
+    def get_next_unseen_words(self, user_id: int, limit: int = 20) -> list:
         """کلمات ندیده‌شده به ترتیب کتاب → درس → id."""
         query = f"""
-            SELECT {self._word_columns('w')}
+            SELECT {self._word_columns("w")}
             FROM words w
             LEFT JOIN word_stats ws ON ws.word_id = w.id AND ws.user_id = ?
             WHERE ws.word_id IS NULL
@@ -552,7 +567,6 @@ class ExtendedWordRepository(BaseRepository):
         """
         rows = self.fetch_all(query, (user_id, limit))
         return [self._row_to_word(row) for row in rows]
-
 
     def get_weak_count(self, user_id: int) -> int:
         row = self.fetch_one(
@@ -563,7 +577,7 @@ class ExtendedWordRepository(BaseRepository):
         return row[0] if row else 0
 
     def get_hard_due(self, user_id, limit=20, exclude_ids=None):
-        query = f"""SELECT {self._word_columns('w')} FROM words w
+        query = f"""SELECT {self._word_columns("w")} FROM words w
                     JOIN word_stats ws ON w.id = ws.word_id
                     WHERE ws.user_id = ? AND ws.phase = 'learning' AND ws.next_review <= datetime('now')"""
         params = [user_id]

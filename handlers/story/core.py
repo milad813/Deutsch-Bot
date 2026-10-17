@@ -100,6 +100,7 @@ def _story_suitability_score(w: Dict) -> int:
     except Exception:
         return 3
 
+
 async def _select_smart_words(
     user_id: int, lesson_id: int, exclude_ids: Set[int], level: str = "A1"
 ) -> List[Dict]:
@@ -112,14 +113,11 @@ async def _select_smart_words(
     story_friendly = [
         w
         for w in all_words
-        if w.get("word_type") in STORY_WORD_TYPES
-        and _story_suitability_score(w) >= 3
+        if w.get("word_type") in STORY_WORD_TYPES and _story_suitability_score(w) >= 3
     ]
 
     if not story_friendly:
-        story_friendly = [
-            w for w in all_words if w.get("word_type") in STORY_WORD_TYPES
-        ]
+        story_friendly = [w for w in all_words if w.get("word_type") in STORY_WORD_TYPES]
 
     # ─── دسته‌بندی new/weak/mastered ───
     new_words = []
@@ -134,9 +132,7 @@ async def _select_smart_words(
         stats = await run_db(db.words.get_stats_full, user_id, wid)
         if not stats:
             new_words.append(w)
-        elif stats.get("phase") == "learning" or (
-            stats.get("wrong", 0) > stats.get("correct", 0)
-        ):
+        elif stats.get("phase") == "learning" or (stats.get("wrong", 0) > stats.get("correct", 0)):
             weak_words.append(w)
         else:
             mastered_words.append(w)
@@ -156,9 +152,7 @@ async def _select_smart_words(
     selected = []
     selected.extend(random.sample(new_words, min(n_new, len(new_words))))
     selected.extend(random.sample(weak_words, min(n_weak, len(weak_words))))
-    selected.extend(
-        random.sample(mastered_words, min(n_mastered, len(mastered_words)))
-    )
+    selected.extend(random.sample(mastered_words, min(n_mastered, len(mastered_words))))
 
     # اگر انتخاب‌ها کمتر از حداقل بودند، از بقیه story_friendly پر کن
     if len(selected) < MIN_STORY_WORDS:
@@ -172,6 +166,7 @@ async def _select_smart_words(
 
     random.shuffle(selected)
     return selected[:MAX_CANDIDATE_WORDS]
+
 
 def _select_genre(level: str, lesson_title: str) -> Dict:
     """انتخاب ژانر بر اساس سطح و موضوع درس."""
@@ -189,9 +184,8 @@ async def _get_adaptive_level(user_id: int, lesson_level: str) -> str:
     # در غیر این صورت از سطح کتاب به عنوان fallback استفاده کن
     return lesson_level or "A1"
 
-async def _plan_story(
-    words: List[Dict], level: str, lesson_title: str
-) -> Optional[Dict]:
+
+async def _plan_story(words: List[Dict], level: str, lesson_title: str) -> Optional[Dict]:
     """LLM Planning: طراحی ساختار داستان."""
     if not words or len(words) < MIN_STORY_WORDS:
         return None
@@ -228,7 +222,7 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
             "You are a German teacher. You output only valid JSON.",
             prompt,
             temperature=0.7,
-            max_tokens=1024, # ⬇️ کاهش توکن چون نیازی به تولید کل داستان نیست
+            max_tokens=1024,  # ⬇️ کاهش توکن چون نیازی به تولید کل داستان نیست
         )
         if not response:
             return None
@@ -269,15 +263,15 @@ Du bist ein erfahrener Deutschlehrer und Geschichtenerzähler.
     except Exception as e:
         logger.error("خطا در برنامه‌ریزی داستان: %s", e)
         return None
-    
+
+
 def _filter_words_by_plan(words: List[Dict], plan: Dict) -> List[Dict]:
     """فیلتر کلمات بر اساس plan."""
     used_ids = set(plan.get("used_words", []))
     return [w for w in words if w["id"] in used_ids]
 
-def _build_enhanced_prompt(
-    words: List[Dict], level: str, lesson_title: str, genre: Dict
-) -> str:
+
+def _build_enhanced_prompt(words: List[Dict], level: str, lesson_title: str, genre: Dict) -> str:
     """ساخت پرامپت نهایی برای تولید داستان."""
     word_details = "\n".join(
         [
@@ -293,7 +287,7 @@ Du bist ein erfahrener Deutschlehrer und kreativer Geschichtenerzähler.
 **Aufgabe:** Schreibe eine kurze, fesselnde Geschichte für Deutschlernende.
 
 **Niveau:** {level} (GER)
-**Genre:** {genre['de']} ({genre['fa']}) – {genre['desc']}
+**Genre:** {genre["de"]} ({genre["fa"]}) – {genre["desc"]}
 **Lektion:** {lesson_title}
 
 **Wortschatz (verwende ALLE diese Wörter):**
@@ -325,21 +319,21 @@ Du bist ein erfahrener Deutschlehrer und kreativer Geschichtenerzähler.
       "question_type": "comprehension"
     }}
   ],
-  "genre": "{genre['id']}",
+  "genre": "{genre["id"]}",
   "level": "{level}"
 }}
 
 **Hinweis:** Die Fragen sollten das Verständnis der Geschichte prüfen, nicht nur Details abfragen.
 """.strip()
 
-async def _validate_story_naturalness(
-    story_text: str, words: List[Dict], level: str
-) -> bool:
+
+async def _validate_story_naturalness(story_text: str, words: List[Dict], level: str) -> bool:
     """بررسی طبیعی بودن داستان."""
     if len(story_text.split()) < 50:
         return False
     word_count = sum(1 for w in words if w["german"].lower() in story_text.lower())
     return word_count >= MIN_STORY_WORDS
+
 
 async def _generate_story_for_lesson(
     user_id: int, lesson_id: int, exclude_ids: Set[int]
@@ -367,9 +361,7 @@ async def _generate_story_for_lesson(
     )
 
     # ─── انتخاب هوشمند کلمات ───
-    candidate_words = await _select_smart_words(
-        user_id, lesson_id, exclude_ids, level
-    )
+    candidate_words = await _select_smart_words(user_id, lesson_id, exclude_ids, level)
     if len(candidate_words) < MIN_STORY_WORDS:
         logger.warning(
             "کلمات کافی یافت نشد: %d < %d",
@@ -424,9 +416,7 @@ async def _generate_story_for_lesson(
                 logger.warning("کلیدهای ضروری ناقص هستند (تلاش %d)", attempt + 1)
                 continue
 
-            story_data["text"] = _format_story_text(
-                story_data["text"], target_words
-            )
+            story_data["text"] = _format_story_text(story_data["text"], target_words)
 
             questions = story_data.get("questions", [])
             valid_q = []
@@ -469,9 +459,7 @@ async def _generate_story_for_lesson(
                 continue
 
             # ─── بررسی طبیعی بودن ───
-            is_natural = await _validate_story_naturalness(
-                story_data["text"], target_words, level
-            )
+            is_natural = await _validate_story_naturalness(story_data["text"], target_words, level)
             if not is_natural:
                 logger.warning("داستان طبیعی نیست (تلاش %d)", attempt + 1)
                 continue
@@ -496,17 +484,11 @@ Text: {story_data["text"]}"""
                     )
 
                     if translate_response:
-                        translate_match = re.search(
-                            r"\{.*\}", translate_response, re.DOTALL
-                        )
+                        translate_match = re.search(r"\{.*\}", translate_response, re.DOTALL)
                         if translate_match:
                             translate_data = json.loads(translate_match.group())
-                            title_fa = str(
-                                translate_data.get("title_fa") or ""
-                            ).strip()
-                            text_fa = str(
-                                translate_data.get("text_fa") or ""
-                            ).strip()
+                            title_fa = str(translate_data.get("title_fa") or "").strip()
+                            text_fa = str(translate_data.get("text_fa") or "").strip()
             except Exception as e:
                 logger.warning("خطا در ترجمه داستان: %s", e)
 
@@ -544,6 +526,7 @@ Text: {story_data["text"]}"""
 
     return None
 
+
 async def show_story_menu(query, context, lesson_id: int):
     """Story entry point: answer immediately, schedule a background job.
 
@@ -574,9 +557,8 @@ async def show_story_menu(query, context, lesson_id: int):
     )
 
     user_id = query.from_user.id
-    chat_id = (
-        getattr(getattr(query, "message", None), "chat_id", None)
-        or getattr(query, "chat_id", None)
+    chat_id = getattr(getattr(query, "message", None), "chat_id", None) or getattr(
+        query, "chat_id", None
     )
     job_name = _story_job_name(user_id)
 
@@ -589,9 +571,7 @@ async def show_story_menu(query, context, lesson_id: int):
             existing_jobs = list(job_queue.get_jobs_by_name(job_name) or [])
         except Exception:
             existing_jobs = []
-    if existing_jobs or has_active_story_job(user_id) or context.user_data.get(
-        "story_generating"
-    ):
+    if existing_jobs or has_active_story_job(user_id) or context.user_data.get("story_generating"):
         try:
             await query.answer("⏳ در حال ساخت داستان قبلی...", show_alert=True)
         except Exception:
@@ -651,9 +631,7 @@ async def show_story_menu(query, context, lesson_id: int):
     bot = getattr(context, "bot", None)
     if bot is not None and chat_id is not None:
         try:
-            sent = await bot.send_message(
-                chat_id=chat_id, text=progress_text
-            )
+            sent = await bot.send_message(chat_id=chat_id, text=progress_text)
             progress_mid = getattr(sent, "message_id", None)
         except Exception as e:
             logger.warning("show_story_menu: could not send progress message: %s", e)
@@ -669,14 +647,10 @@ async def show_story_menu(query, context, lesson_id: int):
         # here in exactly the same shape as before.
         from handlers.story.view import show_story
 
-        session_stories = list(
-            context.user_data.get("story_session_word_ids", [])
-        )
+        session_stories = list(context.user_data.get("story_session_word_ids", []))
         exclude_ids = set(session_stories)
         try:
-            story = await _generate_story_for_lesson(
-                user_id, lesson_id, exclude_ids
-            )
+            story = await _generate_story_for_lesson(user_id, lesson_id, exclude_ids)
         except Exception as e:
             logger.exception("show_story_menu sync fallback failed: %s", e)
             story = None
@@ -691,16 +665,12 @@ async def show_story_menu(query, context, lesson_id: int):
             await render(
                 query,
                 "❌ ساخت داستان ناموفق بود. دوباره تلاش کن.",
-                reply_markup=back_inline_keyboard(
-                    "🔙 بازگشت", f"lesson_{lesson_id}"
-                ),
+                reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
             )
         return
 
     # ─── 6) Build payload + schedule the job ──────────────────────
-    session_stories = list(
-        context.user_data.get("story_session_word_ids", [])
-    )
+    session_stories = list(context.user_data.get("story_session_word_ids", []))
     payload = {
         "user_id": int(user_id),
         "chat_id": int(chat_id),
@@ -741,14 +711,12 @@ async def show_story_menu(query, context, lesson_id: int):
         context.user_data.pop("story_generating", None)
         context.user_data.pop("story_active_job_name", None)
         from handlers.story.jobs import clear_active_story_job
+
         clear_active_story_job(user_id, job_name)
         try:
             await query.message.reply_text(
                 "❌ ساخت داستان ناموفق بود. دوباره تلاش کن.",
-                reply_markup=back_inline_keyboard(
-                    "🔙 بازگشت", f"lesson_{lesson_id}"
-                ),
+                reply_markup=back_inline_keyboard("🔙 بازگشت", f"lesson_{lesson_id}"),
             )
         except Exception:
             pass
-

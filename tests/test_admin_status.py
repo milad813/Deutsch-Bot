@@ -21,7 +21,6 @@ unit test.
 
 from types import SimpleNamespace
 
-import pytest
 
 import config
 import services
@@ -94,14 +93,13 @@ def _stub_repos(
     monkeypatch.setattr(services.db.words, "get_count", lambda: words)
     monkeypatch.setattr(services.db.books, "get_count", lambda: books)
     monkeypatch.setattr(services.db.lessons, "get_count", lambda: lessons)
-    monkeypatch.setattr(
-        services.db.users, "get_reminder_user_ids", lambda: list(reminder_ids)
-    )
+    monkeypatch.setattr(services.db.users, "get_reminder_user_ids", lambda: list(reminder_ids))
     monkeypatch.setattr(
         services.db.learning,
         "get_llm_usage_totals_today",
         lambda: dict(llm_totals),
     )
+
 
 # ─────────────────────────── non-admin path ────────────────────────────────
 
@@ -140,6 +138,7 @@ async def test_show_status_rejects_when_admin_id_zero(monkeypatch):
     text = _all_text(update)
     assert "⛔️" in text
     assert "حالت ربات" not in text
+
 
 # ─────────────────────────── admin path ───────────────────────────────────
 
@@ -198,14 +197,14 @@ async def test_show_status_renders_for_admin(monkeypatch):
     assert "صف تولید داستان" in text
     assert "Phase 1" in text
 
-    assert "1500" in text           # words
-    assert "3" in text              # books
-    assert "27" in text             # lessons
-    assert "5" in text              # reminder ids
-    assert "7" in text              # story LLM count
-    assert "42" in text             # example LLM count
-    assert "2" in text              # done items
-    assert "4" in text              # total items
+    assert "1500" in text  # words
+    assert "3" in text  # books
+    assert "27" in text  # lessons
+    assert "5" in text  # reminder ids
+    assert "7" in text  # story LLM count
+    assert "42" in text  # example LLM count
+    assert "2" in text  # done items
+    assert "4" in text  # total items
 
     # The two story jobs must be listed; daily_backup must not.
     assert "story_gen_123" in text
@@ -276,6 +275,7 @@ async def test_show_status_handles_missing_phase1_file(monkeypatch):
     text = _all_text(update)
     assert "Phase 1" in text
     assert "یافت نشد" in text
+
 
 # ─────────────────────────── repository contract ───────────────────────────
 
@@ -394,9 +394,7 @@ async def test_books_and_lessons_get_count_handles_missing_table():
         import database.schema as schema
 
         for stmt in schema.TABLE_STATEMENTS:
-            if "CREATE TABLE" in stmt and (
-                "books (" in stmt or "lessons (" in stmt
-            ):
+            if "CREATE TABLE" in stmt and ("books (" in stmt or "lessons (" in stmt):
                 db.books.execute(stmt, commit=True)
             elif "CREATE TABLE" in stmt and "lessons (" in stmt:
                 db.lessons.execute(stmt, commit=True)
@@ -405,6 +403,7 @@ async def test_books_and_lessons_get_count_handles_missing_table():
                 db.books.execute(stmt, commit=True)
             elif "lessons" in stmt:
                 db.lessons.execute(stmt, commit=True)
+
 
 # ─────────────────────────── inline-button path ────────────────────────────
 
@@ -415,7 +414,6 @@ async def test_show_status_via_callback_router_uses_from_user(monkeypatch):
     handler must therefore read ``from_user`` -- not just
     ``effective_user`` -- to authorize the request.
     """
-    from types import SimpleNamespace
 
     from handlers.callback_router import EXACT_ROUTES, inline_handler
 

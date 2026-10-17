@@ -59,7 +59,7 @@ def _get_float(key: str, default: float) -> float:
 TELEGRAM_BOT_TOKEN = get_env("TELEGRAM_BOT_TOKEN")
 ADMIN_USER_ID = _get_int("ADMIN_USER_ID", 0)
 ALLOW_PUBLIC_ACCESS = _get_bool("ALLOW_PUBLIC_ACCESS", False)
-DB_PATH = get_env("DB_PATH", "words.db")
+DB_PATH = get_env("DB_PATH", "words.db") or "words.db"
 AUDIO_CACHE_DIR = get_env("AUDIO_CACHE_DIR", "audio_cache")
 
 # Timezone configuration (default: Iran timezone +3:30)
@@ -150,6 +150,7 @@ def is_authorized_user(user_id: int) -> bool:
         return False
     return user_id == ADMIN_USER_ID
 
+
 def is_llm_available() -> bool:
     if BOT_MODE == BotMode.OFFLINE:
         return False
@@ -215,9 +216,7 @@ def setup_logging() -> None:
     """
     level = _LEVELS_BY_NAME.get(LOG_LEVEL)
     if level is None:
-        logging.warning(
-            "Unknown LOG_LEVEL=%r; falling back to INFO.", LOG_LEVEL
-        )
+        logging.warning("Unknown LOG_LEVEL=%r; falling back to INFO.", LOG_LEVEL)
         level = logging.INFO
 
     use_json = LOG_FORMAT == "json"

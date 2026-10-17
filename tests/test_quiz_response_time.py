@@ -10,9 +10,7 @@ intervals.
 """
 
 import time
-from types import SimpleNamespace
 
-import pytest
 
 import handlers.quiz_handlers as qh
 from handlers.quiz_handlers import handle_quiz_answer
@@ -109,8 +107,7 @@ async def test_handle_quiz_answer_passes_response_time_sec(monkeypatch):
     # async frame we just ran, so the value should be within [2.5,
     # (2.5 + wall-clock-during-call)].
     assert 2.5 <= rt <= (after - before) + 2.5 + 0.1, (
-        f"response_time_sec={rt!r} does not match the elapsed time "
-        f"between sent_at and the call"
+        f"response_time_sec={rt!r} does not match the elapsed time between sent_at and the call"
     )
 
 

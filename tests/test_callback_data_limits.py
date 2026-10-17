@@ -78,9 +78,7 @@ def test_no_overlong_callback_data_literals():
         rel = py_file.relative_to(HANDLERS_ROOT.parent)
         for lineno, value, size in _scan_for_overlong_literals(py_file):
             preview = value if len(value) <= 80 else value[:77] + "..."
-            all_offenders.append(
-                f"{rel.as_posix()}:{lineno}: {size} bytes -> {preview!r}"
-            )
+            all_offenders.append(f"{rel.as_posix()}:{lineno}: {size} bytes -> {preview!r}")
 
     assert not all_offenders, (
         "Found literal callback_data strings longer than "

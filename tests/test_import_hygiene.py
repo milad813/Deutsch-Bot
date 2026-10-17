@@ -13,6 +13,8 @@ import ast
 import builtins
 import pathlib
 
+import pytest
+
 import handlers
 
 HANDLERS_DIR = pathlib.Path(handlers.__file__).parent
@@ -42,9 +44,7 @@ def _bound_names(tree: ast.AST) -> set:
                 names.add(node.args.kwarg.arg)
         elif isinstance(node, ast.ClassDef):
             names.add(node.name)
-        elif isinstance(node, ast.Name) and isinstance(
-            node.ctx, (ast.Store, ast.Del)
-        ):
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             names.add(node.id)
         elif isinstance(node, ast.arg):
             names.add(node.arg)
@@ -76,9 +76,7 @@ def test_run_db_usage_requires_module_level_import():
         tree = ast.parse(src)
 
         calls_run_db = any(
-            isinstance(n, ast.Call)
-            and isinstance(n.func, ast.Name)
-            and n.func.id == "run_db"
+            isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "run_db"
             for n in ast.walk(tree)
         )
         imports_run_db = any(
@@ -92,3 +90,67 @@ def test_run_db_usage_requires_module_level_import():
             rel = path.relative_to(HANDLERS_DIR)
             assert imports_run_db, f"{rel} calls run_db without importing it"
 
+
+# ---------------------------------------------------------------------------
+# Layer rules (Phase R1): each package may only depend on lower layers.
+#
+# The intended dependency direction is:
+#     domain  →  (nothing)
+#     core    →  domain-ish root modules (models), config
+#     database→  domain, models
+#     middleware → config
+#     services →  database + root service modules
+#     handlers →  services, core, ui, models, ...
+#
+# A violation here means someone re-introduced an upward/circular dependency;
+# the refactor roadmap (docs/REFACTOR_ROADMAP.md) removes these walls again
+# module by module, so extend the forbidden lists as layers get cleaned up.
+# ---------------------------------------------------------------------------
+
+PROJECT_ROOT = HANDLERS_DIR.parent
+
+_LAYER_FORBIDDEN = {
+    "domain": {
+        "telegram",
+        "services",
+        "handlers",
+        "database",
+        "core",
+        "middleware",
+        "config",
+        "models",
+        "ui",
+        "utils",
+    },
+    "core": {"telegram", "services", "handlers", "database", "middleware", "ui"},
+    "database": {"telegram", "services", "handlers", "core", "middleware"},
+    "middleware": {"telegram", "services", "handlers", "database", "core", "domain"},
+    "services": {"handlers"},
+    "handlers": {"database"},
+}
+
+
+def _top_level_imports(tree: ast.AST) -> "list[str]":
+    """All top-level imported module roots, ignoring relative imports."""
+    roots: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots.extend(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            roots.append(node.module.split(".")[0])
+    return roots
+
+
+@pytest.mark.parametrize("layer", sorted(_LAYER_FORBIDDEN), ids=lambda layer: f"layer={layer}")
+def test_layer_does_not_import_forbidden_modules(layer):
+    forbidden = _LAYER_FORBIDDEN[layer]
+    offenders = []
+    for path in sorted((PROJECT_ROOT / layer).rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for root in _top_level_imports(tree):
+            if root in forbidden:
+                rel = path.relative_to(PROJECT_ROOT)
+                offenders.append(f"{rel}: imports '{root}'")
+    assert not offenders, f"layer '{layer}' must not import {sorted(forbidden)}:\n" + "\n".join(
+        offenders
+    )

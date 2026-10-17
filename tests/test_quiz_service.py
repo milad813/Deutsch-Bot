@@ -13,9 +13,7 @@ def test_extract_article_and_noun():
 
 
 def test_create_meaning_quiz_contains_correct_answer():
-    q = QuizService.create_meaning_quiz(
-        "der Hund", "سگ", ["گربه", "پرنده", "ماهی"]
-    )
+    q = QuizService.create_meaning_quiz("der Hund", "سگ", ["گربه", "پرنده", "ماهی"])
     assert q is not None
     assert q["type"] == "meaning"
     opts = q["options"]

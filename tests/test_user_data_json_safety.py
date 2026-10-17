@@ -158,7 +158,7 @@ def test_ltr_success_types_uses_lists_not_sets():
 
     # Two distinct correct question types must be enough to pass.
     ltr.record_test_result(1, True, "meaning")
-    ltr.record_test_result(1, True, "reverse")
+    ltr.record_test_result(1, True, "recall")
 
     success_types = context.user_data["ltr_word_success_types"]
     assert isinstance(success_types, dict)
@@ -166,7 +166,7 @@ def test_ltr_success_types_uses_lists_not_sets():
     # Uniqueness is preserved even if the same type is recorded twice.
     ltr.record_test_result(1, True, "meaning")
     assert success_types[1].count("meaning") == 1
-    assert set(success_types[1]) == {"meaning", "reverse"}
+    assert set(success_types[1]) == {"meaning", "recall"}
 
     assert 1 in context.user_data["ltr_words_passed"]
 
@@ -211,7 +211,7 @@ def test_quiz_init_with_optional_fields_is_json_safe():
     """Optional fields default to None and remain JSON-safe."""
     context = FakeContext()
 
-    _init_quiz_session(context, "reverse", 10)
+    _init_quiz_session(context, "recall", 10)
 
     session = context.user_data["quiz_session_obj"]
     assert session["source_filter"] is None
@@ -242,12 +242,10 @@ def test_combined_session_state_is_json_safe():
 
     # LTR
     ltr = LTRSessionManager(context)
-    ltr.initialize(
-        user_id=42, lesson_id=None, weak_words=[], new_words=[_make_word(1)]
-    )
+    ltr.initialize(user_id=42, lesson_id=None, weak_words=[], new_words=[_make_word(1)])
     ltr.mark_word_learned(1)
     ltr.record_test_result(1, True, "meaning")
-    ltr.record_test_result(1, True, "reverse")
+    ltr.record_test_result(1, True, "recall")
 
     # Quiz
     _init_quiz_session(context, "meaning", 3, source_filter="weak", lesson_id=1)
@@ -260,6 +258,6 @@ def test_combined_session_state_is_json_safe():
     # list of ints, not a list of dataclass instances.
     payload = json.loads(json.dumps(context.user_data, default=str))
     assert payload["quiz_session_obj"]["question_ids"] == [1]
-    assert payload["ltr_word_success_types"]["1"] == ["meaning", "reverse"]
+    assert payload["ltr_word_success_types"]["1"] == ["meaning", "recall"]
     assert payload["flashcard_skipped_ids"] == [1]
     assert payload["flashcard_queue"] == [2]

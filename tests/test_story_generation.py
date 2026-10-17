@@ -6,8 +6,6 @@ Covers:
 - _select_smart_words: empty candidate-pool edge cases
 """
 
-import pytest
-
 import services
 from handlers.story.core import (
     MIN_STORY_WORDS,
@@ -102,9 +100,7 @@ async def test_validate_too_short_story_is_invalid_even_with_targets():
 
 
 async def test_validate_long_story_with_fewer_than_min_targets_is_invalid():
-    ok = await _validate_story_naturalness(
-        _long_text(), [_w("Hund"), _w("läuft")], level="A1"
-    )
+    ok = await _validate_story_naturalness(_long_text(), [_w("Hund"), _w("läuft")], level="A1")
     assert ok is False  # 2 targets < MIN_STORY_WORDS (3)
 
 
@@ -116,18 +112,14 @@ async def test_validate_long_story_with_exactly_min_targets_is_valid():
 
 
 async def test_validate_empty_story_is_invalid():
-    ok = await _validate_story_naturalness(
-        "", [_w("Haus"), _w("ist"), _w("schön")], level="A1"
-    )
+    ok = await _validate_story_naturalness("", [_w("Haus"), _w("ist"), _w("schön")], level="A1")
     assert ok is False
 
 
 async def test_validate_counts_compound_substrings_as_coverage():
     # Characterization: matching is plain substring → compounds count.
     text = _long_text() + " Er kaufte ein Haustürschloss."
-    ok = await _validate_story_naturalness(
-        text, [_w("Haus"), _w("Schloss"), _w("Tür")], level="B2"
-    )
+    ok = await _validate_story_naturalness(text, [_w("Haus"), _w("Schloss"), _w("Tür")], level="B2")
     assert ok is True
 
 
@@ -143,12 +135,8 @@ async def test_validate_level_argument_does_not_change_gate():
 
 
 def _patch_pool(monkeypatch, rows):
-    monkeypatch.setattr(
-        services.db.words, "get_by_lesson_full", lambda lesson_id: rows
-    )
-    monkeypatch.setattr(
-        services.db.words, "get_stats_full", lambda user_id, wid: None
-    )
+    monkeypatch.setattr(services.db.words, "get_by_lesson_full", lambda lesson_id: rows)
+    monkeypatch.setattr(services.db.words, "get_stats_full", lambda user_id, wid: None)
 
 
 async def test_select_smart_words_empty_lesson_returns_empty(monkeypatch):
@@ -173,8 +161,7 @@ async def test_select_smart_words_no_eligible_types_returns_empty(monkeypatch):
 
 async def test_select_smart_words_happy_path_fills_to_minimum(monkeypatch):
     rows = [
-        {"id": i, "german": f"Wort{i}", "article": "das", "word_type": "Noun"}
-        for i in range(1, 5)
+        {"id": i, "german": f"Wort{i}", "article": "das", "word_type": "Noun"} for i in range(1, 5)
     ]
     _patch_pool(monkeypatch, rows)
 

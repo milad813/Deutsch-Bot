@@ -70,6 +70,7 @@ SESSION_FEATURES: Dict[str, SessionFeature] = {
                 "flashcard_again_counts",
                 "fsrs_guide_shown",
                 "flashcard_rate_lock",
+                "flashcard_action_lock",
                 "flashcard_flip_lock",
                 "flashcard_skip_lock",
             ),
@@ -98,6 +99,30 @@ SESSION_FEATURES: Dict[str, SessionFeature] = {
                 "ltr_weak_word_ids",
                 "ltr_answer_lock",
                 "ltr_learned_lock",
+                "ltr_token",
+                "ltr_session_id",
+                "ltr_activity",
+                "ltr_words_deferred",
+                "ltr_finalized",
+                "ltr_review_times",
+                "ltr_first_answers",
+                "ltr_word_success_types",
+                "ltr_attempt_log",
+                "ltr_pending_lesson",
+                "ltr_assisted",
+                "ltr_assessment",
+                "ltr_prompt_id",
+                "ltr_transition_lock",
+                "ltr_fallback_attempted",
+                "ltr_index",
+                "ltr_main_index",
+                "ltr_main_progress",
+                "ltr_retry_stage",
+                "ltr_wrong_in_session",
+                "ltr_round",
+                "ltr_round2_started",
+                "ltr_delayed_1",
+                "ltr_delayed_2",
             ),
         ),
         SessionFeature(
@@ -142,9 +167,7 @@ SESSION_FEATURES: Dict[str, SessionFeature] = {
 
 def all_session_keys() -> FrozenSet[str]:
     """Every static session key registered by any feature."""
-    return frozenset(
-        key for feature in SESSION_FEATURES.values() for key in feature.keys
-    )
+    return frozenset(key for feature in SESSION_FEATURES.values() for key in feature.keys)
 
 
 # Flat set kept for cheap membership checks and backward compatibility.
@@ -186,4 +209,3 @@ def reset_session(context) -> None:
 def is_session_key(key: str) -> bool:
     """True if the key belongs to the managed session state."""
     return key in SESSION_KEYS or key.startswith(DYNAMIC_PREFIXES)
-

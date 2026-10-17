@@ -1,6 +1,9 @@
-import json
 import logging
 import random
+
+from domain.content import object_list, text_list
+
+from core.answer_tokens import new_answer_token, answer_index
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from core.locks import callback_guard
@@ -13,14 +16,16 @@ from ui import _short_label, back_inline_keyboard, esc, render
 logger = logging.getLogger(__name__)
 
 
-def _grammar_quiz_keyboard(options, point_id):
+def _grammar_quiz_keyboard(options, point_id, token=""):
     kb = []
     for i, opt in enumerate(options):
         kb.append(
             [
                 InlineKeyboardButton(
                     _short_label(opt, 64),
-                    callback_data=cb_safe(CallbackPrefix.GRAMMAR_ANS, i)
+                    callback_data=cb_safe(
+                        CallbackPrefix.GRAMMAR_ANS, f"{token}:{i}" if token else i
+                    ),
                 )
             ]
         )
@@ -28,13 +33,13 @@ def _grammar_quiz_keyboard(options, point_id):
     kb.append(
         [
             InlineKeyboardButton(
-                "🔙 بازگشت به نکته",
-                callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, point_id)
+                "🔙 بازگشت به نکته", callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, point_id)
             )
         ]
     )
 
     return InlineKeyboardMarkup(kb)
+
 
 async def show_grammar_menu(query, context, lesson_id: int):
     points = await run_db(db.grammar.get_by_lesson, lesson_id)
@@ -52,11 +57,13 @@ async def show_grammar_menu(query, context, lesson_id: int):
             [
                 InlineKeyboardButton(
                     _short_label(f"📘 {title}"),
-                    callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, p['id']),
+                    callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, p["id"]),
                 )
             ]
         )
-    kb.append([InlineKeyboardButton("🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.LESSON, lesson_id))])
+    kb.append(
+        [InlineKeyboardButton("🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.LESSON, lesson_id))]
+    )
     await render(
         query,
         "📐 <b>گرامر این درس</b>\nیک نکته را انتخاب کن:",
@@ -65,15 +72,12 @@ async def show_grammar_menu(query, context, lesson_id: int):
 
 
 async def show_grammar_point(query, context, point_id: int):
+    context.user_data.pop("grammar_current", None)
     p = await run_db(db.grammar.get_by_id, point_id)
     if not p:
         await render(query, "❌ نکته پیدا نشد.", reply_markup=back_inline_keyboard())
         return
-    try:
-        examples = json.loads(p.get("examples_json") or "[]")
-    except Exception:
-        examples = []
-        examples = [ex for ex in examples if isinstance(ex, dict)]
+    examples = object_list(p.get("examples_json"))
     msg = f"📘 <b>{esc(p['title_fa'])}</b>\n\n💡 {esc(p['explanation_fa'])}\n"
     if p.get("rule_de"):
         msg += f"\n🇩🇪 <code>{esc(p['rule_de'])}</code>\n"
@@ -84,14 +88,14 @@ async def show_grammar_point(query, context, point_id: int):
     kb = [
         [
             InlineKeyboardButton(
-                "✍️ تمرین این نکته", callback_data=cb_safe(CallbackPrefix.GRAMMAR_QUIZ, p['id'])
+                "✍️ تمرین این نکته", callback_data=cb_safe(CallbackPrefix.GRAMMAR_QUIZ, p["id"])
             )
         ]
     ]
     kb.append(
         [
             InlineKeyboardButton(
-                "🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.GRAMMAR_LESSON, p['lesson_id'])
+                "🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.GRAMMAR_LESSON, p["lesson_id"])
             )
         ]
     )
@@ -99,19 +103,18 @@ async def show_grammar_point(query, context, point_id: int):
 
 
 async def start_grammar_quiz(query, context, point_id: int):
+    context.user_data.pop("grammar_current", None)
     p = await run_db(db.grammar.get_by_id, point_id)
 
     if not p:
         await render(query, "❌ نکته پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    try:
-        exercises = json.loads(p.get("exercises_json") or "[]")
-    except Exception:
-        exercises = []
-
-    exercises = [ex for ex in exercises if isinstance(ex, dict)]
-
+    exercises = [
+        ex
+        for ex in object_list(p.get("exercises_json"))
+        if isinstance(ex.get("correct"), str) and ex["correct"].strip()
+    ]
     if not exercises:
         await render(
             query,
@@ -135,7 +138,7 @@ async def start_grammar_quiz(query, context, point_id: int):
     # گزینه‌های غلط خود تمرین
     distractors = [
         str(d).strip()
-        for d in (ex.get("distractors") or [])
+        for d in text_list(ex.get("distractors"))
         if str(d).strip() and str(d).strip() != correct
     ]
 
@@ -147,7 +150,7 @@ async def start_grammar_quiz(query, context, point_id: int):
         if other_correct and other_correct != correct:
             candidates.append(other_correct)
 
-        for d in other.get("distractors") or []:
+        for d in text_list(other.get("distractors")):
             d = str(d).strip()
             if d and d != correct:
                 candidates.append(d)
@@ -161,14 +164,16 @@ async def start_grammar_quiz(query, context, point_id: int):
     if len(options) < 2:
         await render(
             query,
-            "📭 این تمرین گزینه‌های کافی ندارد.\n" "لطفاً یک تمرین دیگر را امتحان کن.",
+            "📭 این تمرین گزینه‌های کافی ندارد.\nلطفاً یک تمرین دیگر را امتحان کن.",
             reply_markup=back_inline_keyboard("🔙 بازگشت", f"grammar_point:{p['id']}"),
         )
         return
 
     random.shuffle(options)
 
+    token = new_answer_token()
     context.user_data["grammar_current"] = {
+        "answer_token": token,
         "correct": correct,
         "correct_index": options.index(correct),
         "options": options,
@@ -180,8 +185,7 @@ async def start_grammar_quiz(query, context, point_id: int):
 
     msg = f"✍️ <b>تمرین گرامر</b>\n🇩 {esc(ex.get('sentence_de', ''))}"
 
-    await render(query, msg, reply_markup=_grammar_quiz_keyboard(options, p["id"]))
-
+    await render(query, msg, reply_markup=_grammar_quiz_keyboard(options, p["id"], token))
 
 
 @callback_guard("grammar_answer_lock")
@@ -195,7 +199,7 @@ async def handle_grammar_answer(query, context, suffix: str):
         return
 
     try:
-        chosen = int(suffix)
+        chosen = answer_index(suffix, cur)
     except ValueError:
         return
 
@@ -206,20 +210,22 @@ async def handle_grammar_answer(query, context, suffix: str):
     is_correct = chosen == cur["correct_index"]
     user_id = query.from_user.id
 
-    await run_db(db.learning.record_grammar_answer, user_id, cur["point_id"], is_correct)
+    def save_answer():
+        with db.transaction():
+            db.learning.record_grammar_answer(user_id, cur["point_id"], is_correct)
+            if not is_correct:
+                db.learning.record_mistake(
+                    user_id=user_id,
+                    grammar_point_id=cur["point_id"],
+                    skill_type="grammar",
+                    quiz_type="grammar",
+                    user_answer=options[chosen],
+                    correct_answer=cur["correct"],
+                )
+            db.users.record_activity(user_id, 10 if is_correct else 0)
 
-    if not is_correct:
-        await run_db(
-            db.learning.record_mistake,
-            user_id=user_id,
-            grammar_point_id=cur["point_id"],
-            skill_type="grammar",
-            quiz_type="grammar",
-            user_answer=options[chosen],
-            correct_answer=cur["correct"],
-        )
-
-    await run_db(db.users.record_activity, user_id, 10 if is_correct else 0)
+    await run_db(save_answer)
+    context.user_data.pop("grammar_current", None)
 
     if is_correct:
         try:
@@ -239,7 +245,7 @@ async def handle_grammar_answer(query, context, suffix: str):
     kb = [
         [
             InlineKeyboardButton(
-                "✍️ تمرین دیگر", callback_data=cb_safe(CallbackPrefix.GRAMMAR_QUIZ, cur['point_id'])
+                "✍️ تمرین دیگر", callback_data=cb_safe(CallbackPrefix.GRAMMAR_QUIZ, cur["point_id"])
             )
         ]
     ]
@@ -247,7 +253,7 @@ async def handle_grammar_answer(query, context, suffix: str):
         [
             InlineKeyboardButton(
                 "🔙 بازگشت به نکته",
-                callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, cur['point_id']),
+                callback_data=cb_safe(CallbackPrefix.GRAMMAR_POINT, cur["point_id"]),
             )
         ]
     )

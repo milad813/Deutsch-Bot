@@ -136,7 +136,7 @@ def test_review_ltr_mapping(monkeypatch):
     assert seen["grade"] == 3
 
     svc.review_ltr(uid, wid, [True, True])
-    assert seen["grade"] == 4
+    assert seen["grade"] == 3  # Same-session success never grants Easy
 
     svc.review_ltr(uid, wid, [True, False, True])
     assert seen["grade"] == 3
@@ -235,15 +235,9 @@ def test_grade_with_none_response_time_and_unknown_quiz_type():
     svc = _svc()
 
     # Unknown quiz_type falls back to the 8s threshold; rt=None skips it.
-    assert (
-        svc.grade_from_correctness(True, 0, response_time_sec=None, quiz_type="telepathy")
-        == 3
-    )
+    assert svc.grade_from_correctness(True, 0, response_time_sec=None, quiz_type="telepathy") == 3
     # Unknown type + genuinely slow answer → Hard via default threshold.
-    assert (
-        svc.grade_from_correctness(True, 0, response_time_sec=20.0, quiz_type="telepathy")
-        == 2
-    )
+    assert svc.grade_from_correctness(True, 0, response_time_sec=20.0, quiz_type="telepathy") == 2
     # Streak-based Easy is unaffected by missing rt/type.
     assert svc.grade_from_correctness(True, 3, response_time_sec=None, quiz_type=None) == 4
     # Wrong answers are always Again regardless of timing metadata.

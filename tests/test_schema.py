@@ -11,9 +11,7 @@ from database.schema import (
 
 
 def _table_names(conn):
-    rows = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    ).fetchall()
+    rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     return {row[0] for row in rows}
 
 
@@ -26,6 +24,9 @@ def test_ensure_schema_creates_all_tables():
 
         names = _table_names(conn)
         expected = {
+            "word_first_seen",
+            "ltr_attempts",
+            "ltr_finalizations",
             "books",
             "lessons",
             "users",
@@ -65,6 +66,6 @@ def test_ensure_schema_is_idempotent():
 
 def test_statement_counts_unchanged():
     """Guard against accidental schema loss during refactors."""
-    assert len(TABLE_STATEMENTS) == 17
-    assert len(INDEX_STATEMENTS) == 19
+    assert len(TABLE_STATEMENTS) == 20
+    assert len(INDEX_STATEMENTS) == 20
     assert len(MIGRATION_STATEMENTS) == 72

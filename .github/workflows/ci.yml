@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +28,11 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov
 
       - name: Run tests
+        # Coverage floor: R1 baseline measured 63% (Python 3.12).
+        # 60 absorbs minor cross-version variance; only raise it as
+        # coverage grows (see docs/REFACTOR_ROADMAP.md, Phase R1).
         run: |
-          pytest --cov=. --cov-report=xml
+          pytest --cov=. --cov-report=xml --cov-fail-under=60
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -49,13 +52,13 @@ jobs:
       - name: Install linting tools
         run: |
           python -m pip install --upgrade pip
-          pip install black flake8 isort
+          pip install ruff mypy
 
-      - name: Check formatting with Black
-        run: black --check .
+      - name: Check formatting with ruff format
+        run: ruff format --check .
 
-      - name: Check imports with isort
-        run: isort --check-only .
+      - name: Lint with Ruff (Phase R1 ruleset)
+        run: ruff check .
 
-      - name: Lint with Flake8
-        run: flake8 . --max-line-length=100 --extend-ignore=E203
+      - name: Type-check with mypy (Phase R1 baseline)
+        run: mypy .

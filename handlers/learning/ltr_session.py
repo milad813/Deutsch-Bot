@@ -1,401 +1,269 @@
-"""LTR (Learn-Test-Review) session management - CORRECT implementation."""
+"""Bounded LTR sessions; spacing counts intervening learning activities."""
 
-import logging
 from typing import Any, Dict, List, Optional
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
+from core.callbacks import cb_safe
+from core.answer_tokens import new_answer_token
+from core.sessions import reset_feature
 from models import CallbackPrefix, Word
 from services import db, fsrs, run_db
 from ui import _short_label, progress_bar
-from core.callbacks import cb_safe
 
-logger = logging.getLogger(__name__)
-
-# ─── تنظیمات LTR ───────────────────────────────────────────────────
-WORDS_PER_BATCH = 5  # هر بار چند کلمه یاد بده قبل از تست
-DELAY_AFTER_LEARN = 5  # چند کلمه بعد، سوال بپرس
-MAX_RETRIES = 3  # اگه اشتباه زد، چند بار دوباره بپرس
-RETRY_DELAY = 2  # تأخیر برای retry
-MIN_SUCCESS_TYPES = 2  # چند «نوع سوال» متفاوت باید درست جواب داده شود تا کلمه پاس شود
+WORDS_PER_BATCH = 5
+DELAY_AFTER_LEARN = 2
+RETRY_DELAY = 2
+SUCCESS_DELAY = 3
+MAX_RETRIES = 2
+MIN_SUCCESS_TYPES = 2
+MAX_ATTEMPTS_PER_WORD = 5
 
 
 class LTRSessionManager:
-    """Manages LTR learning session with proper Learn → Test → Review flow."""
-
     def __init__(self, context):
         self.context = context
         self.user_data = context.user_data
 
     def initialize(
-        self,
-        user_id: int,
-        lesson_id: Optional[int],  # ← Optional شد
-        weak_words: List[Word],
-        new_words: List[Word],
+        self, user_id: int, lesson_id: Optional[int], weak_words: List[Word], new_words: List[Word]
     ) -> bool:
-        """Initialize LTR session."""
-        all_words = weak_words + new_words
-        if not all_words:
+        words = list({w.id: w for w in weak_words + new_words}.values())
+        if not words:
             return False
-
-        # Clean old state
         self.clear_session()
-
-        # Initialize
-        self.user_data["ltr_user_id"] = user_id
-        self.user_data["ltr_lesson_id"] = lesson_id
-        self.user_data["ltr_words"] = [w.id for w in all_words]
-        self.user_data["ltr_learn_index"] = 0  # کلمه‌ای که الان یاد میدیم
-        self.user_data["ltr_phase"] = "learn"  # learn | test | review | done
-        self.user_data["ltr_delayed_tasks"] = []  # تسک‌های تست تأخیری
-        self.user_data["ltr_word_results"] = {}  # word_id → [True/False, ...]
-        self.user_data["ltr_word_retry_count"] = {}  # word_id → تعداد retry
-        self.user_data["ltr_words_learned"] = []  # کلماتی که یاد داده شدن
-        self.user_data["ltr_words_tested"] = []  # کلماتی که تست شدن
-        self.user_data["ltr_words_passed"] = []  # کلماتی که قبول شدن
-        self.user_data["ltr_words_failed"] = []  # کلماتی که رد شدن
-        self.user_data["ltr_current_question"] = (
-            None  # کلمه‌ای که الان ازش سوال می‌پرسیم
-        )
-
-        logger.info(
-            "LTR session initialized: lesson=%s, %d weak + %d new = %d words",
-            lesson_id,
-            len(weak_words),
-            len(new_words),
-            len(all_words),
+        self.user_data.update(
+            {
+                "ltr_session_id": new_answer_token(),
+                "ltr_user_id": user_id,
+                "ltr_lesson_id": lesson_id,
+                "ltr_words": [w.id for w in words],
+                "ltr_learn_index": 0,
+                "ltr_phase": "learn",
+                "ltr_activity": 0,
+                "ltr_delayed_tasks": [],
+                "ltr_word_results": {},
+                "ltr_word_retry_count": {},
+                "ltr_word_success_types": {},
+                "ltr_words_learned": [],
+                "ltr_words_tested": [],
+                "ltr_words_passed": [],
+                "ltr_words_failed": [],
+                "ltr_words_deferred": [],
+                "ltr_finalized": [],
+                "ltr_review_times": {},
+                "ltr_current_question": None,
+                "ltr_first_answers": {},
+                "ltr_attempt_log": [],
+            }
         )
         return True
 
-    # ─── Learn Phase ─────────────────────────────────────────────────
+    @property
+    def activity(self):
+        return self.user_data.get("ltr_activity", 0)
 
     async def get_next_word_to_learn(self) -> Optional[Word]:
-        """Get next word that hasn't been taught yet."""
-        word_ids = self.user_data.get("ltr_words", [])
-        learned = set(self.user_data.get("ltr_words_learned", []))
-        learn_index = self.user_data.get("ltr_learn_index", 0)
-
-        if learn_index >= len(word_ids):
-            return None
-
-        word_id = word_ids[learn_index]
-        if word_id in learned:
-            # Skip already learned (shouldn't happen but safety)
-            self.user_data["ltr_learn_index"] = learn_index + 1
-            return await self.get_next_word_to_learn()
-
-        return await run_db(db.words.get_by_id, word_id)
+        ids = self.user_data.get("ltr_words", [])
+        index = self.user_data.get("ltr_learn_index", 0)
+        while index < len(ids):
+            word = await run_db(db.words.get_by_id, ids[index])
+            if word:
+                return word
+            index += 1
+            self.user_data["ltr_learn_index"] = index
+        return None
 
     def mark_word_learned(self, word_id: int):
-        """Mark a word as learned and schedule delayed test."""
         learned = self.user_data.setdefault("ltr_words_learned", [])
-        if word_id not in learned:
-            learned.append(word_id)
-
-        # Schedule delayed test: after DELAY_AFTER_LEARN more words are learned
-        progress = len(learned)
+        if word_id in learned:
+            return
+        learned.append(word_id)
         self.user_data["ltr_learn_index"] = self.user_data.get("ltr_learn_index", 0) + 1
+        self.user_data["ltr_activity"] = self.activity + 1
+        self._schedule_test(word_id, self.activity + DELAY_AFTER_LEARN)
 
-        self._schedule_test(word_id, due_after_progress=progress + DELAY_AFTER_LEARN)
-
-    # ─── Test Phase ──────────────────────────────────────────────────
-
-    def _schedule_test(
-        self, word_id: int, due_after_progress: int, is_retry: bool = False
-    ):
-        """Schedule a test question for a word."""
+    def _schedule_test(self, word_id: int, due_after_progress: int, is_retry: bool = False):
         tasks = self.user_data.setdefault("ltr_delayed_tasks", [])
+        tasks[:] = [t for t in tasks if t["word_id"] != word_id]
+        tasks.append({"word_id": word_id, "due_after": due_after_progress, "is_retry": is_retry})
+        tasks.sort(key=lambda t: t["due_after"])
 
-        # Remove existing task for same word (replace)
-        tasks[:] = [t for t in tasks if t.get("word_id") != word_id]
-
-        tasks.append(
-            {
-                "word_id": word_id,
-                "due_after": due_after_progress,
-                "is_retry": is_retry,
-            }
+    def get_due_test_peek(self) -> Optional[Dict]:
+        return next(
+            (
+                t
+                for t in self.user_data.get("ltr_delayed_tasks", [])
+                if t["due_after"] <= self.activity
+            ),
+            None,
         )
-        # Sort by due time
-        tasks.sort(key=lambda t: t.get("due_after", 0))
 
     def get_due_test(self) -> Optional[Dict]:
-        """Get next test question that's due."""
-        tasks = self.user_data.get("ltr_delayed_tasks", [])
-        learned_count = len(self.user_data.get("ltr_words_learned", []))
-
-        for i, task in enumerate(tasks):
-            if task.get("due_after", 0) <= learned_count:
-                return tasks.pop(i)
-
-        return None
+        task = self.get_due_test_peek()
+        if task:
+            self.user_data["ltr_delayed_tasks"].remove(task)
+        return task
 
     async def get_current_question_word(self) -> Optional[Word]:
-        """Get the word currently being quizzed."""
         word_id = self.user_data.get("ltr_current_question")
-        if word_id:
-            return await run_db(db.words.get_by_id, word_id)
-        return None
+        return await run_db(db.words.get_by_id, word_id) if word_id else None
 
-    def record_test_result(self, word_id: int, is_correct: bool, q_type: str = "meaning"):
-        """Record test result and decide next action.
-        
-        NEW: Requires at least MIN_SUCCESS_TYPES different question types
-        to be answered correctly before marking word as passed.
-        """
-        results = self.user_data.setdefault("ltr_word_results", {})
-        if word_id not in results:
-            results[word_id] = []
-        results[word_id].append(is_correct)
+    def defer_word(self, word_id: int):
+        deferred = self.user_data.setdefault("ltr_words_deferred", [])
+        if word_id not in deferred:
+            deferred.append(word_id)
+        tasks = self.user_data.setdefault("ltr_delayed_tasks", [])
+        tasks[:] = [t for t in tasks if t["word_id"] != word_id]
+        self.user_data["ltr_current_question"] = None
 
+    def defer_pending(self):
+        for task in list(self.user_data.get("ltr_delayed_tasks", [])):
+            self.defer_word(task["word_id"])
+
+    def record_test_result(
+        self, word_id: int, is_correct: bool, q_type: str = "meaning", independent: bool = True
+    ):
+        results = self.user_data.setdefault("ltr_word_results", {}).setdefault(word_id, [])
+        results.append(is_correct)
+        self.user_data.setdefault("ltr_first_answers", {}).setdefault(word_id, is_correct)
         tested = self.user_data.setdefault("ltr_words_tested", [])
         if word_id not in tested:
             tested.append(word_id)
-
-        if is_correct:
-            # ✅ Record successful question type
-            # NOTE: stored as list[str] (not set) so user_data stays
-            # JSON-serializable. Uniqueness is preserved by checking
-            # membership before appending.
-            success_types = self.user_data.setdefault("ltr_word_success_types", {})
-            if word_id not in success_types or not isinstance(
-                success_types[word_id], list
-            ):
-                success_types[word_id] = []
-            if q_type not in success_types[word_id]:
-                success_types[word_id].append(q_type)
-
-            # Check if we have enough different successful types
-            if len(success_types[word_id]) >= MIN_SUCCESS_TYPES:
-                # ✅ Passed - enough variety of correct answers
-                passed = self.user_data.setdefault("ltr_words_passed", [])
-                if word_id not in passed:
-                    passed.append(word_id)
-                # Remove from failed if was there
-                failed = self.user_data.get("ltr_words_failed", [])
-                if word_id in failed:
-                    failed.remove(word_id)
-            else:
-                # ⏳ Need another test with a DIFFERENT question type
-                learned_count = len(self.user_data.get("ltr_words_learned", []))
-                self._schedule_test(
-                    word_id,
-                    due_after_progress=learned_count + RETRY_DELAY,
-                    is_retry=False,
-                )
+        self.user_data["ltr_activity"] = self.activity + 1
+        success = self.user_data.setdefault("ltr_word_success_types", {}).setdefault(word_id, [])
+        if is_correct and independent and q_type not in success:
+            success.append(q_type)
+        passed = self.user_data.setdefault("ltr_words_passed", [])
+        failed = self.user_data.setdefault("ltr_words_failed", [])
+        retries = self.user_data.setdefault("ltr_word_retry_count", {})
+        if not is_correct:
+            retries[word_id] = retries.get(word_id, 0) + 1
+        if len(success) >= MIN_SUCCESS_TYPES and "recall" in success:
+            if word_id not in passed:
+                passed.append(word_id)
+            if word_id in failed:
+                failed.remove(word_id)
+            self.user_data["ltr_delayed_tasks"] = [
+                t for t in self.user_data.get("ltr_delayed_tasks", []) if t["word_id"] != word_id
+            ]
+        elif retries.get(word_id, 0) > MAX_RETRIES or len(results) >= MAX_ATTEMPTS_PER_WORD:
+            if word_id not in failed:
+                failed.append(word_id)
+            self.defer_word(word_id)
         else:
-            # ❌ Failed - schedule retry if allowed
-            retry_count = self.user_data.get("ltr_word_retry_count", {}).get(word_id, 0)
-            if retry_count < MAX_RETRIES:
-                self.user_data.setdefault("ltr_word_retry_count", {})[word_id] = (
-                    retry_count + 1
-                )
-                learned_count = len(self.user_data.get("ltr_words_learned", []))
-                self._schedule_test(
-                    word_id,
-                    due_after_progress=learned_count + RETRY_DELAY,
-                    is_retry=True,
-                )
-            else:
-                # Max retries reached - mark as failed
-                failed = self.user_data.setdefault("ltr_words_failed", [])
-                if word_id not in failed:
-                    failed.append(word_id)
-
+            delay = SUCCESS_DELAY if is_correct else RETRY_DELAY
+            self._schedule_test(word_id, self.activity + delay, is_retry=not is_correct)
         self.user_data["ltr_current_question"] = None
 
-    # ─── Session Flow Control ────────────────────────────────────────
-
     async def get_next_action(self) -> str:
-        """Determine what to do next.
-        Returns: 'learn' | 'test' | 'done'
-        """
-        # 1. Check if there's a due test
         if self.get_due_test_peek():
             return "test"
-
-        # 2. Check if there are words left to learn
         if await self.get_next_word_to_learn():
             return "learn"
-
-        # 3. Check if there are pending tests (not yet due but no more to learn)
-        tasks = self.user_data.get("ltr_delayed_tasks", [])
-        if tasks:
-            # Force remaining tests
-            return "test"
-
+        self.defer_pending()
         return "done"
 
-    def get_due_test_peek(self) -> Optional[Dict]:
-        """Check if any test is due without removing it."""
-        tasks = self.user_data.get("ltr_delayed_tasks", [])
-        learned_count = len(self.user_data.get("ltr_words_learned", []))
-
-        for task in tasks:
-            if task.get("due_after", 0) <= learned_count:
-                return task
-        return None
-
-    def is_session_complete(self) -> bool:
-        """Check if all words learned and all tests done."""
-        word_ids = self.user_data.get("ltr_words", [])
-        learned = self.user_data.get("ltr_words_learned", [])
-        tasks = self.user_data.get("ltr_delayed_tasks", [])
-
-        return len(learned) >= len(word_ids) and len(tasks) == 0
-
-    # ─── SRS & Stats ─────────────────────────────────────────────────
-
     async def finalize_word(self, word_id: int, user_id: int = None):
-        """Finalize word after all tests are done. Update SRS."""
         uid = user_id or self.user_data.get("ltr_user_id")
-        if not uid:
+        finalized = self.user_data.setdefault("ltr_finalized", [])
+        if not uid or word_id in finalized:
             return
-
         results = self.user_data.get("ltr_word_results", {}).get(word_id, [])
-        if not results:
-            return
+        incomplete = word_id not in self.user_data.get("ltr_words_passed", [])
+        session_id = self.user_data.setdefault("ltr_session_id", new_answer_token())
 
-        # Update SRS based on all results
-        await run_db(fsrs.review_ltr, uid, word_id, results)
+        def save():
+            with db.transaction():
+                previous = db.learning.get_ltr_finalization(session_id, uid, word_id)
+                if previous:
+                    return previous
+                if results:
+                    state, _ = fsrs.review_ltr(uid, word_id, results)
+                    next_review = (
+                        db.learning.defer_ltr_review(uid, word_id)
+                        if incomplete
+                        else state.next_review.strftime("%Y-%m-%d %H:%M:%S")
+                    )
+                    db.users.record_activity(uid, 5 * sum(results))
+                else:
+                    next_review = db.learning.defer_ltr_review(uid, word_id)
+                db.learning.save_ltr_finalization(session_id, uid, word_id, next_review)
+                return next_review
 
-        # Record activity
-        correct_count = sum(1 for r in results if r)
-        if all(results):
-            await run_db(db.users.record_activity, uid, 20)
-        else:
-            await run_db(db.users.record_activity, uid, 5 * correct_count)
+        next_review = await run_db(save)
+        self.user_data.setdefault("ltr_review_times", {})[word_id] = next_review
+        finalized.append(word_id)
 
     async def finalize_all_passed_words(self):
-        """Finalize all words that passed."""
-        uid = self.user_data.get("ltr_user_id")
-        passed = self.user_data.get("ltr_words_passed", [])
-        failed = self.user_data.get("ltr_words_failed", [])
-
-        for word_id in passed + failed:
-            await self.finalize_word(word_id, user_id=uid)
+        for word_id in self.user_data.get("ltr_words_learned", []):
+            await self.finalize_word(word_id)
 
     async def finalize_partial_session(self):
-        """Finalize words that have at least one recorded result.
-
-        This is used when the user exits before the session is fully complete.
-        """
-        uid = self.user_data.get("ltr_user_id")
-        results = self.user_data.get("ltr_word_results", {})
-
-        for word_id, word_results in results.items():
-            if word_results:
-                await self.finalize_word(word_id, user_id=uid)
-
-    # ─── Summary & Progress ──────────────────────────────────────────
+        await self.finalize_all_passed_words()
 
     def get_progress_info(self) -> Dict[str, Any]:
-        """Get session progress."""
-        word_ids = self.user_data.get("ltr_words", [])
-        total = len(word_ids) or 1
+        total = len(self.user_data.get("ltr_words", []))
         learned = len(self.user_data.get("ltr_words_learned", []))
-        tested = len(self.user_data.get("ltr_words_tested", []))
-
-        bar = progress_bar(learned, total)
+        attempts = sum(len(r) for r in self.user_data.get("ltr_word_results", {}).values())
         return {
             "total": total,
             "learned": learned,
-            "tested": tested,
-            "progress_bar": bar,
-            "percentage": int((learned / total) * 100),
+            "tested": len(self.user_data.get("ltr_words_tested", [])),
+            "attempts": attempts,
+            "attempt_limit": total * MAX_ATTEMPTS_PER_WORD,
+            "progress_bar": progress_bar(learned, max(1, total)),
+            "percentage": int(learned / max(1, total) * 100),
         }
 
     def get_session_summary(self) -> Dict[str, Any]:
-        """Get final session summary."""
-        word_ids = self.user_data.get("ltr_words", [])
+        words = self.user_data.get("ltr_words", [])
         passed = self.user_data.get("ltr_words_passed", [])
-        failed = self.user_data.get("ltr_words_failed", [])
-        total = len(word_ids)
-
+        learned = self.user_data.get("ltr_words_learned", [])
+        pending = [wid for wid in learned if wid not in passed]
+        results = self.user_data.get("ltr_word_results", {})
+        attempts = [r for values in results.values() for r in values]
+        first = list(self.user_data.get("ltr_first_answers", {}).values())
         return {
-            "total_words": total,
+            "total_words": len(words),
             "passed_words": len(passed),
-            "failed_words": len(failed),
-            "not_tested": total - len(passed) - len(failed),
-            "accuracy": int((len(passed) / total * 100) if total > 0 else 0),
+            "failed_words": len(pending),
+            "failed_ids": pending,
             "passed_ids": passed,
-            "failed_ids": failed,
+            "not_tested": len([w for w in words if not results.get(w)]),
+            "attempts": len(attempts),
+            "accuracy": int(100 * sum(attempts) / len(attempts)) if attempts else 0,
+            "first_accuracy": int(100 * sum(first) / len(first)) if first else 0,
+            "first_count": len(first),
         }
 
-
     def clear_session(self) -> None:
-        keys_to_clear = [
-            "ltr_user_id",
-            "ltr_lesson_id",
-            "ltr_words",
-            "ltr_learn_index",
-            "ltr_phase",
-            "ltr_delayed_tasks",
-            "ltr_word_results",
-            "ltr_word_retry_count",
-            "ltr_word_success_types",
-            "ltr_words_learned",
-            "ltr_words_tested",
-            "ltr_words_passed",
-            "ltr_words_failed",
-            "ltr_current_question",
-            "ltr_current_options",
-            "ltr_current_correct_index",
-            "ltr_current_correct_text",
-            "ltr_question_type",
-            "ltr_fallback_attempted",
-            # Legacy keys
-            "ltr_index",
-            "ltr_main_index",
-            "ltr_main_progress",
-            "ltr_retry_stage",
-            "ltr_wrong_in_session",
-            "ltr_round",
-            "ltr_round2_started",
-            "ltr_delayed_1",
-            "ltr_delayed_2",
-        ]
-        for key in keys_to_clear:
-            self.user_data.pop(key, None)
+        reset_feature(self.context, "ltr")
 
 
-# ─── Helper Functions ────────────────────────────────────────────────
-
-
-def _ltr_learn_keyboard(word_id: int = None) -> InlineKeyboardMarkup:
-    """Keyboard for learn phase."""
+def _ltr_learn_keyboard(word_id: int = None, token: str = "") -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton("🔊 تلفظ", callback_data="speak_current:study")],
-        [InlineKeyboardButton("✅ یاد گرفتم، بعدی!", callback_data="ltr_learned")],
+        [InlineKeyboardButton("📖 جزئیات بیشتر", callback_data=f"ltr_details:{token}")],
+        [InlineKeyboardButton("✅ آمادهٔ تمرینم", callback_data=f"ltr_learned:{token}")],
         [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")],
     ]
     return InlineKeyboardMarkup(rows)
 
 
-def _ltr_answer_keyboard(options: list) -> InlineKeyboardMarkup:
-    """Keyboard for test/quiz phase."""
-    rows = []
-
-    for i, opt in enumerate(options):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    _short_label(opt, 64),
-                    callback_data=cb_safe(CallbackPrefix.LTR_ANS, i)
-                )
-            ]
-        )
-
-    rows.append(
-        [InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")]
-    )
-
+def _ltr_answer_keyboard(options: list, token: str = "") -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                _short_label(opt, 64),
+                callback_data=cb_safe(CallbackPrefix.LTR_ANS, f"{token}:{i}" if token else i),
+            )
+        ]
+        for i, opt in enumerate(options)
+    ]
+    rows.append([InlineKeyboardButton("🏁 پایان جلسه", callback_data="ltr_exit")])
     return InlineKeyboardMarkup(rows)
 
 
 def _ltr_intro_keyboard() -> InlineKeyboardMarkup:
-    """Alias for backward compatibility - same as _ltr_learn_keyboard."""
     return _ltr_learn_keyboard()
 
 

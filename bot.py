@@ -21,7 +21,8 @@ from handlers import handle_text_input, inline_handler, show_menu, start
 from handlers.admin_handlers import show_status
 from handlers.menus import cancel
 from middleware.rate_limiter import rate_limiter
-from services import app, db, get_main_menu_keyboard, run_db, tts
+from services import db, get_app, get_main_menu_keyboard, run_db, tts
+
 config.setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -67,10 +68,14 @@ async def post_shutdown(application):
     # Without this, a long-running instance leaks one entry per TTS play.
     try:
         from handlers.tts_handlers import cleanup_all_tts_jobs
+
         cleanup_all_tts_jobs()
     except Exception as e:
         logger.debug("TTS shutdown cleanup skipped: %s", e)
-    app.close()
+    from handlers.quiz_questions import close_background_tasks
+
+    await close_background_tasks()
+    get_app().close()
 
 
 async def daily_backup(context):
@@ -130,9 +135,7 @@ async def daily_reminder(context):
         return
 
     batch_size = max(1, int(getattr(config, "REMINDER_BATCH_SIZE", 50) or 50))
-    inter_batch_sleep = float(
-        getattr(config, "REMINDER_SLEEP_SECONDS", 1.0) or 1.0
-    )
+    inter_batch_sleep = float(getattr(config, "REMINDER_SLEEP_SECONDS", 1.0) or 1.0)
     logger.info(
         "یادآور روزانه: ارسال به %d کاربر در دسته‌های %d‌تایی.",
         len(user_ids),
@@ -155,8 +158,8 @@ async def daily_reminder(context):
     # processed immediately; subsequent batches sleep a configurable
     # pause first so the bot never bursts >REMINDER_BATCH_SIZE
     # messages per ``REMINDER_SLEEP_SECONDS`` seconds at Telegram.
-    for batch_index, start in enumerate(range(0, len(user_ids), batch_size)):
-        batch = user_ids[start : start + batch_size]
+    for batch_index, start_idx in enumerate(range(0, len(user_ids), batch_size)):
+        batch = user_ids[start_idx : start_idx + batch_size]
         if batch_index > 0:
             await asyncio.sleep(inter_batch_sleep)
 
@@ -169,9 +172,7 @@ async def daily_reminder(context):
                 run_db(db.users.get_today_new_counts_for_users, batch),
             )
         except Exception as e:
-            logger.error(
-                "خطا در واکشی آمار یادآور برای دسته %s: %s", batch, e
-            )
+            logger.error("خطا در واکشی آمار یادآور برای دسته %s: %s", batch, e)
             error_count += len(batch)
             continue
 
@@ -321,16 +322,16 @@ def main():
         .build()
     )
     # Single shared service container (see services/container.py).
-    application.bot_data["app"] = app
+    # Built here (not at import time) so importing `bot` or `handlers`
+    # never opens the database; this instance is the canonical one.
+    application.bot_data["app"] = get_app()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("menu", show_menu))
     application.add_handler(CommandHandler("cancel", cancel))
     application.add_handler(CommandHandler("status", show_status))
     application.add_handler(CallbackQueryHandler(inline_handler))
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input)
-    )
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
     application.add_error_handler(on_error)
 
     job_queue = application.job_queue

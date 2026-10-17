@@ -11,13 +11,24 @@ Conventions:
 - Bump SCHEMA_VERSION whenever adding tables/columns here.
 """
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 6
 
 # ─────────────────────────────────────────────────────────────────────
 # Tables
 # ─────────────────────────────────────────────────────────────────────
 
 TABLE_STATEMENTS = (
+    """CREATE TABLE IF NOT EXISTS ltr_finalizations (
+        session_id TEXT NOT NULL, user_id INTEGER NOT NULL, word_id INTEGER NOT NULL,
+        next_review TEXT NOT NULL, PRIMARY KEY (session_id, user_id, word_id))""",
+    """CREATE TABLE IF NOT EXISTS ltr_attempts (
+        attempt_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, word_id INTEGER NOT NULL,
+        question_type TEXT NOT NULL, is_correct INTEGER NOT NULL,
+        assisted INTEGER NOT NULL DEFAULT 0, user_answer TEXT, correct_answer TEXT,
+        created_at TEXT NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS word_first_seen (
+        user_id INTEGER NOT NULL, word_id INTEGER NOT NULL,
+        first_seen_at TEXT NOT NULL, PRIMARY KEY (user_id, word_id))""",
     # Core tables
     """
     CREATE TABLE IF NOT EXISTS books (
@@ -239,6 +250,7 @@ TABLE_STATEMENTS = (
 # ─────────────────────────────────────────────────────────────────────
 
 INDEX_STATEMENTS = (
+    "CREATE INDEX IF NOT EXISTS idx_ltr_attempts_user_word ON ltr_attempts(user_id, word_id, created_at)",
     "CREATE INDEX IF NOT EXISTS idx_books_name ON books(name)",
     "CREATE INDEX IF NOT EXISTS idx_lessons_book ON lessons(book_id)",
     "CREATE INDEX IF NOT EXISTS idx_users_last_active ON users(last_active_at)",
@@ -352,23 +364,46 @@ MIGRATION_STATEMENTS = (
 
 
 def ensure_schema(cursor) -> None:
-    """Create tables/indexes and run additive migrations.
+    """Upgrade atomically; unexpected errors must never masquerade as success."""
+    version = cursor.execute("PRAGMA user_version").fetchone()[0]
+    if version > SCHEMA_VERSION:
+        raise RuntimeError(f"Database schema {version} is newer than supported {SCHEMA_VERSION}")
+    cursor.execute("SAVEPOINT schema_upgrade")
+    try:
+        _apply_schema(cursor)
+        cursor.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    except BaseException:
+        cursor.execute("ROLLBACK TO SAVEPOINT schema_upgrade")
+        cursor.execute("RELEASE SAVEPOINT schema_upgrade")
+        raise
+    else:
+        cursor.execute("RELEASE SAVEPOINT schema_upgrade")
 
-    ``cursor`` must be an open sqlite cursor; committing is the caller's
-    responsibility (Database passes a commit-on-exit cursor).
-    """
+
+def _apply_schema(cursor) -> None:
     for sql in TABLE_STATEMENTS:
         cursor.execute(sql)
 
-    for sql in INDEX_STATEMENTS:
-        try:
+    columns = {}
+    for sql in MIGRATION_STATEMENTS:
+        # Statements are fixed, local ALTER TABLE declarations, not user input.
+        parts = sql.split()
+        table, column = parts[2], parts[5]
+        if table not in columns:
+            columns[table] = {row[1] for row in cursor.execute(f'PRAGMA table_info("{table}")')}
+        if column not in columns[table]:
             cursor.execute(sql)
-        except Exception:
-            pass
+            columns[table].add(column)
 
-    for migration_sql in MIGRATION_STATEMENTS:
-        try:
-            cursor.execute(migration_sql)
-        except Exception:
-            # Duplicate column errors are expected on existing databases.
-            pass
+    # Indexes require columns added by migrations, so build them last.
+    for sql in INDEX_STATEMENTS:
+        cursor.execute(sql)
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO word_first_seen (user_id, word_id, first_seen_at)
+        SELECT user_id, word_id, MIN(observed_at) FROM (
+            SELECT user_id, word_id, last_reviewed AS observed_at FROM word_skills
+            UNION ALL
+            SELECT user_id, word_id, last_reviewed FROM word_stats
+        ) WHERE observed_at IS NOT NULL GROUP BY user_id, word_id
+    """)

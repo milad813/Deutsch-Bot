@@ -51,7 +51,6 @@ def _import_from_path(path: Path, module_name: str):
     return module
 
 
-
 # ──────────────────────────────────────────────────────────────────────────
 # 1. core/callbacks.cb_safe
 # ──────────────────────────────────────────────────────────────────────────
@@ -87,25 +86,30 @@ class TestCoreCallbacksShape(unittest.TestCase):
 
 
 class TestUISplitHtmlTextShape(unittest.TestCase):
-    """``ui.split_html_text`` is used by every long-text handler."""
+    """``ui.split_html_text`` is used by every long-text handler.
 
-    UI_FILE = PROJECT_ROOT / "ui.py"
+    Phase R3 turned ``ui.py`` into the ``ui`` package (text / keyboards /
+    render); the contract under test — ``split_html_text`` importable
+    from ``ui`` — is unchanged.
+    """
+
+    UI_PACKAGE = PROJECT_ROOT / "ui"
 
     def test_ui_module_file_exists(self):
         self.assertTrue(
-            self.UI_FILE.exists(),
-            f"expected {self.UI_FILE} to exist",
+            (self.UI_PACKAGE / "__init__.py").exists(),
+            f"expected {self.UI_PACKAGE} package to exist",
         )
 
     def test_split_html_text_is_importable(self):
-        module = _import_from_path(self.UI_FILE, "_phase1_ui")
-        self.assertIsNotNone(module, "ui.py must be importable")
+        import ui
+
         self.assertTrue(
-            hasattr(module, "split_html_text"),
+            hasattr(ui, "split_html_text"),
             "ui must expose ``split_html_text``",
         )
         self.assertTrue(
-            callable(getattr(module, "split_html_text")),
+            callable(getattr(ui, "split_html_text")),
             "ui.split_html_text must be callable",
         )
 
@@ -214,7 +218,7 @@ class TestDailyReminderRespectsOptIn(unittest.TestCase):
     """
 
     BOT_FILE = PROJECT_ROOT / "bot.py"
-    REPO_FILE = PROJECT_ROOT / "database" / "repositories" / "__init__.py"
+    REPO_FILE = PROJECT_ROOT / "database" / "repositories" / "reminders.py"
 
     def _extract_function_source(self, source: str, func_name: str) -> str:
         """Return the source of the first top-level ``def func_name`` in ``source``.

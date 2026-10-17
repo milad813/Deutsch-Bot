@@ -39,9 +39,7 @@ class _FakeJobQueue:
     def __init__(self, scheduled_jobs=None):
         self.scheduled = list(scheduled_jobs or [])
         self.names = {
-            j.get("name"): j
-            for j in self.scheduled
-            if isinstance(j, dict) and j.get("name")
+            j.get("name"): j for j in self.scheduled if isinstance(j, dict) and j.get("name")
         }
 
     def run_once(self, callback, when, data=None, **kw):
@@ -76,8 +74,13 @@ class _FakeBot:
         return SimpleNamespace(message_id=10_000 + len(self.sent))
 
     async def edit_message_text(
-        self, chat_id=None, message_id=None, text=None,
-        reply_markup=None, parse_mode=None, **kw,
+        self,
+        chat_id=None,
+        message_id=None,
+        text=None,
+        reply_markup=None,
+        parse_mode=None,
+        **kw,
     ):
         self.edited.append(
             {
@@ -235,15 +238,12 @@ async def _patch_quota(monkeypatch, allowed: bool):
         return None
 
     # Patch the symbols the module under test uses.
-    monkeypatch.setattr(
-        "services.db.learning.is_llm_action_allowed", _fake_is_allowed
-    )
-    monkeypatch.setattr(
-        "services.db.learning.increment_llm_usage", _fake_increment
-    )
+    monkeypatch.setattr("services.db.learning.is_llm_action_allowed", _fake_is_allowed)
+    monkeypatch.setattr("services.db.learning.increment_llm_usage", _fake_increment)
     # Also make ``llm.is_available`` return True so the quota gate is
-    # the *only* reason to short-circuit.
-    monkeypatch.setattr(services.llm, "is_available", lambda: True)
+    # the *only* reason to short-circuit.  (R2: patch the underlying
+    # LLMService instance that the ``services.llm`` proxy forwards to.)
+    monkeypatch.setattr(services.get_app().llm, "is_available", lambda: True)
 
     return calls, increments
 

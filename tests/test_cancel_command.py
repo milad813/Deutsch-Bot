@@ -81,6 +81,7 @@ def stub_show_menu_db(monkeypatch):
     functions here would cause ``to_thread`` to return a never-awaited
     coroutine.
     """
+
     def _register_user(**_):
         return None
 
@@ -115,9 +116,7 @@ async def test_cancel_resets_session_keys(public_mode):
     await cancel(_fake_update(), context)
 
     for key in SESSION_KEYS:
-        assert key not in context.user_data, (
-            f"cancel should have cleared {key!r}"
-        )
+        assert key not in context.user_data, f"cancel should have cleared {key!r}"
     assert context.user_data["persistent_user_pref"] == "keep-me"
 
 
@@ -153,17 +152,13 @@ async def test_cancel_returns_silently_for_unauthorized_user(monkeypatch):
     # The handler must NOT have sent any message.
     assert update.message.sent == []
     # And it must NOT have touched user_data (it returned before reset).
-    assert all(
-        context.user_data[key] == "should-not-be-touched" for key in SESSION_KEYS
-    )
+    assert all(context.user_data[key] == "should-not-be-touched" for key in SESSION_KEYS)
 
 
 # ─── /cancel: end-to-end with a fake update ────────────────────────────────
 
 
-async def test_cancel_works_with_fake_update(
-    public_mode, stub_show_menu_db
-):
+async def test_cancel_works_with_fake_update(public_mode, stub_show_menu_db):
     """``/cancel`` must complete end-to-end on a synthetic Update.
 
     It should:

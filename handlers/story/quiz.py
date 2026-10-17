@@ -10,23 +10,24 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from services import db, run_db
 from ui import _short_label, back_inline_keyboard, esc, render
-from utils import safe_json_list
+from domain.content import object_list, story_question
+from core.answer_tokens import new_answer_token, answer_index
 
 logger = logging.getLogger(__name__)
 
 
 async def start_story_quiz(query, context, story_id: int):
     """Start a quiz based on story comprehension questions."""
+    context.user_data.pop("story_quiz", None)
     story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
         return
 
-    questions = safe_json_list(story.get("questions_json"))
     questions = [
-        q
-        for q in questions
-        if isinstance(q, dict) and (q.get("question") or q.get("q"))
+        valid
+        for raw in object_list(story.get("questions_json"))
+        if (valid := story_question(raw)) is not None
     ]
 
     if not questions:
@@ -45,11 +46,7 @@ async def start_story_quiz(query, context, story_id: int):
         )
         return
 
-    comp_qs = [
-        q
-        for q in questions
-        if q.get("question_type", "comprehension") == "comprehension"
-    ]
+    comp_qs = [q for q in questions if q.get("question_type", "comprehension") == "comprehension"]
     vocab_qs = [q for q in questions if q.get("question_type") == "vocabulary"]
     detail_qs = [q for q in questions if q.get("question_type") == "detail"]
 
@@ -82,24 +79,20 @@ async def _show_story_question(query, context):
         await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
         return
 
+    if quiz.get("current", 0) >= len(quiz["questions"]):
+        await _show_story_quiz_summary(query, context)
+        return
     q = quiz["questions"][quiz["current"]]
-    options = list(q.get("options") or [])
-    correct = str(q.get("correct_answer") or "").strip()
-    if not correct and "correct_index" in q:
-        idx = q["correct_index"]
-        opts = q.get("options") or []
-        if 0 <= idx < len(opts):
-            correct = str(opts[idx]).strip()
-
-    if correct and correct not in options:
-        options.append(correct)
-
+    options = list(q["options"])
+    correct = q["correct_answer"]
     if len(options) > 4:
         wrongs = [o for o in options if o != correct]
         random.shuffle(wrongs)
         options = [correct] + wrongs[:3]
 
     random.shuffle(options)
+    quiz["answer_token"] = new_answer_token()
+    quiz["awaiting_answer"] = True
     quiz["current_options"] = options
     quiz["current_correct_index"] = options.index(correct) if correct in options else 0
     quiz["current_correct_answer"] = correct
@@ -123,7 +116,7 @@ async def _show_story_question(query, context):
             [
                 InlineKeyboardButton(
                     _short_label(opt, 64),
-                    callback_data=cb_safe(CallbackPrefix.STORY_ANS, i)
+                    callback_data=cb_safe(CallbackPrefix.STORY_ANS, f"{quiz['answer_token']}:{i}"),
                 )
             ]
         )
@@ -131,99 +124,73 @@ async def _show_story_question(query, context):
     kb.append(
         [
             InlineKeyboardButton(
-                "🔙 خروج", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz['story_id'])
+                "🔙 خروج", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz["story_id"])
             )
         ]
     )
 
     await render(query, msg, reply_markup=InlineKeyboardMarkup(kb))
 
+
 @callback_guard("story_answer_lock")
 async def handle_story_answer(query, context, suffix: str):
     quiz = context.user_data.get("story_quiz")
     if not quiz:
-        await render(
-            query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
-        )
+        await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
         return
 
     try:
-        selected_idx = int(suffix)
+        if not quiz.get("awaiting_answer", False):
+            return
+        selected_idx = answer_index(suffix, quiz)
     except ValueError:
-        await render(
-            query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
-        )
+        await query.answer("این پاسخ مربوط به سؤال فعال نیست.", show_alert=True)
         return
 
     current_index = quiz.get("current", 0)
     questions = quiz.get("questions", [])
 
     if current_index >= len(questions):
-        await render(
-            query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard()
-        )
+        await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
         return
 
     q = questions[current_index]
     options = list(quiz.get("current_options", []))
 
     if not options or selected_idx < 0 or selected_idx >= len(options):
-        await render(
-            query, "⚠️ گزینه نامعتبر.", reply_markup=back_inline_keyboard()
-        )
+        await query.answer("گزینه نامعتبر است.", show_alert=True)
         return
 
     correct_index = quiz.get("current_correct_index")
-
-    if correct_index is None or correct_index < 0 or correct_index >= len(options):
-        correct = str(q.get("correct_answer") or "").strip()
-        if not correct and "correct_index" in q:
-            idx = q.get("correct_index")
-            opts = q.get("options") or []
-            if isinstance(idx, int) and 0 <= idx < len(opts):
-                correct = str(opts[idx]).strip()
-        if correct and correct not in options:
-            options.append(correct)
-        correct_index = options.index(correct) if correct in options else 0
-
-    correct = options[correct_index] if 0 <= correct_index < len(options) else ""
+    if not isinstance(correct_index, int) or not 0 <= correct_index < len(options):
+        return
+    correct = options[correct_index]
     selected = options[selected_idx]
     is_correct = selected_idx == correct_index
-
-    q_type = q.get("question_type", "comprehension")
-    if is_correct:
-        quiz["correct"] += 1
-        if q_type == "comprehension":
-            quiz["comprehension_correct"] += 1
-        elif q_type == "vocabulary":
-            quiz["vocabulary_correct"] += 1
-        elif q_type == "detail":
-            quiz["detail_correct"] += 1
-    else:
-        quiz["wrong"] += 1
-        if q_type == "comprehension":
-            quiz["comprehension_wrong"] += 1
-        elif q_type == "vocabulary":
-            quiz["vocabulary_wrong"] += 1
-        elif q_type == "detail":
-            quiz["detail_wrong"] += 1
-
+    q_type = q["question_type"]
     user_id = query.from_user.id
-    story_id = quiz.get("story_id")
+    story_id = quiz["story_id"]
 
-    if not is_correct:
-        await run_db(
-            db.learning.record_mistake,
-            user_id=user_id,
-            story_id=story_id,
-            skill_type="story",
-            quiz_type="story",
-            user_answer=selected,
-            correct_answer=correct,
-        )
+    def save_answer():
+        with db.transaction():
+            if not is_correct:
+                db.learning.record_mistake(
+                    user_id=user_id,
+                    story_id=story_id,
+                    skill_type="story",
+                    quiz_type="story",
+                    user_answer=selected,
+                    correct_answer=correct,
+                )
+            db.users.record_activity(user_id, 10 if is_correct else 0)
+            db.learning.record_story_answer(user_id, story_id, is_correct)
 
-    await run_db(db.users.record_activity, user_id, 10 if is_correct else 0)
-    await run_db(db.learning.record_story_answer, user_id, story_id, is_correct)
+    await run_db(save_answer)
+    result = "correct" if is_correct else "wrong"
+    quiz[result] += 1
+    quiz[f"{q_type}_{result}"] += 1
+    quiz["awaiting_answer"] = False
+    quiz["next_token"] = new_answer_token()
 
     try:
         await query.answer(
@@ -234,10 +201,7 @@ async def handle_story_answer(query, context, suffix: str):
         pass
 
     if is_correct:
-        fb_msg = (
-            f"✅ آفرین! پاسخ درست بود.\n"
-            f"📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
-        )
+        fb_msg = f"✅ آفرین! پاسخ درست بود.\n📊 امتیاز: {quiz['correct']} از {quiz['current'] + 1}"
     else:
         fb_msg = (
             f"❌ نادرست. پاسخ صحیح:\n"
@@ -252,12 +216,13 @@ async def handle_story_answer(query, context, suffix: str):
                 [
                     InlineKeyboardButton(
                         "➡️ سوال بعدی",
-                        callback_data=cb_safe(CallbackPrefix.STORY_NEXT_Q, quiz['story_id']),
+                        callback_data=cb_safe(CallbackPrefix.STORY_NEXT_Q, quiz["next_token"]),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        "🔙 خروج", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz['story_id'])
+                        "🔙 خروج",
+                        callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz["story_id"]),
                     )
                 ],
             ]
@@ -277,7 +242,7 @@ async def _show_story_quiz_summary(query, context):
     total = quiz["correct"] + quiz["wrong"]
     accuracy = (quiz["correct"] / total * 100) if total > 0 else 0
 
-    msg = f"🏁 <b>پایان کوییز داستان</b>\n\n"
+    msg = "🏁 <b>پایان کوییز داستان</b>\n\n"
     msg += f"📊 کل سوالات: {total}\n"
     msg += f"✅ درست: {quiz['correct']}\n"
     msg += f"❌ نادرست: {quiz['wrong']}\n"
@@ -296,9 +261,7 @@ async def _show_story_quiz_summary(query, context):
         msg += f"🧠 واژگان: {quiz['vocabulary_correct']}/{vocab_total} ({vocab_acc:.0f}%)\n"
     if detail_total > 0:
         detail_acc = quiz["detail_correct"] / detail_total * 100
-        msg += (
-            f"🔍 جزئیات: {quiz['detail_correct']}/{detail_total} ({detail_acc:.0f}%)\n"
-        )
+        msg += f"🔍 جزئیات: {quiz['detail_correct']}/{detail_total} ({detail_acc:.0f}%)\n"
 
     # Recommendations
     if accuracy >= 80:
@@ -316,12 +279,13 @@ async def _show_story_quiz_summary(query, context):
             [
                 InlineKeyboardButton(
                     "📖 بازگشت به داستان",
-                    callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz['story_id']),
+                    callback_data=cb_safe(CallbackPrefix.STORY_VIEW, quiz["story_id"]),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🔁 تکرار کوییز", callback_data=cb_safe(CallbackPrefix.STORY_QUIZ, quiz['story_id'])
+                    "🔁 تکرار کوییز",
+                    callback_data=cb_safe(CallbackPrefix.STORY_QUIZ, quiz["story_id"]),
                 )
             ],
             [
@@ -340,5 +304,7 @@ async def handle_story_next_question(query, context, suffix: str):
     quiz = context.user_data.get("story_quiz")
     if not quiz:
         await render(query, "⚠️ کوییز فعال نیست.", reply_markup=back_inline_keyboard())
+        return
+    if quiz.get("awaiting_answer") or suffix != quiz.get("next_token"):
         return
     await _show_story_question(query, context)

@@ -1,0 +1,429 @@
+import asyncio
+import json
+import logging
+import random
+import re
+from html import escape
+from typing import Dict, Optional
+
+import config
+from core.logging_utils import log_event
+from domain.content import text_list
+
+logger = logging.getLogger(__name__)
+
+MODEL = config.GROQ_MODEL
+
+
+def _esc(value) -> str:
+    """HTML-escape for Telegram HTML output.
+
+    Local copy of ui.esc so this service stays free of presentation-layer
+    imports (services must not import from ui/telegram).
+    """
+    return escape(str(value if value is not None else ""))
+
+
+# الگوی حذف بلوک‌های «فکر» (reasoning blocks) از خروجی مدل‌هایی که آن را برمی‌گردانند.
+# به‌صورت قطعه‌قطعه ساخته می‌شود تا در ابزارهای پردازش متن مشکلی پیش نیاید.
+_THINK_OPEN = "<" + "think" + ">"
+_THINK_CLOSE = "</" + "think" + ">"
+_THINK_BLOCK_RE = re.compile(_THINK_OPEN + r".*?" + _THINK_CLOSE, re.DOTALL)
+
+
+class LLMService:
+    def __init__(self, db=None):
+        self.db = db
+        self.clients = []
+        self._rr_index = 0
+
+        if config.is_llm_available():
+            try:
+                from groq import Groq
+
+                for key in config.GROQ_API_KEYS:
+                    try:
+                        self.clients.append(Groq(api_key=key))
+                    except Exception as e:
+                        logger.error("خطا در ساخت client برای یک کلید: %s", e)
+                if self.clients:
+                    logger.info("Groq: %d کلید آماده شد", len(self.clients))
+            except ImportError:
+                logger.error("groq نصب نیست")
+        else:
+            logger.warning("LLM در حالت آفلاین است.")
+
+    def is_available(self) -> bool:
+        return bool(self.clients) and config.is_llm_available()
+
+    def _next_client(self):
+        """Round-robin: هر بار کلید بعدی."""
+        if not self.clients:
+            return None
+        client = self.clients[self._rr_index % len(self.clients)]
+        self._rr_index += 1
+        return client
+
+    @staticmethod
+    def _clean_json(content: str) -> str:
+        if not content:
+            return ""
+
+        content = re.sub(r"^\s*```(?:json)?\s*", "", content, flags=re.IGNORECASE | re.MULTILINE)
+        content = re.sub(r"\s*```\s*$", "", content, flags=re.MULTILINE)
+        content = re.sub(r"[\uFEFF\u200B]", "", content)
+
+        lines = content.split("\n")
+
+        while lines and not lines[0].strip():
+            lines.pop(0)
+
+        while lines and not lines[-1].strip():
+            lines.pop()
+
+        return "\n".join(lines).strip()
+
+    @staticmethod
+    def _normalize_quiz(
+        result: dict, fallback_question: str, fallback_correct: str
+    ) -> Optional[Dict]:
+        if not isinstance(result, dict):
+            return None
+
+        question = str(result.get("question") or fallback_question).strip()
+        question = _esc(question)
+
+        correct = str(result.get("correct_answer") or fallback_correct).strip()
+        if not correct:
+            return None
+
+        raw_options = text_list(result.get("options"))
+        options = []
+
+        for opt in raw_options:
+            opt = str(opt or "").strip()
+            if opt and opt not in options:
+                options.append(opt)
+
+        if correct not in options:
+            options.append(correct)
+
+        if len(options) < 4:
+            return None
+
+        if len(options) > 4:
+            wrongs = [o for o in options if o != correct]
+            random.shuffle(wrongs)
+            options = [correct] + wrongs[:3]
+
+        random.shuffle(options)
+        return {
+            "question": question,
+            "options": options,
+            "correct_index": options.index(correct),
+            "correct_answer": correct,
+        }
+
+    async def _chat(self, system, user, temperature=None, max_tokens=None):
+        if not self.clients:
+            raise RuntimeError("LLM در دسترس نیست")
+        temp = temperature if temperature is not None else config.GROQ_TEMPERATURE
+        tokens = max_tokens if max_tokens is not None else config.GROQ_MAX_TOKENS
+
+        timeout = getattr(config, "LLM_TIMEOUT_SECONDS", 8)
+        use_reasoning_params = getattr(config, "LLM_USE_REASONING_PARAMS", False)
+
+        # 🎯 فقط در صورتی که خودمان صریحاً بخواهیم، پارامترهای reasoning فعال شوند
+        is_reasoning_model = use_reasoning_params and any(
+            m in MODEL.lower() for m in ["qwen", "qwq", "deepseek"]
+        )
+        # 🚨 تنظیم ایمن توکن‌ها برای مدل‌های Reasoning
+        # چون /no_think باعث می‌شود مدل فکر نکند، 4096 برای خروجی JSON کاملاً کافی است و از 413 جلوگیری می‌کند.
+        if is_reasoning_model and tokens < 4096:
+            tokens = 4096
+
+        # 🧠 ترفند پرامپت برای اطمینان از خروجی مستقیم
+        if is_reasoning_model:
+            user = f"/no_think\n{user}"
+            system = "You output ONLY the requested content directly. Do NOT use  tags. " + system
+
+        for attempt in range(len(self.clients)):
+            client = self._next_client()
+            if client is None:
+                break
+            try:
+                kwargs = {
+                    "model": MODEL,
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    "temperature": temp,
+                    "max_tokens": tokens,
+                }
+                # ✅ پارامتر رسمی Groq برای مخفی کردن  در Qwen
+                if is_reasoning_model:
+                    kwargs["extra_body"] = {"reasoning_format": "hidden"}
+
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(client.chat.completions.create, **kwargs),
+                    timeout=timeout,
+                )
+
+                if not response.choices:
+                    logger.warning("Groq هیچ choice ای برنگرداند (کلید %d)", attempt + 1)
+                    continue
+
+                content = response.choices[0].message.content
+                finish_reason = response.choices[0].finish_reason
+
+                if not content:
+                    logger.warning(
+                        "Groq پاسخ خالی برگرداند. finish_reason: %s, model: %s (کلید %d)",
+                        finish_reason,
+                        MODEL,
+                        attempt + 1,
+                    )
+                    continue
+
+                return content
+
+            except asyncio.TimeoutError:
+                logger.warning("Groq timeout (کلید %d)، تلاش بعدی", attempt + 1)
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "llm_timeout",
+                    attempt=attempt + 1,
+                    model=MODEL,
+                )
+                continue
+            except Exception as e:
+                error_str = str(e).lower()
+
+                # 🛡️ لایه دفاعی ۰: خطای 413 (Request too large)
+                if "413" in error_str or "too large" in error_str or "maximum context" in error_str:
+                    logger.warning(
+                        "خطای 413 (درخواست بزرگ). کاهش max_tokens به 2048 و تلاش مجدد..."
+                    )
+                    kwargs["max_tokens"] = 2048
+                    try:
+                        response = await asyncio.wait_for(
+                            asyncio.to_thread(client.chat.completions.create, **kwargs),
+                            timeout=timeout,
+                        )
+                        if response.choices:
+                            content = response.choices[0].message.content
+                            if content:
+                                return content
+                    except Exception as e413:
+                        logger.warning("Groq خطا در تلاش مجدد 413 (کلید %d): %s", attempt + 1, e413)
+
+                # 🛡️ لایه دفاعی ۱: اگر SDK گروک extra_body را رد کرد
+                if is_reasoning_model and (
+                    "extra_body" in error_str
+                    or "unexpected keyword" in error_str
+                    or "reasoning_format" in error_str
+                    or "400" in error_str
+                ):
+                    logger.info("تلاش مجدد با پاس دادن مستقیم reasoning_format (Fallback)...")
+                    try:
+                        kwargs.pop("extra_body", None)
+                        kwargs["reasoning_format"] = "hidden"
+                        response = await asyncio.wait_for(
+                            asyncio.to_thread(client.chat.completions.create, **kwargs),
+                            timeout=timeout,
+                        )
+                        if not response.choices:
+                            continue
+                        content = response.choices[0].message.content
+                        if not content:
+                            logger.warning(
+                                "Groq پاسخ خالی برگرداند. finish_reason: %s (Fallback 1)",
+                                response.choices[0].finish_reason,
+                            )
+                            continue
+                        return content
+                    except Exception as e2:
+                        logger.warning("Groq خطا در تلاش دوم (کلید %d): %s", attempt + 1, e2)
+
+                        # 🛡️ لایه دفاعی ۲: حذف کامل پارامتر و پاکسازی دستی
+                        try:
+                            kwargs.pop("reasoning_format", None)
+                            response = await asyncio.wait_for(
+                                asyncio.to_thread(client.chat.completions.create, **kwargs),
+                                timeout=timeout,
+                            )
+                            if not response.choices:
+                                continue
+                            content = response.choices[0].message.content
+                            if content and _THINK_OPEN in content:
+                                content = _THINK_BLOCK_RE.sub("", content).strip()
+                            if not content:
+                                logger.warning(
+                                    "Groq پاسخ خالی برگرداند. finish_reason: %s (Fallback 2)",
+                                    response.choices[0].finish_reason,
+                                )
+                                continue
+                            return content
+                        except Exception as e3:
+                            logger.warning("Groq خطا در تلاش سوم (کلید %d): %s", attempt + 1, e3)
+
+                logger.warning("Groq خطا (کلید %d): %s — تلاش بعدی", attempt + 1, e)
+                continue
+
+        logger.warning("همه‌ی کلیدهای Groq شکست خوردند")
+        log_event(
+            logger,
+            logging.ERROR,
+            "llm_failure",
+            model=MODEL,
+            total_attempts=len(config.GROQ_API_KEYS) if config.GROQ_API_KEYS else 0,
+        )
+        return None
+
+    async def generate_quiz_question(
+        self,
+        word: str,
+        meaning: str,
+        level: str = "A1",
+        user_id: int = None,
+        word_id: int = None,
+    ) -> Optional[Dict]:
+        if not self.is_available():
+            return None
+
+        fallback_question = f"معنی کلمه '{word}' چیست؟"
+
+        prompt = f"""Create a multiple-choice question for the German word "{word}" (meaning: {meaning}) at level {level}.
+Generate 4 options in Persian. The wrong options should be semantically related.
+Return ONLY valid JSON:
+{{
+  "question": "معنی کلمه '{word}' چیست؟",
+  "options": ["گزینه صحیح", "غلط ۱", "غلط ۲", "غلط ۳"],
+  "correct_answer": "گزینه صحیح"
+}}"""
+
+        try:
+            content = await self._chat("You generate JSON only.", prompt)
+            result = json.loads(self._clean_json(content))
+            normalized = self._normalize_quiz(result, fallback_question, meaning)
+
+            if normalized:
+                normalized["type"] = "meaning"
+                return normalized
+        except Exception as e:
+            logger.warning("خطا در تولید کوییز معنی: %s", e)
+
+        return None
+
+    async def generate_reverse_quiz(
+        self,
+        word: str,
+        meaning: str,
+        level: str = "A1",
+        user_id: int = None,
+        word_id: int = None,
+    ) -> Optional[Dict]:
+        if not self.is_available():
+            return None
+
+        fallback_question = f"معادل آلمانی کلمه‌ی '{meaning}' چیست؟"
+
+        prompt = f"""Create a multiple-choice question for the Persian word "{meaning}" (German: {word}) at level {level}.
+Generate 4 options in GERMAN.
+Return ONLY valid JSON:
+{{
+  "question": "معادل آلمانی کلمه‌ی '{meaning}' چیست؟",
+  "options": ["{word}", "غلط ۱", "غلط ۲", "غلط ۳"],
+  "correct_answer": "{word}"
+}}"""
+
+        try:
+            content = await self._chat("You generate JSON only.", prompt)
+            result = json.loads(self._clean_json(content))
+            normalized = self._normalize_quiz(result, fallback_question, word)
+
+            if normalized:
+                normalized["type"] = "reverse"
+                return normalized
+        except Exception as e:
+            logger.warning("خطا در تولید کوییز معکوس: %s", e)
+
+        return None
+
+    async def generate_contextual_example(
+        self,
+        word: str,
+        article: Optional[str] = None,
+        meaning: str = "",
+        level: str = "A1",
+    ) -> Optional[Dict]:
+        if not self.is_available():
+            return None
+        word_display = f"{article} {word}".strip() if article else word
+
+        interests = config.USER_INTERESTS.strip()
+        interest_hint = ""
+        if interests:
+            interest_hint = f"\n- Try to relate the sentence to these topics: {interests}"
+
+        prompt = f"""Create ONE simple German sentence at level {level} using the word "{word_display}" (meaning: {meaning}).
+Requirements:
+- Use a different context each time
+- Keep it short
+- Use correct grammatical form{interest_hint}
+Return ONLY JSON:
+{{
+"de": "German sentence",
+"fa": "Persian translation"
+}}"""
+        try:
+            content = await self._chat(
+                "You create diverse natural German sentences with Persian translations.",
+                prompt,
+                temperature=0.95,
+                max_tokens=150,
+            )
+            result = json.loads(self._clean_json(content))
+            if not isinstance(result, dict):
+                return None
+            de = str(result.get("de") or "").strip()
+            fa = str(result.get("fa") or "").strip()
+            if not de:
+                return None
+            return {"de": de, "fa": fa}
+        except Exception as e:
+            logger.warning("خطا در تولید مثال بافت‌مند: %s", e)
+            return None
+
+    async def explain_mistake(
+        self,
+        word: str,
+        user_answer: str,
+        correct_answer: str,
+        quiz_type: str,
+    ) -> str:
+        if not self.is_available():
+            return f"❌ جواب درست: {correct_answer}"
+
+        prompt = f"""The user made a mistake in a German quiz. Explain briefly in Persian.
+Quiz type: {quiz_type}
+Word: {word}
+User answer: {user_answer}
+Correct answer: {correct_answer}
+Return a short friendly explanation."""
+
+        try:
+            content = await self._chat(
+                "You are a helpful German teacher. Explain in Persian.",
+                prompt,
+                temperature=0.5,
+                max_tokens=150,
+            )
+            if not content:
+                return f"❌ جواب درست: {correct_answer}"
+            return content.strip()
+        except Exception as e:
+            logger.warning("خطا در تولید توضیح خطا: %s", e)
+            return f"❌ جواب درست: {correct_answer}"

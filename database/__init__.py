@@ -33,11 +33,18 @@ class Database:
         self.stories = StoryRepository(self._conn)
         self.grammar = GrammarRepository(self._conn)
         self.learning = LearningRepository(self._conn)
-        self._ensure_schema()
+        try:
+            self._ensure_schema()
+        except BaseException:
+            self._conn.close()
+            raise
 
     @property
     def conn(self):
         return self._conn.conn
+
+    def transaction(self):
+        return self._conn.transaction()
 
     def close(self):
         self._conn.close()

@@ -28,14 +28,18 @@ class DatabaseConnection:
         backup_keep_max: int = 30,
     ):
         self.db_name = db_name
-        self._write_lock = threading.RLock()
         self._op_lock = threading.RLock()
+        self._transaction_depth = 0
         # Backup retention is injected (wired from config by the container),
         # keeping this module free of config imports.
         self.backup_keep_days = backup_keep_days
         self.backup_keep_max = backup_keep_max
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
-        self._setup_connection()
+        try:
+            self._setup_connection()
+        except BaseException:
+            self.conn.close()
+            raise
 
     def _setup_connection(self) -> None:
         """Configure SQLite connection with optimal settings."""
@@ -46,27 +50,41 @@ class DatabaseConnection:
     @contextmanager
     def cursor(self, commit: bool = False):
         with self._op_lock:
-            if commit:
-                self._write_lock.acquire()
+            cur = self.conn.cursor()
             try:
-                cur = self.conn.cursor()
-                try:
-                    yield cur
-                    if commit:
-                        self.conn.commit()
-                except Exception:
+                yield cur
+                if commit and not self._transaction_depth:
+                    self.conn.commit()
+            except BaseException:
+                if not self._transaction_depth:
                     self.conn.rollback()
-                    raise
-                finally:
-                    cur.close()
+                raise
             finally:
-                if commit:
-                    self._write_lock.release()
+                cur.close()
+
+    @contextmanager
+    def transaction(self):
+        """Hold the connection lock and defer commits for one unit of work."""
+        with self._op_lock:
+            name = f"learning_{self._transaction_depth}"
+            self.conn.execute(f"SAVEPOINT {name}")
+            self._transaction_depth += 1
+            try:
+                yield
+            except BaseException:
+                self.conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
+                self.conn.execute(f"RELEASE SAVEPOINT {name}")
+                raise
+            else:
+                self.conn.execute(f"RELEASE SAVEPOINT {name}")
+            finally:
+                self._transaction_depth -= 1
 
     def close(self) -> None:
         """Close database connection."""
         try:
-            self.conn.close()
+            with self._op_lock:
+                self.conn.close()
             logger.info("Database connection closed")
         except Exception as e:
             logger.error("Error closing database: %s", e)
@@ -98,11 +116,12 @@ class DatabaseConnection:
 
     def backup(self, backup_dir: str = "backups") -> str:
         os.makedirs(backup_dir, exist_ok=True)
-        timestamp = _utc_now().strftime("%Y%m%d_%H%M%S")
+        timestamp = _utc_now().strftime("%Y%m%d_%H%M%S_%f")
         backup_path = os.path.join(backup_dir, f"words_{timestamp}.db")
         dest = sqlite3.connect(backup_path)
         try:
-            self.conn.backup(dest)
+            with self._op_lock:
+                self.conn.backup(dest)
         finally:
             dest.close()
         self._cleanup_old_backups(backup_dir)

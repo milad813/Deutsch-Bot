@@ -117,9 +117,7 @@ def test_get_chat_from_update_falls_back_to_message_chat():
 
 def test_get_chat_from_update_falls_back_to_callback_message_chat():
     cb_chat = SimpleNamespace(type="group", id=99)
-    update = SimpleNamespace(
-        callback_query=SimpleNamespace(message=SimpleNamespace(chat=cb_chat))
-    )
+    update = SimpleNamespace(callback_query=SimpleNamespace(message=SimpleNamespace(chat=cb_chat)))
     assert get_chat_from_update(update) is cb_chat
 
 
@@ -142,9 +140,7 @@ def test_get_user_id_from_from_user():
 
 
 def test_get_user_id_from_callback_query():
-    update = SimpleNamespace(
-        callback_query=SimpleNamespace(from_user=SimpleNamespace(id=789))
-    )
+    update = SimpleNamespace(callback_query=SimpleNamespace(from_user=SimpleNamespace(id=789)))
     assert get_user_id(update) == 789
 
 

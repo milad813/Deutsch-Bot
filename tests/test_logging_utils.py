@@ -86,18 +86,14 @@ def test_json_formatter_contains_required_fields(captured_json):
     for key in ("timestamp", "level", "logger", "message", "event"):
         assert key in data, f"missing key: {key}"
     assert data["level"] == "WARNING"
-    assert re.match(
-        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$", data["timestamp"]
-    )
+    assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$", data["timestamp"])
     assert data["event"] == "sample"
 
 
 def test_log_event_includes_event_name(captured_json):
     """``event=`` appears in both the text suffix and the JSON payload."""
     logger = logging.getLogger("tests.logging_utils.json")
-    log_event(
-        logger, logging.INFO, "story_generation_failed", user_id=1
-    )
+    log_event(logger, logging.INFO, "story_generation_failed", user_id=1)
     data = json.loads(captured_json._buf.getvalue().strip())  # type: ignore[attr-defined]
     assert data["event"] == "story_generation_failed"
     assert data["user_id"] == 1
@@ -306,9 +302,9 @@ def test_setup_logging_invalid_level_falls_back_to_info(monkeypatch, caplog):
     monkeypatch.setattr(config, "LOG_LEVEL", "BOGUS", raising=False)
     with caplog.at_level(logging.WARNING):
         config.setup_logging()
-    assert any(
-        "LOG_LEVEL" in rec.message for rec in caplog.records
-    ), "expected a warning about the unknown LOG_LEVEL"
+    assert any("LOG_LEVEL" in rec.message for rec in caplog.records), (
+        "expected a warning about the unknown LOG_LEVEL"
+    )
     root = logging.getLogger()
     assert root.level == logging.INFO
 

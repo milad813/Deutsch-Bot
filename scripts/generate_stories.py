@@ -172,9 +172,7 @@ async def generate_story_for_lesson(llm, db, lesson_id, level, lesson_title, max
                 level=level,
             )
             n_questions = len(result.get("questions", []))
-            print(
-                f"  ✅ داستان ذخیره شد (id={story_id}, {len(words)} کلمه, {n_questions} سوال)"
-            )
+            print(f"  ✅ داستان ذخیره شد (id={story_id}, {len(words)} کلمه, {n_questions} سوال)")
             return True
 
         except json.JSONDecodeError as e:
@@ -188,12 +186,8 @@ async def generate_story_for_lesson(llm, db, lesson_id, level, lesson_title, max
 async def main():
     parser = argparse.ArgumentParser(description="تولید داستان برای درس‌ها")
     parser.add_argument("--lesson", type=int, help="فقط این درس")
-    parser.add_argument(
-        "--words", type=int, default=10, help="حداکثر کلمات هر داستان (پیش‌فرض ۱۰)"
-    )
-    parser.add_argument(
-        "--force", action="store_true", help="حتی اگر درس داستان دارد، دوباره بساز"
-    )
+    parser.add_argument("--words", type=int, default=10, help="حداکثر کلمات هر داستان (پیش‌فرض ۱۰)")
+    parser.add_argument("--force", action="store_true", help="حتی اگر درس داستان دارد، دوباره بساز")
     args = parser.parse_args()
 
     db = Database(config.DB_PATH)

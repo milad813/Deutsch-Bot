@@ -139,14 +139,18 @@ async def generate_story_job(context) -> None:
     try:
         if not llm.is_available():
             await _edit_progress(
-                context, chat_id, progress_mid,
+                context,
+                chat_id,
+                progress_mid,
                 "\u274c \u0642\u0627\u0628\u0644\u06cc\u062a LLM \u062f\u0631 \u062d\u0627\u0644 \u062d\u0627\u0636\u0631 \u0641\u0639\u0627\u0644 \u0646\u06cc\u0633\u062a.",
             )
             return
         story = await _generate_story_for_lesson(user_id, lesson_id, exclude_ids)
         if not story:
             await _edit_progress(
-                context, chat_id, progress_mid,
+                context,
+                chat_id,
+                progress_mid,
                 "\u274c \u0633\u0627\u062e\u062a \u062f\u0627\u0633\u062a\u0627\u0646 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062f. \u062f\u0648\u0628\u0627\u0631\u0647 \u062a\u0644\u0627\u0634 \u06a9\u0646.",
             )
             return
@@ -168,7 +172,11 @@ async def generate_story_job(context) -> None:
             story_id=int(story["id"]),
         )
         await render_story_message(
-            context, chat_id, progress_mid, story["id"], user_id,
+            context,
+            chat_id,
+            progress_mid,
+            story["id"],
+            user_id,
         )
     except Exception as exc:
         log_event(
@@ -183,7 +191,9 @@ async def generate_story_job(context) -> None:
         logger.exception("story job failed for user %s: %s", user_id, exc)
         try:
             await _edit_progress(
-                context, chat_id, progress_mid,
+                context,
+                chat_id,
+                progress_mid,
                 "\u274c \u062e\u0637\u0627 \u062f\u0631 \u0633\u0627\u062e\u062a \u062f\u0627\u0633\u062a\u0627\u0646. \u0644\u0637\u0641\u0627\u064b \u062f\u0648\u0628\u0627\u0631\u0647 \u062a\u0644\u0627\u0634 \u06a9\u0646.",
             )
         except Exception:
@@ -205,21 +215,23 @@ async def render_story_message(
     user_id: int,
 ) -> None:
     from handlers.story.view import _build_story_view
+
     story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await _edit_progress(
-            context, chat_id, message_id,
+            context,
+            chat_id,
+            message_id,
             "\u274c \u062f\u0627\u0633\u062a\u0627\u0646 \u067e\u06cc\u062f\u0627 \u0646\u0634\u062f.",
         )
         return
     target_ids = safe_id_list(story.get("target_word_ids"))
-    target_words = (
-        await run_db(db.words.get_by_ids, target_ids) if target_ids else []
-    )
-    msg, kb = await _build_story_view(story, target_words, user_id)
+    target_words = await run_db(db.words.get_by_ids, target_ids) if target_ids else []
+    msg, kb = await _build_story_view(story, target_words, user_id, story_id)
     await _edit_progress(context, chat_id, message_id, msg, reply_markup=kb)
 
 
 async def _generate_story_for_lesson(user_id: int, lesson_id: int, exclude_ids):
     from handlers.story.core import _generate_story_for_lesson as _gen
+
     return await _gen(user_id, lesson_id, exclude_ids)

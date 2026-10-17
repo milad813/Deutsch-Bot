@@ -7,8 +7,6 @@ Covers:
 - route registration in EXACT_ROUTES
 """
 
-import pytest
-
 import services
 from handlers.callback_router import EXACT_ROUTES
 
@@ -50,16 +48,10 @@ def _patch_state(monkeypatch, *, hard=0, due=0, mistakes=0, goal=10, done=0, str
     """Deterministic daily-state for the plan builder."""
     monkeypatch.setattr(services.db.words, "count_hard_due", lambda uid: hard)
     monkeypatch.setattr(services.db.words, "get_due_count", lambda uid: due)
-    monkeypatch.setattr(
-        services.db.learning, "get_mistake_word_count", lambda uid: mistakes
-    )
+    monkeypatch.setattr(services.db.learning, "get_mistake_word_count", lambda uid: mistakes)
     monkeypatch.setattr(services.db.learning, "get_daily_goal", lambda uid: goal)
-    monkeypatch.setattr(
-        services.db.learning, "get_today_new_words_count", lambda uid: done
-    )
-    monkeypatch.setattr(
-        services.db.users, "get_progress", lambda uid: {"streak": streak}
-    )
+    monkeypatch.setattr(services.db.learning, "get_today_new_words_count", lambda uid: done)
+    monkeypatch.setattr(services.db.users, "get_progress", lambda uid: {"streak": streak})
 
 
 def _last_screen(query):

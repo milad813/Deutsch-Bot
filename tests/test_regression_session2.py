@@ -93,7 +93,9 @@ async def test_speak_current_fallback_path_works(word_lookup, monkeypatch):
     async def _no_tts(_text):
         return None
 
-    monkeypatch.setattr(services.tts, "get_audio_path", _no_tts)
+    # R2: patch the underlying TTSService instance that the
+    # ``services.tts`` proxy forwards to.
+    monkeypatch.setattr(services.get_app().tts, "get_audio_path", _no_tts)
 
     context = FakeContext()
     context.user_data["current_flashcard"] = {"word_id": 9}
@@ -114,8 +116,8 @@ async def test_final_fallback_question_is_defined_and_renders(word_lookup):
     await _render_final_fallback_question(query, context, _word())
 
     assert query.edits
-    assert context.user_data["ltr_current_options"] == ["خانه"]
-    assert context.user_data["ltr_current_correct_index"] == 0
+    assert context.user_data["ltr_current_options"] == []
+    assert context.user_data["ltr_assessment"] is False
 
 
 # ─── B12: MIN_SUCCESS_TYPES was undefined (NameError on every hit) ──
@@ -134,7 +136,7 @@ def test_record_test_result_requires_two_distinct_correct_types():
     tasks = ltr.user_data.get("ltr_delayed_tasks", [])
     assert any(t.get("word_id") == 9 for t in tasks)
 
-    ltr.record_test_result(9, True, "reverse")
+    ltr.record_test_result(9, True, "recall")
     assert 9 in ltr.user_data["ltr_words_passed"]
 
 
@@ -148,4 +150,3 @@ def test_record_test_result_fails_word_after_max_retries():
         ltr.record_test_result(9, False, "meaning")
 
     assert 9 in ltr.user_data["ltr_words_failed"]
-

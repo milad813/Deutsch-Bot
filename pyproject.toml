@@ -1,0 +1,76 @@
+# Tool configuration for Deutsch-Bot developer checks (Phase R1).
+#
+# Runtime dependencies live in requirements.txt; lint/type tooling lives in
+# requirements-dev.txt. There is intentionally no [project] section — this
+# file only configures the checkers (pytest config stays in pytest.ini).
+
+# ---------------------------------------------------------------------------
+# ruff — fast linter. The ruleset starts at the ruff default (pyflakes +
+# a small pycodestyle subset, all errors) so the existing codebase passes
+# as-is. Tighten `select` per phase; see docs/REFACTOR_ROADMAP.md.
+# Line length matches the flake8/black CI settings (100).
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "audio_cache", "bot_persistence.pkl"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+# ---------------------------------------------------------------------------
+# mypy — gradual typing, Phase R1 baseline is deliberately lenient so the
+# current code passes. Plan (roadmap Phase R1 exit → R2+): flip modules to
+# strict one at a time via the per-module overrides below.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_unused_ignores = false
+warn_redundant_casts = true
+# R1 baseline: the codebase predates explicit Optional annotations
+# (`def f(x: int = None)` style). Accept it for now; Phase R2+ tightens
+# this per-module via the overrides below.
+implicit_optional = true
+exclude = ['^\.venv/', '^__pycache__/']
+
+# ---------------------------------------------------------------------------
+# mypy debt register (Phase R1).
+#
+# Every module listed below still fails strict-ish checking on legacy
+# optional-handling patterns (`Optional[int]` flowing into `int`, missing
+# None guards, unannotated locals). Each entry here is a TODO: delete the
+# module from `ignore_errors` after cleaning it up — roadmap phases R2+ do
+# this layer by layer (services first, then handlers, then database).
+# ---------------------------------------------------------------------------
+[[tool.mypy.overrides]]
+module = [
+    # root config (Phase R4+ moves this into core/ with a shim)
+    "config",
+    # root legacy services (moved under services/ in R3; typing debt remains)
+    "services.llm",
+    "services.srs",
+    "services.tts",
+    "domain.option_generator",
+    # database layer
+    "database.repositories.users",
+    "database.repositories.catalog",
+    "database.repositories.word_extended",
+    # handlers
+    "handlers.callback_router",
+    "handlers.quiz_handlers",
+    "handlers.tts_handlers",
+    "handlers.story.core",
+    "handlers.story.jobs",
+    "handlers.learning.flashcard_session",
+    "handlers.learning.ltr_handlers",
+    # one-off dev scripts and test shims (tests/ and scripts/ have no
+    # __init__.py, so mypy sees them as top-level module names)
+    "test_ui_rate_limiter",
+    "test_quiz_flow",
+    "test_private_chat_guard",
+    "test_cancel_command",
+]
+ignore_errors = true

@@ -1,12 +1,15 @@
+"""Text safety and formatting helpers (no telegram imports).
+
+Extracted from the former root ``ui.py`` in Phase R3. This module holds
+everything that turns untrusted/long text into Telegram-safe markup:
+escaping, sanitising, the tag-aware chunk splitter, and small formatting
+helpers. Keyboards and message sending live in ``ui.keyboards`` and
+``ui.render``; the package ``__init__`` re-exports the combined surface.
+"""
+
 import re
 from html import escape, unescape
-from typing import Any, Dict, List, Tuple
-
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
-from telegram.error import BadRequest
-
-from core.callbacks import cb_safe
-from models import CallbackPrefix
+from typing import Dict, List, Tuple
 
 
 def esc(text) -> str:
@@ -17,31 +20,7 @@ def _short_label(text: str, max_len: int = 64) -> str:
     text = str(text or "")
     if len(text) <= max_len:
         return text
-    return text[:max_len - 3].rstrip() + "..."
-
-
-def callback_button(
-    text: str,
-    prefix: CallbackPrefix,
-    suffix: Any = "",
-) -> InlineKeyboardButton:
-    """Build an ``InlineKeyboardButton`` with a length-safe callback_data.
-
-    The label is truncated to 64 characters (Telegram's display limit for
-    button text), and the callback data is routed through :func:`cb_safe`
-    so that an over-long payload — for example a pathological ``lesson_id``
-    or an unbounded suffix — degrades to ``"noop"`` instead of crashing
-    the keyboard at send-time with ``BadRequest: Button_data_invalid``.
-
-    Use this helper for every dynamic inline button whose
-    ``callback_data`` is composed from a :class:`CallbackPrefix` plus a
-    variable suffix. Static-literal buttons may keep
-    ``InlineKeyboardButton(text, callback_data="foo")``.
-    """
-    return InlineKeyboardButton(
-        text=_short_label(text, 64),
-        callback_data=cb_safe(prefix, suffix),
-    )
+    return text[: max_len - 3].rstrip() + "..."
 
 
 def _strip_html(text: str) -> str:
@@ -129,6 +108,7 @@ def sanitize_html(text: str) -> str:
         )
 
     return escaped
+
 
 def _chunk_html_text(text: str, max_len: int = 3900) -> List[str]:
     # Replaced by tag-aware splitter below. See split_html_text.
@@ -397,8 +377,8 @@ def split_html_text(text: str, max_len: int = 3900) -> List[str]:
             reopen_str, reopen_len = reopen_prefix(open_stack)
             close_str, _ = close_suffix(open_stack)
             wrapped_first = current + first + close_str
-            wrapped_first_len = current_len + len(first.encode("utf-8")) + len(
-                close_str.encode("utf-8")
+            wrapped_first_len = (
+                current_len + len(first.encode("utf-8")) + len(close_str.encode("utf-8"))
             )
             if wrapped_first_len <= max_len:
                 chunks.append(wrapped_first)
@@ -506,212 +486,10 @@ def _bold_word_in_sentence(sentence: str, word: str) -> str:
     return "".join(result)
 
 
-def main_menu_keyboard(
-    due_count: int = 0, streak: int = 0, hard_count: int = 0, is_admin: bool = False
-) -> ReplyKeyboardMarkup:
-    keyboard = []
-
-    # ─── ردیف اول: برنامه‌ی تطبیقی روز (اقدام پیشنهادی) ───
-    keyboard.append(["🚀 تمرین هوشمند"])
-
-    # ─── ردیف اقدام فوری (میان‌بر مستقیم) ───
-    if hard_count > 0:
-        keyboard.append([f"🔥 مرور کلمات سخت ({hard_count})"])
-    elif due_count > 0:
-        keyboard.append([f"📅 مرور امروز ({due_count} کلمه)"])
-
-    # ─── ردیف یادگیری ───
-    keyboard.append(["📚 کتاب و درس‌ها", "🎴 فلش‌کارت"])
-
-    # ─── ردیف تمرین و آمار ───
-    keyboard.append(["🤖 کوییز", "📊 داشبورد"])
-
-    # ─── ردیف تنظیمات و مدیریت ───
-    if is_admin:
-        keyboard.append(["⚙️ تنظیمات", "🛡️ پنل مدیریت"])
-    else:
-        keyboard.append(["⚙️ تنظیمات"])
-
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-
-
-def back_inline_keyboard(
-    text: str = "🏠 منوی اصلی",
-    callback_data: str = "back_to_main_menu",
-) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton(text, callback_data=callback_data)]]
-    )
-
-
-def quiz_answer_keyboard(options: List[str]) -> InlineKeyboardMarkup:
-    keyboard = []
-    for i, opt in enumerate(options or []):
-        keyboard.append(
-            [
-                callback_button(
-                    _short_label(opt, 64),
-                    CallbackPrefix.QUIZ_ANS,
-                    i,
-                )
-            ]
-        )
-    return InlineKeyboardMarkup(keyboard)
-
-
-# در تابع render، جایگزین کردن _chunk_plain_text با _chunk_html_text
-async def render(update, text: str, reply_markup=None):
-    """Render ``text`` to ``update`` with a graceful HTML→plain-text fallback.
-
-    Sending order:
-
-    1. Try HTML (the default ``ParseMode`` for the bot).
-    2. On ``BadRequest`` whose message contains "parse", "entities", or
-       "unsupported", retry *once* as plain text (``parse_mode=None``).
-    3. On ``BadRequest`` whose message contains "too long", chunk the
-       message and send the pieces.  Chunks are sent as HTML, but if a
-       chunk itself fails parsing we immediately fall back to plain text
-       for that chunk.  There is no further retry beyond that — we never
-       loop, so this cannot get stuck.
-    4. The reply markup (if any) is attached to the *first* outgoing
-       message only, including the first plain-text chunk.
-    """
-    query = getattr(update, "callback_query", None)
-    if query is None and hasattr(update, "edit_message_text"):
-        query = update
-
-    async def send_chunks(
-        target, original_text: str, parse_mode, with_markup: bool = True
-    ):
-        """Send ``original_text`` in 3900-byte chunks.
-
-        ``parse_mode`` is forwarded verbatim (``None`` = plain text,
-        ``"HTML"`` = HTML).  Markup is attached only to the first chunk
-        when ``with_markup`` is true.
-        """
-        chunks = split_html_text(original_text, 3900)
-        if not chunks:
-            chunks = ["..."]
-
-        for i, chunk in enumerate(chunks):
-            markup = reply_markup if (with_markup and i == 0) else None
-            try:
-                await target.reply_text(
-                    chunk, reply_markup=markup, parse_mode=parse_mode
-                )
-            except BadRequest as e:
-                if parse_mode is None or "too long" not in str(e).lower():
-                    raise
-                # HTML chunk still too long → fall back to plain text for
-                # the remaining chunks (one-shot, no further retries).
-                first_sent = False
-                for remaining in chunks[i:]:
-                    remaining_markup = (
-                        reply_markup if (with_markup and not first_sent) else None
-                    )
-                    try:
-                        await target.reply_text(
-                            remaining,
-                            reply_markup=remaining_markup,
-                            parse_mode=None,
-                        )
-                        first_sent = True
-                    except BadRequest:
-                        # Final guard: never let a single bad chunk loop.
-                        pass
-                return
-
-    if query:
-        try:
-            await query.edit_message_text(text, reply_markup=reply_markup)
-        except BadRequest as e:
-            msg = str(e).lower()
-
-            if "message is not modified" in msg:
-                return
-
-            if "too long" in msg:
-                chunks = split_html_text(text, 3900)
-                if not chunks:
-                    chunks = ["..."]
-
-                if getattr(query, "message", None):
-                    try:
-                        await query.edit_message_text(
-                            chunks[0],
-                            reply_markup=reply_markup,
-                        )
-                    except Exception:
-                        await query.message.reply_text(
-                            chunks[0],
-                            reply_markup=reply_markup,
-                        )
-
-                    for chunk in chunks[1:]:
-                        try:
-                            await query.message.reply_text(chunk)
-                        except BadRequest as chunk_err:
-                            # HTML parse error in a tail chunk → plain text.
-                            if any(
-                                kw in str(chunk_err).lower()
-                                for kw in ("parse", "entities", "unsupported")
-                            ):
-                                await query.message.reply_text(
-                                    to_plain_text(chunk), parse_mode=None
-                                )
-                            else:
-                                raise
-                return
-
-            # Non-length BadRequest → try a single plain-text retry.
-            parse_err = any(kw in msg for kw in ("parse", "entities", "unsupported"))
-            if not parse_err:
-                raise
-
-            plain = to_plain_text(text)
-            try:
-                if getattr(query, "message", None):
-                    await query.message.reply_text(
-                        plain, reply_markup=reply_markup, parse_mode=None
-                    )
-                else:
-                    raise
-            except BadRequest as e2:
-                if "too long" in str(e2).lower():
-                    await send_chunks(
-                        query.message, plain, parse_mode=None, with_markup=True
-                    )
-                else:
-                    raise
-        return
-
-    message = getattr(update, "effective_message", None) or getattr(
-        update, "message", None
-    )
-
-    if message is None and hasattr(update, "reply_text"):
-        message = update
-
-    if message:
-        try:
-            await message.reply_text(text, reply_markup=reply_markup)
-        except BadRequest as e:
-            msg = str(e).lower()
-            if "too long" in msg:
-                await send_chunks(message, text, parse_mode="HTML", with_markup=True)
-                return
-            if any(kw in msg for kw in ("parse", "entities", "unsupported")):
-                plain = to_plain_text(text)
-                try:
-                    await message.reply_text(
-                        plain, reply_markup=reply_markup, parse_mode=None
-                    )
-                except BadRequest as e2:
-                    if "too long" in str(e2).lower():
-                        await send_chunks(
-                            message, plain, parse_mode=None, with_markup=True
-                        )
-                    else:
-                        raise
-            else:
-                raise
+def format_lesson_name(num: int, title: str) -> str:
+    if not title:
+        return f"درس {num}"
+    clean_title = title.strip()
+    if clean_title.startswith(f"درس {num}") or clean_title.startswith(f"درس{num}"):
+        return clean_title
+    return f"درس {num}: {clean_title}"

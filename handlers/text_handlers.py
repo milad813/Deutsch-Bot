@@ -1,3 +1,4 @@
+from handlers.learning.lifecycle import suspend_ltr
 import config
 from core.telegram_guard import should_block_non_private
 from services import get_main_menu_keyboard
@@ -22,10 +23,12 @@ async def handle_text_input(update, context):
     text = update.message.text.strip()
 
     if text.startswith("🔥 مرور کلمات سخت"):
+        await suspend_ltr(context)
         await start_flashcard_session(update, context, hard_only=True)
         return
 
     if text.startswith("📅 مرور امروز"):
+        await suspend_ltr(context)
         await start_flashcard_session(update, context, only_due=True)
         return
 
@@ -33,6 +36,7 @@ async def handle_text_input(update, context):
         if config.ADMIN_USER_ID and user.id == config.ADMIN_USER_ID:
             from handlers.admin_handlers import show_admin_panel
 
+            await suspend_ltr(context)
             await show_admin_panel(update, context)
             return
 
@@ -46,7 +50,17 @@ async def handle_text_input(update, context):
     }
 
     if text in menu_actions:
+        await suspend_ltr(context)
         await menu_actions[text]()
+        return
+
+    if (
+        context.user_data.get("ltr_phase") == "test"
+        and context.user_data.get("ltr_question_type") == "recall"
+    ):
+        from .learning.ltr_handlers import handle_ltr_typed
+
+        await handle_ltr_typed(update, context)
         return
 
     await update.message.reply_text(

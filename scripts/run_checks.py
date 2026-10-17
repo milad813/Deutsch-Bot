@@ -8,11 +8,18 @@ This is the single entry point used by both humans and CI (see
      ``.py`` file under the project root, catching syntax errors that the
      test suite might not hit (e.g. on a code path that is only reachable
      in production).
+  3. ``ruff check .``                           -- lint (config in
+     ``pyproject.toml``; Phase R1 ruleset, see docs/REFACTOR_ROADMAP.md)
+  4. ``mypy .``                                 -- gradual type checking
+     (lenient Phase R1 baseline; per-module debt register in
+     ``pyproject.toml``)
+
+Steps 3 and 4 need the dev tooling from ``requirements-dev.txt``; without
+it they fail with an install hint (use ``--skip-ruff`` / ``--skip-mypy``
+to bypass temporarily).
 
 Design constraints:
 
-  * **No new dependencies** -- stdlib only (``subprocess``, ``sys``,
-    ``pathlib``, ``time``, ``platform``).
   * **Cross-platform** -- resolves the project root via ``pathlib``,
     runs the embedded interpreter via ``sys.executable`` (never a bare
     ``python`` string), and shells out with ``shell=False`` so the same
@@ -92,6 +99,7 @@ def _run_step(
         env = None
         if extra_env:
             import os  # local import: only used when extra_env is set
+
             env = {**os.environ, **extra_env}
 
         completed = subprocess.run(
@@ -143,7 +151,7 @@ def check_pytest() -> Tuple[bool, float, str]:
         ]
     )
     return _run_step(
-        "[1/2] pytest",
+        "[1/4] pytest",
         cmd,
         cwd=PROJECT_ROOT,
         extra_env={"PYTHONPATH": str(PROJECT_ROOT)},
@@ -164,10 +172,41 @@ def check_compileall() -> Tuple[bool, float, str]:
 
     cmd = _python_cmd(["-m", "compileall", "-q", *sources])
     return _run_step(
-        f"[2/2] compileall ({len(sources)} dirs)",
+        f"[2/4] compileall ({len(sources)} dirs)",
         cmd,
         cwd=PROJECT_ROOT,
     )
+
+
+def _module_available(name: str) -> bool:
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _module_check(step_label: str, module: str, args: List[str]) -> Tuple[bool, float, str]:
+    """Run ``python -m <module> ...``, failing with an install hint if absent."""
+    if not _module_available(module):
+        return (
+            False,
+            0.0,
+            f"{module} not installed - run: pip install -r requirements-dev.txt",
+        )
+    cmd = _python_cmd(["-m", module, *args])
+    return _run_step(step_label, cmd, cwd=PROJECT_ROOT)
+
+
+def check_ruff() -> Tuple[bool, float, str]:
+    """Lint with ruff (ruleset configured in pyproject.toml)."""
+    return _module_check("[3/4] ruff", "ruff", ["check", "."])
+
+
+def check_mypy() -> Tuple[bool, float, str]:
+    """Type-check with mypy (lenient Phase R1 baseline in pyproject.toml)."""
+    return _module_check("[4/4] mypy", "mypy", ["."])
 
 
 def _collect_python_sources() -> List[str]:
@@ -197,9 +236,7 @@ def _collect_python_sources() -> List[str]:
 # ---------------------------------------------------------------------------
 
 
-def _print_summary(
-    results: List[Tuple[str, bool, float, str]]
-) -> None:
+def _print_summary(results: List[Tuple[str, bool, float, str]]) -> None:
     """Render the final PASS / FAIL table and a short environment header."""
 
     print("\n" + "=" * 70)
@@ -209,24 +246,18 @@ def _print_summary(
     name_w = max(len(label) for label, *_ in results)
     for label, passed, elapsed, summary in results:
         status = "PASS" if passed else "FAIL"
-        marker = "\u2705" if passed else "\u274c"
-        print(
-            f"  {marker} {label.ljust(name_w)}  "
-            f"{status}  {elapsed:5.2f}s  {summary}"
-        )
+        marker = "[OK]" if passed else "[FAIL]"
+        print(f"  {marker} {label.ljust(name_w)}  {status}  {elapsed:5.2f}s  {summary}")
 
     overall = all(passed for _, passed, *_ in results)
     print("-" * 70)
-    print(
-        f"  Python: {platform.python_version()}  "
-        f"({platform.system()} {platform.release()})"
-    )
+    print(f"  Python: {platform.python_version()}  ({platform.system()} {platform.release()})")
     print(f"  Root:   {PROJECT_ROOT}")
     print("-" * 70)
     if overall:
-        print("  \u2705 ALL CHECKS PASSED")
+        print("  [OK] ALL CHECKS PASSED")
     else:
-        print("  \u274c SOME CHECKS FAILED \u2014 see output above")
+        print("  [FAIL] SOME CHECKS FAILED - see output above")
     print("=" * 70)
 
 
@@ -252,10 +283,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="Skip the compileall step.",
     )
+    parser.add_argument(
+        "--skip-ruff",
+        action="store_true",
+        help="Skip the ruff lint step.",
+    )
+    parser.add_argument(
+        "--skip-mypy",
+        action="store_true",
+        help="Skip the mypy type-check step.",
+    )
     args = parser.parse_args(argv)
 
     print("=" * 70)
-    print("Deutsch-Bot \u2014 local checks")
+    print("Deutsch-Bot - local checks")
     print("=" * 70)
     print(f"  Python: {platform.python_version()}")
     print(f"  System: {platform.system()} {platform.release()}")
@@ -269,11 +310,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         results.append(("pytest", *check_pytest()))
 
     if args.skip_compileall:
-        results.append(
-            ("compileall", True, 0.0, "skipped (--skip-compileall)")
-        )
+        results.append(("compileall", True, 0.0, "skipped (--skip-compileall)"))
     else:
         results.append(("compileall", *check_compileall()))
+
+    if args.skip_ruff:
+        results.append(("ruff", True, 0.0, "skipped (--skip-ruff)"))
+    else:
+        results.append(("ruff", *check_ruff()))
+
+    if args.skip_mypy:
+        results.append(("mypy", True, 0.0, "skipped (--skip-mypy)"))
+    else:
+        results.append(("mypy", *check_mypy()))
 
     _print_summary(results)
 

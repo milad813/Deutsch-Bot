@@ -3,13 +3,12 @@
 import logging
 import os
 import re
-from typing import List, Optional, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import asyncio
 
 import config
-from services import db, llm, run_db
+from services import db, llm, run_db, reset_session
 from ui import back_inline_keyboard, esc, render
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,7 @@ async def show_admin_panel(update, context):
         run_db(db.users.get_active_user_count, 7),
         run_db(db.users.get_active_user_count, 30),
         run_db(db.words.get_count),
-)
+    )
 
     msg = (
         f"🛡️ <b>پنل مدیریت</b>\n\n"
@@ -167,6 +166,7 @@ async def handle_reset_confirm(update, context):
 
     try:
         await run_db(db.users.reset_user_progress, user_id)
+        reset_session(context)
         logger.info("پیشرفت کاربر %d ریست شد", user_id)
 
         msg = (
@@ -192,16 +192,11 @@ async def handle_reset_cancel(update, context):
     msg = "❌ ریست لغو شد. هیچ چیزی پاک نشد."
     kb = InlineKeyboardMarkup(
         [
-            [
-                InlineKeyboardButton(
-                    "⚙️ بازگشت به تنظیمات", callback_data="show_settings"
-                )
-            ],
+            [InlineKeyboardButton("⚙️ بازگشت به تنظیمات", callback_data="show_settings")],
             [InlineKeyboardButton("🏠 منوی اصلی", callback_data="back_to_main_menu")],
         ]
     )
     await render(update, msg, reply_markup=kb)
-
 
 
 # ─────────────────────────────
@@ -300,9 +295,7 @@ def _phase1_status(repo_root=None):
     admin page still renders on a fresh checkout.
     """
     if repo_root is None:
-        repo_root = os.path.dirname(
-            os.path.dirname(os.path.abspath(__file__))
-        )
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(repo_root, "docs", "PHASE1.md")
     if not os.path.exists(path):
         return 0, 0, []
@@ -343,9 +336,7 @@ async def show_status(update, context):
     returns; no data is fetched for them, so a non-admin can never
     trigger the expensive aggregation queries.
     """
-    user = getattr(update, "effective_user", None) or getattr(
-        update, "from_user", None
-    )
+    user = getattr(update, "effective_user", None) or getattr(update, "from_user", None)
     if user is None:
         # When the handler is invoked via the callback router
         # (``EXACT_ROUTES["admin_status"]``), the first arg is a
@@ -396,9 +387,7 @@ async def show_status(update, context):
 
     lines.append("⚙️ <b>پیکربندی</b>")
     lines.append(f"   • حالت ربات: <b>{esc(_bot_mode_label())}</b>")
-    lines.append(
-        f"   • LLM در دسترس: <b>{'بله ✅' if llm_ok else 'خیر ❌'}</b>"
-    )
+    lines.append(f"   • LLM در دسترس: <b>{'بله ✅' if llm_ok else 'خیر ❌'}</b>")
     lines.append(f"   • تعداد کلیدهای Groq: <b>{groq_keys}</b>")
     lines.append(f"   • مسیر دیتابیس: <code>{esc(config.DB_PATH)}</code>\n")
 
@@ -430,17 +419,13 @@ async def show_status(update, context):
     if total_items == 0:
         lines.append("   • فایل <code>docs/PHASE1.md</code> یافت نشد.\n")
     else:
-        lines.append(
-            f"   • تکمیل‌شده: <b>{done}/{total_items}</b>"
-        )
+        lines.append(f"   • تکمیل‌شده: <b>{done}/{total_items}</b>")
         if outstanding:
             shown = outstanding[:5]
             for item in shown:
                 lines.append(f"      - ⏳ {esc(item)}")
             if len(outstanding) > len(shown):
-                lines.append(
-                    f"      - … و {len(outstanding) - len(shown)} مورد دیگر"
-                )
+                lines.append(f"      - … و {len(outstanding) - len(shown)} مورد دیگر")
         lines.append("")
 
     msg = "\n".join(lines).rstrip()

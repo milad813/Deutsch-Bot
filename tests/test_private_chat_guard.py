@@ -74,9 +74,7 @@ class _FakeUpdate:
         self.effective_chat = chat
         self.effective_user = _FakeUser(user_id)
         if callback_data is not None:
-            self.callback_query = _FakeCallbackQuery(
-                chat, data=callback_data, user_id=user_id
-            )
+            self.callback_query = _FakeCallbackQuery(chat, data=callback_data, user_id=user_id)
             self.message = None
         else:
             self.message = _FakeMessage(chat, text=text or "ignored")

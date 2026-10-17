@@ -23,7 +23,7 @@ def _safe_id_list(raw):
     return result
 
 
-async def _build_story_view(story, target_words, user_id: int):
+async def _build_story_view(story, target_words, user_id: int, story_id: int):
     """Build the (message, keyboard) pair for a story view.
 
     Shared between :func:`show_story` (called from a callback handler
@@ -60,7 +60,8 @@ async def _build_story_view(story, target_words, user_id: int):
             # ردیف ۱: اصلی‌ترین اکشن
             [
                 InlineKeyboardButton(
-                    "🔊+📖 بخوان و بشنو", callback_data=cb_safe(CallbackPrefix.STORY_LISTEN_READ, story_id)
+                    "🔊+📖 بخوان و بشنو",
+                    callback_data=cb_safe(CallbackPrefix.STORY_LISTEN_READ, story_id),
                 )
             ],
             # ردیف ۲: تمرین
@@ -74,7 +75,9 @@ async def _build_story_view(story, target_words, user_id: int):
             ],
             # ردیف ۳: کمک و گوش دادن
             [
-                InlineKeyboardButton("💡 کمک", callback_data=cb_safe(CallbackPrefix.STORY_HINT, story_id)),
+                InlineKeyboardButton(
+                    "💡 کمک", callback_data=cb_safe(CallbackPrefix.STORY_HINT, story_id)
+                ),
                 InlineKeyboardButton(
                     "🎧 فقط بشنو", callback_data=cb_safe(CallbackPrefix.STORY_LISTEN_ONLY, story_id)
                 ),
@@ -82,10 +85,11 @@ async def _build_story_view(story, target_words, user_id: int):
             # ردیف ۴: ناوبری
             [
                 InlineKeyboardButton(
-                    "📖 داستان بعدی", callback_data=cb_safe(CallbackPrefix.STORY_NEXT, story['lesson_id'])
+                    "📖 داستان بعدی",
+                    callback_data=cb_safe(CallbackPrefix.STORY_NEXT, story["lesson_id"]),
                 ),
                 InlineKeyboardButton(
-                    "🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.LESSON, story['lesson_id'])
+                    "🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.LESSON, story["lesson_id"])
                 ),
             ],
         ]
@@ -94,6 +98,7 @@ async def _build_story_view(story, target_words, user_id: int):
 
 
 async def show_story(query, context, story_id: int):
+    context.user_data.pop("story_quiz", None)
     story = await run_db(db.stories.get_by_id, story_id)
     if not story:
         await render(query, "❌ داستان پیدا نشد.", reply_markup=back_inline_keyboard())
@@ -105,7 +110,7 @@ async def show_story(query, context, story_id: int):
     target_ids = _safe_id_list(story.get("target_word_ids"))
     target_words = (await run_db(db.words.get_by_ids, target_ids)) if target_ids else []
 
-    msg, kb = await _build_story_view(story, target_words, query.from_user.id)
+    msg, kb = await _build_story_view(story, target_words, query.from_user.id, story_id)
     await render(query, msg, reply_markup=kb)
 
 
@@ -145,7 +150,8 @@ async def show_story_hint(query, context, story_id: int):
             [
                 [
                     InlineKeyboardButton(
-                        "📖 بازگشت به داستان", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id)
+                        "📖 بازگشت به داستان",
+                        callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id),
                     )
                 ],
                 [
@@ -177,7 +183,8 @@ async def show_story_hint(query, context, story_id: int):
             [
                 [
                     InlineKeyboardButton(
-                        "📖 بازگشت به داستان", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id)
+                        "📖 بازگشت به داستان",
+                        callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id),
                     )
                 ],
                 [
@@ -193,17 +200,14 @@ async def show_story_hint(query, context, story_id: int):
         title_fa = story.get("title_fa") or story.get("title_de") or "داستان"
         text_fa = story.get("text_fa") or "ترجمه در دسترس نیست."
 
-        msg = (
-            f"💡 <b>راهنمایی سطح ۳: ترجمه کامل</b>\n\n"
-            f"📌 {esc(title_fa)}\n\n"
-            f"{esc(text_fa)}"
-        )
+        msg = f"💡 <b>راهنمایی سطح ۳: ترجمه کامل</b>\n\n📌 {esc(title_fa)}\n\n{esc(text_fa)}"
 
         kb = InlineKeyboardMarkup(
             [
                 [
                     InlineKeyboardButton(
-                        "📖 بازگشت به داستان", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id)
+                        "📖 بازگشت به داستان",
+                        callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id),
                     )
                 ],
             ]
@@ -227,7 +231,8 @@ async def show_story_translation(query, context, story_id: int):
         [
             [
                 InlineKeyboardButton(
-                    "📖 بازگشت به داستان", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id)
+                    "📖 بازگشت به داستان",
+                    callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id),
                 )
             ],
         ]
@@ -275,10 +280,14 @@ async def play_story_listen_only(query, context, story_id: int):
                     "📖 نمایش متن", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id)
                 )
             ],
-            [InlineKeyboardButton("❓ سوالات", callback_data=cb_safe(CallbackPrefix.STORY_QUIZ, story_id))],
             [
                 InlineKeyboardButton(
-                    "🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.LESSON, story['lesson_id'])
+                    "❓ سوالات", callback_data=cb_safe(CallbackPrefix.STORY_QUIZ, story_id)
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔙 بازگشت", callback_data=cb_safe(CallbackPrefix.LESSON, story["lesson_id"])
                 )
             ],
         ]
@@ -319,7 +328,7 @@ async def show_story_words(query, context, story_id: int):
         return
 
     user_id = query.from_user.id
-    msg = f"🧩 <b>کلمات داستان</b>\n\n"
+    msg = "🧩 <b>کلمات داستان</b>\n\n"
 
     for w in words:
         stats = await run_db(db.words.get_stats_full, user_id, w.id)
@@ -344,12 +353,14 @@ async def show_story_words(query, context, story_id: int):
         [
             [
                 InlineKeyboardButton(
-                    "📖 بازگشت به داستان", callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id)
+                    "📖 بازگشت به داستان",
+                    callback_data=cb_safe(CallbackPrefix.STORY_VIEW, story_id),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🔙 بازگشت به درس", callback_data=cb_safe(CallbackPrefix.LESSON, story['lesson_id'])
+                    "🔙 بازگشت به درس",
+                    callback_data=cb_safe(CallbackPrefix.LESSON, story["lesson_id"]),
                 )
             ],
         ]

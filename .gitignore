@@ -20,6 +20,7 @@ target/
 .gradle/
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
 
 # Logs and temp files
 *.log
@@ -28,6 +29,9 @@ target/
 *.swo
 *.pkl
 *.txt
+# But keep the requirements files.
+!requirements.txt
+!requirements-dev.txt
 
 # Environment
 .env

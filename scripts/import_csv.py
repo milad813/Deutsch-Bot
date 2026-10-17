@@ -53,15 +53,28 @@ def clean_article(value, german=None):
 
 
 WORD_TYPES = (
-    "Noun", "Verb", "Adjective", "Adverb",
-    "Preposition", "Pronoun", "Conjunction", "Phrase",
+    "Noun",
+    "Verb",
+    "Adjective",
+    "Adverb",
+    "Preposition",
+    "Pronoun",
+    "Conjunction",
+    "Phrase",
 )
 
 # ✅ ترتیب مهم است: Pronoun قبل از Noun چک شود
 _WORD_TYPE_PRIORITY = (
-    "Pronoun", "Conjunction", "Preposition", "Adjective",
-    "Adverb", "Noun", "Verb", "Phrase",
+    "Pronoun",
+    "Conjunction",
+    "Preposition",
+    "Adjective",
+    "Adverb",
+    "Noun",
+    "Verb",
+    "Phrase",
 )
+
 
 def clean_word_type(value):
     value = norm(value)

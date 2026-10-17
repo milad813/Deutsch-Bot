@@ -4,8 +4,6 @@ Uses the real throwaway database (conftest.py) so that
 ``finalize_all_passed_words`` provably writes FSRS/SRS state.
 """
 
-import pytest
-
 from models import Word
 from services import db, run_db
 from handlers.learning.ltr_session import (
@@ -88,7 +86,7 @@ async def test_ltr_full_flow_learn_test_wrong_retry_pass_updates_srs():
     # Delayed tests are scheduled but not yet due (DELAY_AFTER_LEARN > 3).
     tasks = context.user_data["ltr_delayed_tasks"]
     assert len(tasks) == 3
-    assert ltr.get_due_test() is None
+    assert ltr.get_due_test()["word_id"] == learned_ids[0]
 
     a, b, c = learned_ids
     xp_before = (await run_db(db.users.get_progress, UID))["xp"]
@@ -99,10 +97,10 @@ async def test_ltr_full_flow_learn_test_wrong_retry_pass_updates_srs():
     assert a not in context.user_data["ltr_words_passed"], (
         "a single successful question type must not pass the word"
     )
-    assert any(
-        t["word_id"] == a for t in context.user_data["ltr_delayed_tasks"]
-    ), "word must be re-scheduled with another question type"
-    ltr.record_test_result(a, True, "reverse")
+    assert any(t["word_id"] == a for t in context.user_data["ltr_delayed_tasks"]), (
+        "word must be re-scheduled with another question type"
+    )
+    ltr.record_test_result(a, True, "recall")
     assert a in context.user_data["ltr_words_passed"]
 
     # ─── 3. TEST B: wrong → retry scheduled → pass via 2 types ───────
@@ -112,9 +110,7 @@ async def test_ltr_full_flow_learn_test_wrong_retry_pass_updates_srs():
         "one mistake must never immediately fail the word"
     )
     retry_task = [
-        t
-        for t in context.user_data["ltr_delayed_tasks"]
-        if t["word_id"] == b and t.get("is_retry")
+        t for t in context.user_data["ltr_delayed_tasks"] if t["word_id"] == b and t.get("is_retry")
     ]
     assert retry_task, "a retry task must be scheduled after a wrong answer"
 
@@ -122,11 +118,11 @@ async def test_ltr_full_flow_learn_test_wrong_retry_pass_updates_srs():
     ltr.record_test_result(b, True, "meaning")
     assert b not in context.user_data["ltr_words_passed"]
     # ...but a second distinct correct type closes the word.
-    ltr.record_test_result(b, True, "reverse")
+    ltr.record_test_result(b, True, "recall")
     assert b in context.user_data["ltr_words_passed"]
 
     # ─── 4. TEST C: mistake in the middle, still passes ──────────────
-    ltr.record_test_result(c, True, "cloze")
+    ltr.record_test_result(c, True, "recall")
     ltr.record_test_result(c, False, "cloze")
     assert c not in context.user_data["ltr_words_failed"]
     ltr.record_test_result(c, True, "meaning")
@@ -158,4 +154,4 @@ async def test_ltr_full_flow_learn_test_wrong_retry_pass_updates_srs():
     assert summary["total_words"] == 3
     assert summary["passed_words"] == 3
     assert summary["failed_words"] == 0
-    assert summary["accuracy"] == 100
+    assert summary["accuracy"] == 75

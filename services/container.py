@@ -1,10 +1,12 @@
 """Application container — the single construction point for shared services.
 
-``bot.main()`` builds one :class:`AppContext` and stores it in
-``application.bot_data["app"]``. The ``services`` module re-exports the same
-instance as module-level names during the migration period, so existing
-``from services import db`` call sites keep working while handlers gradually
-switch to ``context.bot_data["app"]``.
+``bot.main()`` builds one :class:`AppContext` via :func:`build_app` (through
+the lazy ``services.get_app()``) and stores it in
+``application.bot_data["app"]``. The ``services`` package exposes the same
+context through late-binding proxies during the migration period, so
+existing ``from services import db`` call sites keep working while handlers
+gradually switch to ``context.bot_data["app"]``. Construction is deferred
+to first use — importing anything never opens the database.
 
 Nothing below this layer may construct Database/LLM/TTS objects on its own.
 """
@@ -15,10 +17,10 @@ from typing import Optional
 
 import config
 from database import Database
-from llm_service import LLMService
-from quiz_service import QuizService
-from srs_service import FSRSService
-from tts_service import TTSService
+from services.llm import LLMService
+from services.quiz import QuizService
+from services.srs import FSRSService
+from services.tts import TTSService
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +51,7 @@ def build_app(
         backup_keep_days=(
             config.BACKUP_KEEP_DAYS if backup_keep_days is None else backup_keep_days
         ),
-        backup_keep_max=(
-            config.BACKUP_KEEP_MAX if backup_keep_max is None else backup_keep_max
-        ),
+        backup_keep_max=(config.BACKUP_KEEP_MAX if backup_keep_max is None else backup_keep_max),
     )
     app = AppContext(
         db=db,

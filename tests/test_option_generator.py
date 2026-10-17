@@ -6,9 +6,7 @@ from utils import safe_id_list, safe_json_list
 
 
 def _word(**kw):
-    defaults = dict(
-        id=1, german="Hund", persian="سگ", word_type="Noun", article="der"
-    )
+    defaults = dict(id=1, german="Hund", persian="سگ", word_type="Noun", article="der")
     defaults.update(kw)
     return Word(**defaults)
 
@@ -21,8 +19,7 @@ class FakeWordRepo:
         out = [
             w
             for w in self.pool
-            if (word_type is None or w.word_type == word_type)
-            and w.id != exclude_id
+            if (word_type is None or w.word_type == word_type) and w.id != exclude_id
         ]
         return out[:limit]
 

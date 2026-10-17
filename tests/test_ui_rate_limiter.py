@@ -9,9 +9,7 @@ These cover the two pieces of UI/middleware hardening from Phase 0:
 
 import importlib.util
 import os
-import time
 
-import pytest
 
 # ``middleware/__init__.py`` does
 #     from middleware.rate_limiter import RateLimiter, rate_limiter
@@ -32,7 +30,9 @@ _spec.loader.exec_module(rl_module)
 
 RateLimiter = rl_module.RateLimiter
 
-from ui import to_plain_text
+# This import must stay after the exec_module block above (the test file
+# loads rate_limiter.py standalone before importing project modules).
+from ui import to_plain_text  # noqa: E402
 
 
 # ─── to_plain_text ───────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ def test_cleanup_removes_users_whose_timestamps_are_all_stale(monkeypatch):
     limiter.cleanup()
 
     assert 1001 not in limiter._requests  # fully stale
-    assert 1002 in limiter._requests      # still active
+    assert 1002 in limiter._requests  # still active
     assert 1003 not in limiter._requests  # empty → reaped
 
 
@@ -154,4 +154,3 @@ def test_is_allowed_is_per_user():
     assert limiter.is_allowed(5001) is False
     # A different user still has full budget.
     assert limiter.is_allowed(5002) is True
-

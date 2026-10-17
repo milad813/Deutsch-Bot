@@ -55,8 +55,8 @@ python -m pytest -q
 ```
 
 This runs every test in `tests/` and prints a one-line summary.  Tests use
-a throwaway SQLite database (see `tests/conftest.py`) and never touch
-your real `words.db`.
+a unique temporary SQLite database per run (see `tests/conftest.py`),
+override any external `DB_PATH`, and never touch your real `words.db`.
 
 The full suite takes ~10s locally.  Individual test files can be run
 with the standard pytest selection syntax, e.g.:
@@ -73,12 +73,14 @@ python -m pytest tests/test_callbacks_codec.py -q
 python scripts/run_checks.py
 ```
 
-This is the single entry point used by both humans and CI.  It runs:
+This local entry point runs the same core tools checked in CI:
 
 1. `pytest -q` -- the unit / regression tests.
 2. `python -m compileall -q <project root>` -- bytecode-compiles every
    `.py` file under the project root to catch syntax errors that the
    test suite might not hit.
+3. `ruff check .` -- lint checks.
+4. `mypy .` -- gradual type checking.
 
 The script prints a clear PASS/FAIL table at the end and exits with
 a non-zero code on any failure, so it is safe to use in shell pipelines
@@ -160,17 +162,32 @@ For the up-to-date list with full inline comments see
 
 The repository ships with a GitHub Actions workflow at
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) that runs the test
-suite on Python 3.9 / 3.10 / 3.11 for every push and pull request, plus
-a formatting/linting job (`black`, `isort`, `flake8`).  Locally the same
-checks can be run with:
+suite on Python 3.11 / 3.12 / 3.13 for every push and pull request, plus
+a lint/typing job (`ruff format --check`, `ruff check`, `mypy`) and a
+coverage floor.  Locally the same checks can be run with:
 
 ```bash
-python scripts/run_checks.py
-black --check .
-isort --check-only .
-flake8 . --max-line-length=100 --extend-ignore=E203
+pip install -r requirements-dev.txt
+python scripts/run_checks.py   # pytest + compileall + ruff + mypy
+
+# or the individual tools:
+ruff format --check .
+ruff check .
+mypy .
 ```
+
+Lint and type-check configuration lives in [`pyproject.toml`](pyproject.toml);
+the mypy per-module override list there doubles as the typing debt register
+that later refactor phases burn down.
 
 ## License
 
 See [`LICENSE`](LICENSE).
+
+## Refactor and learning flow notes
+
+- [Refactor audit and bug fixes](docs/REFACTOR_AUDIT.md)
+- [LTR learning flow](docs/LTR_LEARNING_FLOW.md)
+
+Schema upgrades are atomic and tracked using `PRAGMA user_version`. A database
+created by a newer schema version is rejected rather than silently downgraded.

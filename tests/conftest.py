@@ -6,12 +6,22 @@ config/services get imported (they read env vars at import time).
 
 import os
 import tempfile
+import pytest
 
-# Use a throwaway database so tests never touch words.db in the project root.
-os.environ.setdefault(
-    "DB_PATH",
-    os.path.join(tempfile.gettempdir(), "deutsch_bot_test_words.db"),
-)
+# Never inherit a production DB_PATH. Each pytest process owns its database.
+_test_db_dir = tempfile.TemporaryDirectory(prefix="deutsch-bot-tests-", ignore_cleanup_errors=True)
+os.environ["DB_PATH"] = os.path.join(_test_db_dir.name, "words.db")
 
 # Keep LLM/TTS disabled during tests regardless of local .env contents.
-os.environ.setdefault("BOT_MODE", "offline")
+os.environ["BOT_MODE"] = "offline"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def close_test_services():
+    yield
+    import services
+
+    if services.is_app_built():
+        services.get_app().close()
+        services.reset_app()
+    _test_db_dir.cleanup()

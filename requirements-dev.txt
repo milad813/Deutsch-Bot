@@ -1,0 +1,6 @@
+# Developer / CI tooling (Phase R1). Runtime deps stay in requirements.txt.
+-r requirements.txt
+
+pytest-cov==7.0.0
+ruff>=0.9.0
+mypy>=1.14.0
